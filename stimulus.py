@@ -136,6 +136,7 @@ class Stimulus:
         Generate trials to investigate chunking
         """
 
+        print("Delay: ", par['delay_time'], par['long_delay_time'])
         # rule signal can appear at the end of delay1_time
         trial_length = par['num_time_steps']
 
@@ -149,12 +150,12 @@ class Stimulus:
         trial_info = {'desired_output'  :  np.zeros((par['n_output'], trial_length, par['batch_train_size']),dtype=np.float32),
                       'train_mask'      :  np.ones((trial_length, par['batch_train_size']),dtype=np.float32),
                       'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
-                      'sample'          :  np.zeros((par['batch_train_size'], par['num_max_pulse']),dtype=np.int8),
+                      'sample'          :  np.zeros((par['batch_train_size'], par['num_max_pulse']),dtype=np.int32),
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size'])),
                       'timeline'        :  [0]*par['batch_train_size'],
-                      'num_pulses'      :  np.zeros(par['batch_train_size'],dtype=np.int8),
-                      'delay'           :  np.zeros((par['batch_train_size'], par['num_max_pulse']),dtype=np.int8),
-                      'resp_delay'      :  np.zeros((par['batch_train_size'], par['num_max_pulse']),dtype=np.int8)}
+                      'num_pulses'      :  np.zeros(par['batch_train_size'],dtype=np.int32),
+                      'delay'           :  np.zeros((par['batch_train_size'], par['num_max_pulse']),dtype=np.int32),
+                      'resp_delay'      :  np.zeros((par['batch_train_size'], par['num_max_pulse']-1),dtype=np.int32)}
 
         if var_num_pulses:
             trial_info['num_pulses'] = np.random.choice(range(1,par['num_max_pulse']+1),size=par['batch_train_size'])
@@ -167,13 +168,11 @@ class Stimulus:
         else:
             trial_info['delay'][:,:par['num_max_pulse']-1] = par['delay_time']
             trial_info['delay'][:,-1] = par['long_delay_time']
-            print(trial_info['delay'])
 
         if var_resp_delay:
             trial_info['resp_delay'][:,:par['num_max_pulse']-1] = np.random.choice([100,200,300],size=(par['batch_train_size'],par['num_max_pulse']-1))
         else:
             trial_info['resp_delay'][:,:par['num_max_pulse']-1] = par['delay_time']
-            print(trial_info['resp_delay'])
 
 
         # If the DMS and DMS rotate are being performed together,
@@ -195,13 +194,13 @@ class Stimulus:
             eodead = par['dead_time']//par['dt']
             eof = (par['dead_time']+par['fix_time'])//par['dt']
             eos = [(par['dead_time']+par['fix_time']+ np.sum(delay[:n]) + (n+1)*par['sample_time'])//par['dt'] for n in range(num_pulses)]
-            eods = [(par['dead_time']+par['fix_time']+(n+1)*(par['sample_time']+np.sum(delay[:n+1])))//par['dt'] for n in range(num_pulses-1)]
+            eods = [(par['dead_time']+par['fix_time']+(n+1)*(par['sample_time'])+np.sum(delay[:n+1]))//par['dt'] for n in range(num_pulses-1)]
             eods.append(eos[-1])
-            eolongd = (par['dead_time']+par['fix_time'] + num_pulses * par['sample_time'] + np.sum(delay[:num_pulses]) + delay[-1])//par['dt']
-            eor = [(par['dead_time']+par['fix_time'] + num_pulses * par['sample_time'] + np.sum(delay[:num_pulses]) + delay[-1] + \
+            eolongd = (par['dead_time']+par['fix_time'] + num_pulses * par['sample_time'] + np.sum(delay[:num_pulses-1]) + delay[-1])//par['dt']
+            eor = [(par['dead_time']+par['fix_time'] + num_pulses * par['sample_time'] + np.sum(delay[:num_pulses-1]) + delay[-1] + \
                 np.sum(resp_delay[:n]) + (n+1)*par['resp_cue_time'])//par['dt'] for n in range(num_pulses)]
-            eodr = [(par['dead_time']+par['fix_time'] + num_pulses * par['sample_time'] +  np.sum(delay[:num_pulses]) + delay[-1] + \
-                (n+1)*(par['resp_cue_time']+np.sum(resp_delay[:n+1])))//par['dt'] for n in range(num_pulses-1)]
+            eodr = [(par['dead_time']+par['fix_time'] + num_pulses * par['sample_time'] +  np.sum(delay[:num_pulses-1]) + delay[-1] + \
+                (n+1)*(par['resp_cue_time'])+np.sum(resp_delay[:n+1]))//par['dt'] for n in range(num_pulses-1)]
             eodr.append(eor[-1])
 
             # Timeline
@@ -217,10 +216,14 @@ class Stimulus:
                 timeline.append(eor[i])
             trial_info['timeline'][t] = timeline
 
+
             # set to mask equal to zero during the dead time
             trial_info['train_mask'][:eodead, t] = 0
             trial_info['train_mask'][eolongd:eolongd+par['mask_duration']//par['dt'], t] = 0
-            for i in range(1, par['num_pulses']):
+            for i in range(1, num_pulses):
+                print('i: ', i)
+                print("eodr: ", eodr[i-1])
+                print('mask_duration: ', par['mask_duration'])
                 trial_info['train_mask'][eodr[i-1]:eodr[i-1]+par['mask_duration']//par['dt'], t] = 0
             trial_info['train_mask'][eor[-1]:, t] = 0
 
@@ -276,16 +279,21 @@ class Stimulus:
             trial_info['rule'][t] = rule
 
         if par['check_stim']:
-            for i in range(20):
+            for i in range(5):
                 plt.figure()
-                plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(trial_info['delay'][i,:trial_info['num_pulses'][i]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
-                plt.imshow(trial_info['desired_output'][:,:,i],aspect='auto')
+                plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(list(trial_info['delay'][i,:trial_info['num_pulses'][i]-1])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
+                plt.imshow(trial_info['neural_input'][:,:,i],aspect='auto')
                 plt.colorbar()
                 plt.show()
                 plt.close()
                 plt.figure()
-                plt.imshow(trial_info['neural_input'][:,:,i],aspect='auto')
-                plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(trial_info['delay'][i,:trial_info['num_pulses'][i]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
+                plt.plot(trial_info['train_mask'][:,i])
+                plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(list(trial_info['delay'][i,:trial_info['num_pulses'][i]-1])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
+                plt.show()
+                plt.close()
+                plt.figure()
+                plt.imshow(trial_info['desired_output'][:,:,i],aspect='auto')
+                plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(list(trial_info['delay'][i,:trial_info['num_pulses'][i]-1])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
                 plt.colorbar()
                 plt.show()
                 plt.close()

@@ -22,15 +22,15 @@ par = {
     'var_resp_delay'        : False,
 
     # Network shape
-    'num_motion_tuned'      : 36,
+    'num_motion_tuned'      : 24,
     'num_fix_tuned'         : 2,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 10,
+    'n_hidden'              : 100,
     'n_output'              : 9,
 
     # Chunking trial
-    'num_pulses'            : 2,
-    'num_max_pulse'         : 2,
+    'num_pulses'            : 6,
+    'num_max_pulse'         : 6,
     'var_num_pulses'        : True,
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 500,
@@ -40,7 +40,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 10,
-    'learning_rate'         : 4e-3,
+    'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
 
@@ -67,7 +67,7 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 20,
+    'batch_train_size'      : 1024,
     'num_iterations'        : 50000,
     'iters_between_outputs' : 50,
 
@@ -202,7 +202,10 @@ def update_trial_params():
 
     elif par['trial_type'] == 'chunking':
         if par['order_cue']:
-            par['num_order_cue_tuned'] = par['num_pulses']
+            if par['num_max_pulse']:
+                par['num_order_cue_tuned'] = par['num_max_pulse']
+            else:
+                par['num_order_cue_tuned'] = par['num_pulses']
         else:
             pass
 
