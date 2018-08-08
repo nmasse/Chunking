@@ -136,7 +136,6 @@ class Stimulus:
         Generate trials to investigate chunking
         """
 
-        print("Delay: ", par['delay_time'], par['long_delay_time'])
         # rule signal can appear at the end of delay1_time
         trial_length = par['num_time_steps']
 
@@ -221,9 +220,6 @@ class Stimulus:
             trial_info['train_mask'][:eodead, t] = 0
             trial_info['train_mask'][eolongd:eolongd+par['mask_duration']//par['dt'], t] = 0
             for i in range(1, num_pulses):
-                print('i: ', i)
-                print("eodr: ", eodr[i-1])
-                print('mask_duration: ', par['mask_duration'])
                 trial_info['train_mask'][eodr[i-1]:eodr[i-1]+par['mask_duration']//par['dt'], t] = 0
             trial_info['train_mask'][eor[-1]:, t] = 0
 

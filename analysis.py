@@ -44,7 +44,6 @@ def analyze_model_from_file(filename, savefile = None, analysis = False):
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-
         analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], simulation = True, \
                 lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
 
@@ -102,7 +101,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     if simulation:
         print('simulating network...')
         simulation_results = simulate_network(trial_info, h_stacked, syn_x_stacked, \
-            syn_u_stacked, weights, num_reps = par['simulation_reps'])
+            syn_u_stacked, weights)
         for key, val in simulation_results.items():
             results[key] = val
 
@@ -404,7 +403,6 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
 
 
 def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5):
-
     """
     Simulation will start from the start of the test period until the end of trial
     """
@@ -441,7 +439,6 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
         x = np.split(trial_info['neural_input'][:,test_onset:,trial_ind],test_length,axis=1)
         y = trial_info['desired_output'][:,test_onset:,trial_ind]
 
-        num_reps = 5
         for n in range(num_reps):
             print(n, "out of ", num_reps)
 
