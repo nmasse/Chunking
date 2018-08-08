@@ -45,7 +45,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False):
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-        analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], simulation = False, \
+        analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], simulation = True, \
                 lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
 
 
@@ -403,217 +403,77 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
     return lesion_results
 
 
-
-
-def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 20):
+def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5):
 
     """
     Simulation will start from the start of the test period until the end of trial
     """
-    if par['trial_type'] == 'dualDMS':
-        test_onset = [(par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+par['test_time'])//par['dt']]
-    elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
-        #test_onset = [(par['dead_time']+par['fix_time']+par['sample_time']+par['ABBA_delay'])//par['dt']]
-        test_onset = [(par['dead_time']+par['fix_time']+par['sample_time']+i*par['ABBA_delay'])//par['dt'] for i in range(1,4)]
-    elif par['trial_type'] == 'DMRS90' or par['trial_type'] == 'DMRS90ccw':
-        test_onset = []
-        test_onset.append((par['dead_time']+par['fix_time']+par['sample_time'])//par['dt'])
-        #test_onset.append((par['dead_time']+par['fix_time']+par['sample_time']+100)//par['dt'])
-        #test_onset.append((par['dead_time']+par['fix_time']+par['sample_time']+200)//par['dt'])
-        #test_onset.append((par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt'])
-    else:
-        test_onset = [(par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']]
-
-    num_test_periods = len(test_onset)
-    """
-    suppression_time_range = []
-    for k in range(11):
-        suppression_time_range.append(range(test_onset[-1]-k*2, test_onset[0]))
-    """
-    suppression_time_range = [range(test_onset[0]-200//par['dt'], test_onset[0])]
-
-    neuron_groups = []
-    neuron_groups.append(range(0,par['num_exc_units'],2))
-    neuron_groups.append(range(1,par['num_exc_units'],2))
-    neuron_groups.append(range(par['num_exc_units'],par['num_exc_units']+par['num_inh_units'],2))
-    neuron_groups.append(range(par['num_exc_units']+1,par['num_exc_units']+par['num_inh_units'],2))
-
-    syn_efficacy = syn_x*syn_u
-    test = np.array(trial_info['test'])
-    sample = np.array(trial_info['sample'])
-    if test.ndim == 2:
-        test = test[:, 0]
-    elif test.ndim == 3:
-        test = test[:, 0, 0]
-    test_dir = np.ones((len(test), 3))
-    test_dir[:,1] = np.cos(2*np.pi*test/par['num_motion_dirs'])
-    test_dir[:,2] = np.sin(2*np.pi*test//par['num_motion_dirs'])
-
-    _, trial_length, batch_train_size = h.shape
+    onset = [trial_info['timeline'][-2*p-2] for p in range(par['num_pulses'])][::-1]
+    print(trial_info['timeline'])
+    print(onset)
 
     simulation_results = {
-        'accuracy'                      : np.zeros((par['num_rules'], num_test_periods, num_reps)),
-        'accuracy_neural_shuffled'      : np.zeros((par['num_rules'], num_test_periods, num_reps)),
-        'accuracy_syn_shuffled'         : np.zeros((par['num_rules'], num_test_periods, num_reps)),
-        'accuracy_suppression'          : np.zeros((par['num_rules'], len(suppression_time_range), len(neuron_groups), 3)),
-        'accuracy_neural_shuffled_grp'  : np.zeros((par['num_rules'], num_test_periods, len(neuron_groups), num_reps)),
-        'accuracy_syn_shuffled_grp'     : np.zeros((par['num_rules'], num_test_periods, len(neuron_groups), num_reps))}
+        'accuracy'                      : np.zeros((par['num_pulses'], par['n_hidden'], num_reps)),
+        'accuracy_neural_shuffled'      : np.zeros((par['num_pulses'], par['n_hidden'], num_reps)),
+        'accuracy_syn_shuffled'         : np.zeros((par['num_pulses'], par['n_hidden'], num_reps))}
 
+    for p in range(par['num_pulses']):
+        test_onset = onset[p]
 
+        _, trial_length, batch_train_size = h.shape
 
-    mask = np.array(trial_info['train_mask'])
-    if par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
-        t0 = (par['dead_time']+par['fix_time']+par['sample_time'] + 2*par['ABBA_delay'])//par['dt']
-        mask[:t0,:] = 0
-        t0 = (par['dead_time']+par['fix_time']+par['sample_time'] + 4*par['ABBA_delay'])//par['dt']
-        mask[t0:,:] = 0
+        mask = np.zeros((trial_length, par['batch_train_size']),dtype=np.float32)
+        mask[onset[p]:onset[p]+par['sample_time']//par['dt']] = 1
 
+        plt.figure()
+        plt.plot(mask)
+        plt.show()
+        plt.close()
 
-    for r in range(par['num_rules']):
-        for t in range(num_test_periods):
+        test_length = trial_length - test_onset
+        trial_ind = np.arange(par['batch_train_size'])
+        train_mask = mask[test_onset:,trial_ind]
+        print('h', h.shape)
+        print('trial_length',trial_length)
+        print('test_length',test_length)
+        print('test_onset',test_onset)
+        print('trial_info', trial_info['neural_input'].shape)
+        x = np.split(trial_info['neural_input'][:,test_onset:,trial_ind],test_length,axis=1)
+        y = trial_info['desired_output'][:,test_onset:,trial_ind]
 
-            test_length = trial_length - test_onset[t]
-            trial_ind = np.where(trial_info['rule']==r)[0]
-            train_mask = mask[test_onset[t]:,trial_ind]
-            print('h', h.shape)
-            print('trial_length',trial_length)
-            print('test_length',test_length)
-            print('test_onset',test_onset)
-            print('trial_info', trial_info['neural_input'].shape)
-            x = np.split(trial_info['neural_input'][:,test_onset[t]:,trial_ind],test_length,axis=1)
-            y = trial_info['desired_output'][:,test_onset[t]:,trial_ind]
+        num_reps = 5
+        for n in range(num_reps):
+            print(n, "out of ", num_reps)
 
-            for n in range(num_reps):
+            """
+            Calculating behavioral accuracy without shuffling
+            """
+            hidden_init = h[:,test_onset-1,trial_ind]
+            syn_x_init = syn_x[:,test_onset-1,trial_ind]
+            syn_u_init = syn_u[:,test_onset-1,trial_ind]
+            y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
+            simulation_results['accuracy'][p,:,n] = get_perf(y, y_hat, train_mask)
 
-                """
-                Calculating behavioral accuracy without shuffling
-                """
-                hidden_init = h[:,test_onset[t]-1,trial_ind]
-                syn_x_init = syn_x[:,test_onset[t]-1,trial_ind]
-                syn_u_init = syn_u[:,test_onset[t]-1,trial_ind]
-                y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-                simulation_results['accuracy'][r,t,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
-
+            for m in range(par['n_hidden']):
                 """
                 Keep the synaptic values fixed, permute the neural activity
                 """
                 ind_shuffle = np.random.permutation(len(trial_ind))
-                hidden_init = hidden_init[:,ind_shuffle]
+                hidden_init = h[:,test_onset-1,trial_ind]
+                hidden_init[m,:] = hidden_init[m, ind_shuffle]
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-                simulation_results['accuracy_neural_shuffled'][r,t,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
+                simulation_results['accuracy_neural_shuffled'][p,m,n] = get_perf(y, y_hat, train_mask)
 
                 """
                 Keep the hidden values fixed, permute synaptic values
                 """
-                hidden_init = h[:,test_onset[t]-1,trial_ind]
-                syn_x_init = syn_x_init[:,ind_shuffle]
-                syn_u_init = syn_u_init[:,ind_shuffle]
+                hidden_init = h[:,test_onset-1,trial_ind]
+                syn_x_init = syn_x[:,test_onset-1,trial_ind]
+                syn_x_init[m,:] = syn_x_init[m,ind_shuffle]
+                syn_u_init = syn_u[:,test_onset-1,trial_ind]
+                syn_u_init[m,:] = syn_u_init[m,ind_shuffle]
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-                simulation_results['accuracy_syn_shuffled'][r,t,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
-
-
-                #Neuron group shuffling
-
-                for g in range(len(neuron_groups)):
-
-                    # reset everything
-                    hidden_init = h[:,test_onset[t]-1,trial_ind]
-                    syn_x_init = syn_x[:,test_onset[t]-1,trial_ind]
-                    syn_u_init = syn_u[:,test_onset[t]-1,trial_ind]
-
-                    # shuffle neuronal activity
-                    ind_shuffle = np.random.permutation(len(trial_ind))
-                    for neuron_num in neuron_groups[g]:
-                        hidden_init[neuron_num,:] = hidden_init[neuron_num,ind_shuffle]
-                    y_hat, _, syn_x_hist, syn_u_hist = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-                    simulation_results['accuracy_neural_shuffled_grp'][r,t,g,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
-
-
-                    if par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
-                        syn_efficacy = syn_x_hist*syn_u_hist
-                        for hidden_num in range(par['n_hidden']):
-                            for t1 in range(test_length):
-                                weights = np.linalg.lstsq(test_dir[trial_ind,:], syn_efficacy[hidden_num,t1,trial_ind])
-                                weights = np.reshape(weights[0],(3,1))
-                                pred_err = syn_efficacy[hidden_num,t1,trial_ind] - np.dot(test_dir[trial_ind,:], weights).T
-                                mse = np.mean(pred_err**2)
-                                response_var = np.var(syn_efficacy[hidden_num,t1,trial_ind])
-                                simulation_results['synaptic_pev_test_shuffled'][r,t,g,n, hidden_num,t1+test_onset[t]] = 1 - mse/(response_var+1e-9)
-                                simulation_results['synaptic_pref_dir_test_shuffled'][r,t,g,n,hidden_num,t1+test_onset[t]] = np.arctan2(weights[2,0],weights[1,0])
-
-
-                    # reset neuronal activity, shuffle synaptic activity
-                    hidden_init = h[:,test_onset[t]-1,trial_ind]
-                    for neuron_num in neuron_groups[g]:
-                        syn_x_init[neuron_num,:] = syn_x_init[neuron_num,ind_shuffle]
-                        syn_u_init[neuron_num,:] = syn_u_init[neuron_num,ind_shuffle]
-                    y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-                    simulation_results['accuracy_syn_shuffled_grp'][r,t,g,n] ,_ ,_ = get_perf(y, y_hat, train_mask)
-
-                    if par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
-                        syn_efficacy = syn_x_hist*syn_u_hist
-                        for hidden_num in range(par['n_hidden']):
-                            for t1 in range(test_length):
-                                weights = np.linalg.lstsq(test_dir[trial_ind,:], syn_efficacy[hidden_num,t1,trial_ind])
-                                weights = np.reshape(weights[0],(3,1))
-                                pred_err = syn_efficacy[hidden_num,t1,trial_ind] - np.dot(test_dir[trial_ind,:], weights).T
-                                mse = np.mean(pred_err**2)
-                                response_var = np.var(syn_efficacy[hidden_num,t1,trial_ind])
-                                simulation_results['synaptic_pev_test_shuffled'][r,t,g,n, hidden_num,t1+test_onset[t]] = 1 - mse/(response_var+1e-9)
-                                simulation_results['synaptic_pref_dir_test_shuffled'][r,t,g,n,hidden_num,t1+test_onset[t]] = np.arctan2(weights[2,0],weights[1,0])
-
-
-        if par['suppress_analysis']:
-            """
-            if par['trial_type'] == 'ABBA' or  par['trial_type'] == 'ABCA':
-                test_onset_sup = (par['fix_time']+par['sample_time']+par['ABBA_delay'])//par['dt']
-            elif par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC' or \
-                par['trial_type'] == 'DMRS90' or par['trial_type'] == 'DMRS180':
-                test_onset_sup = (par['fix_time']+par['sample_time']+par['delay_time'])//par['dt']
-            """
-            x = np.split(trial_info['neural_input'][:,:,trial_ind],trial_length,axis=1)
-            y = trial_info['desired_output'][:,:,trial_ind]
-            train_mask = mask[:,trial_ind]
-            """
-            train_mask = trial_info['train_mask'][:,trial_ind]
-            if par['trial_type'] == 'ABBA' or  par['trial_type'] == 'ABCA':
-                train_mask[test_onset_sup + par['ABBA_delay']//par['dt']:, :] = 0
-            """
-
-            syn_x_init = syn_x[:,0,trial_ind]
-            syn_u_init = syn_u[:,0,trial_ind]
-            hidden_init = h[:,0,trial_ind]
-
-            y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-            acc, acc_non_match, acc_match = get_perf(y, y_hat, train_mask)
-            simulation_results['accuracy_no_suppression'] = np.array([acc, acc_non_match, acc_match])
-
-            for k in range(len(suppression_time_range)):
-                for k1 in range(len(neuron_groups)):
-
-                    suppress_activity = np.ones((par['n_hidden'], trial_length))
-                    for m1 in neuron_groups[k1]:
-                        for m2 in suppression_time_range[k]:
-                            suppress_activity[m1,m2] = 0
-
-                    suppress_activity = np.split(suppress_activity, trial_length, axis=1)
-
-                    y_hat, _, syn_x_sim, syn_u_sim = run_model(x, hidden_init, syn_x_init, \
-                        syn_u_init, network_weights, suppress_activity = suppress_activity)
-                    acc, acc_non_match, acc_match = get_perf(y, y_hat, train_mask)
-                    simulation_results['accuracy_suppression'][r,k,k1,:] = np.array([acc, acc_non_match, acc_match])
-                    """
-                    syn_efficacy = syn_x_sim*syn_u_sim
-                    for hidden_num in range(par['n_hidden']):
-                        for t1 in range(syn_x_sim.shape[1]):
-                            weights = np.linalg.lstsq(test_dir[trial_ind,:], syn_efficacy[hidden_num,t1,trial_ind])
-                            weights = np.reshape(weights[0],(3,1))
-                            pred_err = syn_efficacy[hidden_num,t1,trial_ind] - np.dot(test_dir[trial_ind,:], weights).T
-                            mse = np.mean(pred_err**2)
-                            response_var = np.var(syn_efficacy[hidden_num,t1,trial_ind])
-                            simulation_results['synaptic_pev_test_shuffled'][r,k,k1, hidden_num,t1] = 1 - mse/(response_var+1e-9)
-                            simulation_results['synaptic_pref_dir_test_shuffled'][r,k,k1,hidden_num,t1] = np.arctan2(weights[2,0],weights[1,0])
-                    """
+                simulation_results['accuracy_syn_shuffled'][p,m,n] = get_perf(y, y_hat, train_mask)
 
     return simulation_results
 

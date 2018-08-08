@@ -6,7 +6,7 @@ from analysis import *
 
 task = "chunking"
 
-file_list = ['chunking_3_cue_off.pkl']
+file_list = ['chunking_3_cue_off.pkl','chunking_6_cue_off.pkl','chunking_8_cue_off.pkl','chunking_8_cue_on.pkl']
 
 for file in file_list:
     print('Analyzing network...')
