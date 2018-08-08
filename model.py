@@ -268,24 +268,6 @@ def main(gpu_id = None):
             """
             if i%par['iters_between_outputs']==0 and i > 0:
                 print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
-            if i == 0:
-                for b in range(20):
-                    plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T-np.max(np.array(y_hat)[:,:,b].T))]
-                    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
-                    j = 0
-                    for ax in axes.flat:
-                        im = ax.imshow(plot_list[j], aspect='auto')
-                        j += 1
-                    cax,kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
-                    plt.colorbar(im, cax=cax, **kw)
-                    plt.title("num_pulses: "+str(trial_info['num_pulses'][b])+"\nvar_delay: "+str(trial_info['delay'][b,:trial_info['num_pulses'][b]])+"\nresp_delay: "+str(trial_info['resp_delay'][b,:trial_info['num_pulses'][b]]))
-                    plt.savefig("./savedir/output_"+str(par['num_pulses'])+"pulses_iter_"+str(i)+"_"+str(b)+".png")
-                    plt.close()
-                    plt.imshow(trial_info['neural_input'][:,:,b])
-                    plt.colorbar()
-                    plt.title("num_pulses: "+str(trial_info['num_pulses'][b])+"\nvar_delay: "+str(trial_info['delay'][b,:trial_info['num_pulses'][b]])+"\nresp_delay: "+str(trial_info['resp_delay'][b,:trial_info['num_pulses'][b]]))
-                    plt.savefig("./savedir/input_"+str(par['num_pulses'])+"pulses_iter_"+str(i)+"_"+str(b)+".png")
-                    plt.close()
             if accuracy > 0.98:
                 for b in range(10):
                     plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T-np.max(np.array(y_hat)[:,:,b].T))]
@@ -309,6 +291,7 @@ def main(gpu_id = None):
         #save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
         if par['analyze_model']:
             weights = eval_weights()
+            pickle.dump(weights, open(save_fn, 'wb') )
             analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, analysis = False, stim_num=0,\
                 simulation = False, lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
 

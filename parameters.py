@@ -14,12 +14,13 @@ par = {
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : True,
+    'check_stim'            : False,
 
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
-    'var_delay'             : False,
-    'var_resp_delay'        : False,
+    'var_delay'             : True,
+    'var_resp_delay'        : True,
 
     # Network shape
     'num_motion_tuned'      : 24,
@@ -31,7 +32,7 @@ par = {
     # Chunking trial
     'num_pulses'            : 6,
     'num_max_pulse'         : 6,
-    'var_num_pulses'        : True,
+    'var_num_pulses'        : False,
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 500,
     'resp_cue_time'         : 200,
