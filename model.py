@@ -248,7 +248,7 @@ def main(gpu_id = None):
         for i in range(par['num_iterations']):
 
             # generate batch of batch_train_size
-            trial_info = stim.generate_trial()
+            trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'])
 
             """
             Run the model
@@ -258,7 +258,7 @@ def main(gpu_id = None):
                 model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: trial_info['neural_input'], \
                 y: trial_info['desired_output'], mask: trial_info['train_mask']})
 
-            accuracy, _, _ = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
+            accuracy = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
 
 
             model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N)
@@ -268,14 +268,31 @@ def main(gpu_id = None):
             """
             if i%par['iters_between_outputs']==0 and i > 0:
                 print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
-
+            if i == 0:
+                for b in range(20):
+                    plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T-np.max(np.array(y_hat)[:,:,b].T))]
+                    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
+                    j = 0
+                    for ax in axes.flat:
+                        im = ax.imshow(plot_list[j], aspect='auto')
+                        j += 1
+                    cax,kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
+                    plt.colorbar(im, cax=cax, **kw)
+                    plt.title("num_pulses: "+str(trial_info['num_pulses'][b])+"\nvar_delay: "+str(trial_info['delay'][b,:trial_info['num_pulses'][b]])+"\nresp_delay: "+str(trial_info['resp_delay'][b,:trial_info['num_pulses'][b]]))
+                    plt.savefig("./savedir/output_"+str(par['num_pulses'])+"pulses_iter_"+str(i)+"_"+str(b)+".png")
+                    plt.close()
+                    plt.imshow(trial_info['neural_input'][:,:,b])
+                    plt.colorbar()
+                    plt.title("num_pulses: "+str(trial_info['num_pulses'][b])+"\nvar_delay: "+str(trial_info['delay'][b,:trial_info['num_pulses'][b]])+"\nresp_delay: "+str(trial_info['resp_delay'][b,:trial_info['num_pulses'][b]]))
+                    plt.savefig("./savedir/input_"+str(par['num_pulses'])+"pulses_iter_"+str(i)+"_"+str(b)+".png")
+                    plt.close()
             if accuracy > 0.98:
                 for b in range(10):
                     plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T-np.max(np.array(y_hat)[:,:,b].T))]
                     fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
                     j = 0
                     for ax in axes.flat:
-                        im = ax.imshow(plot_list[j])
+                        im = ax.imshow(plot_list[j], aspect='auto')
                         j += 1
                     cax,kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
                     plt.colorbar(im, cax=cax, **kw)

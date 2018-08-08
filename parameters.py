@@ -19,17 +19,18 @@ par = {
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : False,
+    'var_resp_delay'        : False,
 
     # Network shape
     'num_motion_tuned'      : 36,
     'num_fix_tuned'         : 2,
     'num_rule_tuned'        : 0,
-    'n_hidden'              : 30,
+    'n_hidden'              : 10,
     'n_output'              : 9,
 
     # Chunking trial
-    'num_pulses'            : 3,
-    'num_max_pulse'         : 6,
+    'num_pulses'            : 2,
+    'num_max_pulse'         : 2,
     'var_num_pulses'        : True,
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 500,
@@ -66,7 +67,7 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 1024,
+    'batch_train_size'      : 20,
     'num_iterations'        : 50000,
     'iters_between_outputs' : 50,
 
