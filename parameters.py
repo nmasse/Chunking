@@ -29,6 +29,8 @@ par = {
 
     # Chunking trial
     'num_pulses'            : 3,
+    'num_max_pulse'         : 6,
+    'var_num_pulses'        : True,
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 500,
     'resp_cue_time'         : 200,
@@ -262,6 +264,11 @@ def update_dependencies():
     if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
     elif par['trial_type'] == 'chunking':
+        if par['var_num_pulses']:
+            par['num_pulses'] = par['num_max_pulse']
+        if par['var_delay']:
+            par['delay_time'] = 300
+            par['long_delay_time'] = 700
         par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
             par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
     else:
