@@ -164,6 +164,7 @@ class Stimulus:
             trial_info['num_pulses'][:] = par['num_pulses']
 
         if var_delay:
+            print("test_mode_delay: ", test_mode_delay)
             if test_mode_delay:
                 trial_info['delay'][:,:par['num_max_pulse']-1] = 200
                 trial_info['delay'][:,-1] = 500
@@ -175,7 +176,10 @@ class Stimulus:
             trial_info['delay'][:,-1] = par['long_delay_time']
 
         if var_resp_delay:
-            trial_info['resp_delay'][:,:par['num_max_pulse']-1] = np.random.choice([100,200,300],size=(par['batch_train_size'],par['num_max_pulse']-1))
+            if test_mode_delay:
+                trial_info['resp_delay'][:,:par['num_max_pulse']-1] = 200
+            else:
+                trial_info['resp_delay'][:,:par['num_max_pulse']-1] = np.random.choice([100,200,300],size=(par['batch_train_size'],par['num_max_pulse']-1))
         else:
             trial_info['resp_delay'][:,:par['num_max_pulse']-1] = par['delay_time']
 

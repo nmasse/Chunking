@@ -48,6 +48,8 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, \
                     lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_delay:
+        print("Var delay: ", par['var_delay'])
+        print("Var pulse: ", par['var_num_pulses'])
         trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode_pulse=test_mode_pulse,test_mode_delay=test_mode_delay)
         input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
@@ -90,7 +92,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
 
     save_fn = par['save_dir'] + par['save_fn']
 
-    if stim_num>0 or pulse>0:
+    if stim_num>0 or pulse>par['num_max_pulse']//2:
         results = pickle.load(open(save_fn, 'rb'))
     else:
         results = {
@@ -440,9 +442,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
     """
     Simulation will start from the start of the test period until the end of trial
     """
-    onset = [trial_info['timeline'][-2*p-2] for p in range(par['num_pulses'])][::-1]
-    print(trial_info['timeline'])
-    print(onset)
+    onset = [trial_info['timeline'][0][-2*p-2] for p in range(par['num_pulses'])][::-1]
 
     simulation_results = {
         'accuracy'                      : np.zeros((par['num_pulses'], par['n_hidden'], num_reps)),
