@@ -90,7 +90,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
 
     save_fn = par['save_dir'] + par['save_fn']
 
-    if stim_num>0 or pulse > x['parameters']['num_max_pulse']//2:
+    if stim_num>0 or pulse > par['num_max_pulse']//2:
         results = pickle.load(open(save_fn, 'rb'))
     else:
         results = {
