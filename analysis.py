@@ -441,25 +441,24 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
 
         _, trial_length, batch_train_size = h.shape
 
-        mask = np.zeros((trial_length, par['batch_train_size']),dtype=np.float32)
-        mask[onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt']] = 1
+        train_mask = np.zeros((trial_length, par['batch_train_size']),dtype=np.float32)
+        train_mask[onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt']] = 1
 
         plt.figure()
-        plt.plot(mask)
+        plt.plot(train_mask)
         plt.show()
         plt.close()
 
         #test_length = trial_length - test_onset
         test_length = par['resp_cue_time']//par['dt']
         trial_ind = np.arange(par['batch_train_size'])
-        train_mask = mask[test_onset:,trial_ind]
         print('h', h.shape)
         print('trial_length',trial_length)
         print('test_length',test_length)
         print('test_onset',test_onset)
         print('trial_info', trial_info['neural_input'].shape)
         x = np.split(trial_info['neural_input'][:,test_onset:test_onset+test_length,trial_ind],test_length,axis=1)
-        y = trial_info['desired_output'][:,test_onset:,trial_ind]
+        y = trial_info['desired_output'][:,test_onset:test_onset+test_length,trial_ind]
 
         for n in range(num_reps):
             print(n, "out of ", num_reps)
