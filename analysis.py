@@ -452,6 +452,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
         #test_length = trial_length - test_onset
         test_length = par['resp_cue_time']//par['dt']
         trial_ind = np.arange(par['batch_train_size'])
+
         print('h', h.shape)
         print('trial_length',trial_length)
         print('test_length',test_length)
@@ -459,6 +460,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
         print('trial_info', trial_info['neural_input'].shape)
         x = np.split(trial_info['neural_input'][:,test_onset:test_onset+test_length,trial_ind],test_length,axis=1)
         y = trial_info['desired_output'][:,test_onset:test_onset+test_length,trial_ind]
+        train_mask = train_mask[test_onset:test_onset+test_length]
 
         for n in range(num_reps):
             print(n, "out of ", num_reps)
