@@ -10,7 +10,7 @@ import pickle
 import stimulus
 import matplotlib.pyplot as plt
 
-def analyze_model_from_file(filename, savefile = None, analysis = False):
+def analyze_model_from_file(filename, savefile = None, analysis = False, test_mode=False):
 
     x = pickle.load(open('./savedir/'+filename, 'rb'))
     if savefile is None:
@@ -33,9 +33,24 @@ def analyze_model_from_file(filename, savefile = None, analysis = False):
 
             analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = True, stim_num = i, simulation = False, \
                     lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
+    elif test_mode:
+        for i in range(par['num_max_pulse']//2,par['num_max_pulse']+1):
+            stim = stimulus.Stimulus()
+            trial_info = stim.generate_trial(analysis = False, num_fixed =0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode=True,pulse=i)
+            input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
+
+            y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
+                x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
+
+            h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
+            syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
+            syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
+
+            analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = False, test_mode=True, pulse = i, simulation = False, \
+                    lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
     else:
         stim = stimulus.Stimulus()
-        trial_info = stim.generate_trial()
+        trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode=True)
         input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
         y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
@@ -48,7 +63,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False):
                 lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
 
 
-def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, stim_num=0, simulation = True, \
+def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode=False, pulse=0, stim_num=0, simulation = True, \
         lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False):
 
     """
@@ -123,7 +138,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
         print('decoding activity...')
         decoding_results = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info, trial_time, \
             num_reps = par['decoding_reps'], decode_test = par['decode_test'], decode_rule = par['decode_rule'], \
-            decode_sample_vs_test = par['decode_sample_vs_test'], analysis=analysis, stim_num=stim_num)
+            decode_sample_vs_test = par['decode_sample_vs_test'], analysis=analysis, test_mode=test_mode, pulse=pulse, stim_num=stim_num)
         for key, val in decoding_results.items():
             results[key] = val
 
@@ -132,7 +147,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
 
 
 def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
-    decode_test = False, decode_rule = False, decode_sample_vs_test = False, analysis = False, stim_num=0):
+    decode_test = False, decode_rule = False, decode_sample_vs_test = False, analysis = False, test_mode=False, pulse=0, stim_num=0):
 
     """
     Calculates neuronal and synaptic decoding accuracies uisng support vector machines
@@ -188,16 +203,20 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
 
 
     print('sample decoding...num_reps = ', num_reps)
-    if not analysis:
-        decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'],decoding_results['combined_decoding'] = \
-            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time)
-    else:
+    
+    if analysis:
         decoding_results['neuronal_sample_decoding'+str(stim_num)], decoding_results['synaptic_sample_decoding'+str(stim_num)],decoding_results['combined_decoding'+str(stim_num)] = \
-            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, stim_num)
+            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode, pulse, stim_num)
         # neu, syn, comb = svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time, analysis, stim_num)
         # decoding_results['neuronal_sample_decoding'] = np.concatenate((decoding_results['neuronal_sample_decoding'], neu), axis = 1)
         # decoding_results['synaptic_sample_decoding'] = np.concatenate((decoding_results['synaptic_sample_decoding'], syn), axis = 1)
         # decoding_results['combined_decoding'] = np.concatenate((decoding_results['combined_decoding'], comb), axis = 1)
+    elif test_mode:
+        decoding_results['neuronal_sample_decoding'+str(pulse)], decoding_results['synaptic_sample_decoding'+str(pulse)],decoding_results['combined_decoding'+str(pulse)] = \
+            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode, pulse)
+    else:
+        decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'],decoding_results['combined_decoding'] = \
+            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time)
 
     if decode_sample_vs_test:
         print('sample vs. test decoding...')
@@ -218,7 +237,7 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
 
 
 
-def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time, analysis=False, stim_num=0):
+def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time, analysis=False, test_mode=False, pulse=0, stim_num=0):
 
     """
     Wraper function used to decode sample/test or rule information
@@ -231,6 +250,8 @@ def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time, ana
     if par['trial_type']=='chunking':
         if analysis:
             num_stim = 1
+        elif test_mode:
+            num_stim = pulse
         else:
             num_stim = par['num_pulses']
     else:

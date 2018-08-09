@@ -11,11 +11,10 @@ class Stimulus:
         self.motion_tuning, self.fix_tuning, self.rule_tuning, self.response_tuning = self.create_tuning_functions()
 
 
-    def generate_trial(self, analysis = False, num_fixed = 0,var_delay=False,var_resp_delay=False,var_num_pulses=False):
+    def generate_trial(self, analysis = False, num_fixed = 0,var_delay=False,var_resp_delay=False,var_num_pulses=False,test_mode=False, pulse=0):
         if var_delay or var_resp_delay or var_num_pulses:
-            return self.generate_var_chunking_trial(par['num_pulses'], analysis, num_fixed, var_delay, var_resp_delay, var_num_pulses)
+            return self.generate_var_chunking_trial(par['num_pulses'], analysis, num_fixed, var_delay, var_resp_delay, var_num_pulses, test_mode, pulse)
         else:
-
             return self.generate_chunking_trial(par['num_pulses'], analysis, num_fixed)
 
 
@@ -131,7 +130,7 @@ class Stimulus:
 
         return trial_info
 
-    def generate_var_chunking_trial(self, num_pulses, analysis, num_fixed, var_delay=False, var_resp_delay=False,var_num_pulses=False):
+    def generate_var_chunking_trial(self, num_pulses, analysis, num_fixed, var_delay=False, var_resp_delay=False, var_num_pulses=False, test_mode=False, pulse=0):
         """
         Generate trials to investigate chunking
         """
@@ -157,7 +156,10 @@ class Stimulus:
                       'resp_delay'      :  np.zeros((par['batch_train_size'], par['num_max_pulse']-1),dtype=np.int32)}
 
         if var_num_pulses:
-            trial_info['num_pulses'] = np.random.choice(range(par['num_max_pulse']//2,par['num_max_pulse']+1),size=par['batch_train_size'])
+            if test_mode:
+                trial_info['num_pulses'][:] = pulse
+            else:
+                trial_info['num_pulses'] = np.random.choice(range(par['num_max_pulse']//2,par['num_max_pulse']+1),size=par['batch_train_size'])
         else:
             trial_info['num_pulses'][:] = par['num_pulses']
 
