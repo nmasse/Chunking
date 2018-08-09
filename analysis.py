@@ -50,7 +50,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
                     lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
     else:
         stim = stimulus.Stimulus()
-        trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode=True)
+        trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode=False)
         input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
         y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
@@ -203,7 +203,7 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
 
 
     print('sample decoding...num_reps = ', num_reps)
-    
+
     if analysis:
         decoding_results['neuronal_sample_decoding'+str(stim_num)], decoding_results['synaptic_sample_decoding'+str(stim_num)],decoding_results['combined_decoding'+str(stim_num)] = \
             svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode, pulse, stim_num)

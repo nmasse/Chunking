@@ -32,7 +32,7 @@ par = {
     # Chunking trial
     'num_pulses'            : 6,
     'num_max_pulse'         : 6,
-    'var_num_pulses'        : True,
+    'var_num_pulses'        : False,
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 500,
     'resp_cue_time'         : 200,
