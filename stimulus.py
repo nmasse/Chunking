@@ -157,7 +157,7 @@ class Stimulus:
                       'resp_delay'      :  np.zeros((par['batch_train_size'], par['num_max_pulse']-1),dtype=np.int32)}
 
         if var_num_pulses:
-            trial_info['num_pulses'] = np.random.choice(range(1,par['num_max_pulse']+1),size=par['batch_train_size'])
+            trial_info['num_pulses'] = np.random.choice(range(par['num_max_pulse']//2,par['num_max_pulse']+1),size=par['batch_train_size'])
         else:
             trial_info['num_pulses'][:] = par['num_pulses']
 

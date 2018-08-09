@@ -292,7 +292,19 @@ def main(gpu_id = None):
         #save_path = saver.save(sess, par['save_dir'] + par['ckpt_save_fn'])
         if par['analyze_model']:
             weights = eval_weights()
-            pickle.dump(weights, open(save_fn, 'wb') )
+            syn_x_stacked = np.stack(syn_x_hist, axis=1)
+            syn_u_stacked = np.stack(syn_u_hist, axis=1)
+            h_stacked = np.stack(state_hist, axis=1)
+            trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
+            mean_h = np.mean(np.mean(h_stacked,axis=2),axis=1)
+            results = {
+                'model_performance': model_performance,
+                'parameters': par,
+                'weights': weights,
+                'trial_time': trial_time,
+                'mean_h': mean_h,
+                'timeline': trial_info['timeline']}
+            pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
             #analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, analysis = False, stim_num=0,\
                 #simulation = False, lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
 
