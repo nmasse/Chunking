@@ -20,7 +20,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
     update_parameters(x['parameters'])
     stim = stimulus.Stimulus()
     if analysis:
-        for i in range(par['num_pulses']):
+        for i in range(x['parameters']['num_pulses']):
             trial_info = stim.generate_trial(analysis = True, num_fixed =i)
             input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
@@ -34,8 +34,8 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = True, stim_num = i, simulation = False, \
                     lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_pulse:
-        for i in range(par['num_max_pulse']//2,par['num_max_pulse']+1):
-            trial_info = stim.generate_trial(analysis = False, num_fixed =0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode_pulse=True,pulse=i)
+        for i in range(x['parameters']['num_max_pulse']//2,x['parameters']['num_max_pulse']+1):
+            trial_info = stim.generate_trial(analysis = False, num_fixed =0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=True,pulse=i)
             input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
             y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
@@ -48,7 +48,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, \
                     lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_delay:
-        trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode_pulse=test_mode_pulse,test_mode_delay=test_mode_delay)
+        trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=test_mode_pulse,test_mode_delay=test_mode_delay)
         input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
         y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
@@ -90,7 +90,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
 
     save_fn = par['save_dir'] + par['save_fn']
 
-    if stim_num>0 or pulse>0:
+    if stim_num>0 or pulse > x['parameters']['num_max_pulse']//2:
         results = pickle.load(open(save_fn, 'rb'))
     else:
         results = {
