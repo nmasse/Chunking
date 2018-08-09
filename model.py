@@ -11,6 +11,7 @@ from parameters import *
 import os, sys
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import pickle
 
 # Ignore "use compiled version of TensorFlow" errors
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
@@ -292,8 +293,8 @@ def main(gpu_id = None):
         if par['analyze_model']:
             weights = eval_weights()
             pickle.dump(weights, open(save_fn, 'wb') )
-            analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, analysis = False, stim_num=0,\
-                simulation = False, lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
+            #analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, analysis = False, stim_num=0,\
+                #simulation = False, lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
 
             # Generate another batch of trials with test_mode = True (sample and test stimuli
             # are independently drawn), and then perform tuning and decoding analysis
