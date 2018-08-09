@@ -11,9 +11,9 @@ class Stimulus:
         self.motion_tuning, self.fix_tuning, self.rule_tuning, self.response_tuning = self.create_tuning_functions()
 
 
-    def generate_trial(self, analysis = False, num_fixed = 0,var_delay=False,var_resp_delay=False,var_num_pulses=False,test_mode=False, pulse=0):
+    def generate_trial(self, analysis = False, num_fixed = 0,var_delay=False,var_resp_delay=False,var_num_pulses=False,test_mode_pulse=False, pulse=0, test_mode_delay=False):
         if var_delay or var_resp_delay or var_num_pulses:
-            return self.generate_var_chunking_trial(par['num_pulses'], analysis, num_fixed, var_delay, var_resp_delay, var_num_pulses, test_mode, pulse)
+            return self.generate_var_chunking_trial(par['num_pulses'], analysis, num_fixed, var_delay, var_resp_delay, var_num_pulses, test_mode_pulse, pulse, test_mode_delay)
         else:
             return self.generate_chunking_trial(par['num_pulses'], analysis, num_fixed)
 
@@ -130,7 +130,7 @@ class Stimulus:
 
         return trial_info
 
-    def generate_var_chunking_trial(self, num_pulses, analysis, num_fixed, var_delay=False, var_resp_delay=False, var_num_pulses=False, test_mode=False, pulse=0):
+    def generate_var_chunking_trial(self, num_pulses, analysis, num_fixed, var_delay=False, var_resp_delay=False, var_num_pulses=False, test_mode_pulse=False, pulse=0, test_mode_delay=False):
         """
         Generate trials to investigate chunking
         """
@@ -156,7 +156,7 @@ class Stimulus:
                       'resp_delay'      :  np.zeros((par['batch_train_size'], par['num_max_pulse']-1),dtype=np.int32)}
 
         if var_num_pulses:
-            if test_mode:
+            if test_mode_pulse:
                 trial_info['num_pulses'][:] = pulse
             else:
                 trial_info['num_pulses'] = np.random.choice(range(par['num_max_pulse']//2,par['num_max_pulse']+1),size=par['batch_train_size'])
@@ -164,8 +164,12 @@ class Stimulus:
             trial_info['num_pulses'][:] = par['num_pulses']
 
         if var_delay:
-            trial_info['delay'][:,:par['num_max_pulse']-1] = np.random.choice([100,200,300],size=(par['batch_train_size'],par['num_max_pulse']-1))
-            trial_info['delay'][:, -1] = np.random.choice([300,500,700], size=par['batch_train_size'])
+            if test_mode_delay:
+                trial_info['delay'][:,:par['num_max_pulse']-1] = 200
+                trial_info['delay'][:,-1] = 500
+            else:
+                trial_info['delay'][:,:par['num_max_pulse']-1] = np.random.choice([100,200,300],size=(par['batch_train_size'],par['num_max_pulse']-1))
+                trial_info['delay'][:, -1] = np.random.choice([300,500,700], size=par['batch_train_size'])
         else:
             trial_info['delay'][:,:par['num_max_pulse']-1] = par['delay_time']
             trial_info['delay'][:,-1] = par['long_delay_time']

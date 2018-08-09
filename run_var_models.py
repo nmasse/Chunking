@@ -49,8 +49,8 @@ try:
 except:
     gpu_id = None
 
-num_pulses = [6,8,10]
-num_max_pulse = [6,8,10]
+num_pulses = [2,6,8,10]
+num_max_pulse = [2,6,8,10]
 
 if par['var_delay'] and par['var_resp_delay']:
     for n in num_pulses:
