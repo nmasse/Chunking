@@ -19,8 +19,8 @@ par = {
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
-    'var_delay'             : True,
-    'var_resp_delay'        : True,
+    'var_delay'             : False,
+    'var_resp_delay'        : False,
 
     # Network shape
     'num_motion_tuned'      : 24,
@@ -32,7 +32,7 @@ par = {
     # Chunking trial
     'num_pulses'            : 6,
     'num_max_pulse'         : 6,
-    'var_num_pulses'        : False,
+    'var_num_pulses'        : True,
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 500,
     'resp_cue_time'         : 200,
@@ -202,6 +202,12 @@ def update_trial_params():
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
     elif par['trial_type'] == 'chunking':
+        if par['var_num_pulses']:
+            par['num_pulses'] = par['num_max_pulse']
+        if par['var_delay']:
+            par['delay_time'] = 300
+            par['long_delay_time'] = 700
+            par['num_max_pulse'] = par['num_pulses']
         if par['order_cue']:
             if par['num_max_pulse']:
                 par['num_order_cue_tuned'] = par['num_max_pulse']
@@ -269,12 +275,6 @@ def update_dependencies():
     if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
     elif par['trial_type'] == 'chunking':
-        if par['var_num_pulses']:
-            par['num_pulses'] = par['num_max_pulse']
-        if par['var_delay']:
-            par['delay_time'] = 300
-            par['long_delay_time'] = 700
-            par['num_max_pulse'] = par['num_pulses']
         par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
             par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
     else:

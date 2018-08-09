@@ -90,7 +90,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
 
     save_fn = par['save_dir'] + par['save_fn']
 
-    if stim_num>0 or pulse > par['num_max_pulse']//2:
+    if stim_num>0 or pulse>par['num_max_pulse']//2:
         results = pickle.load(open(save_fn, 'rb'))
     else:
         results = {
@@ -440,9 +440,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
     """
     Simulation will start from the start of the test period until the end of trial
     """
-    onset = [trial_info['timeline'][-2*p-2] for p in range(par['num_pulses'])][::-1]
-    print(trial_info['timeline'])
-    print(onset)
+    onset = [trial_info['timeline'][0][-2*p-2] for p in range(par['num_pulses'])][::-1]
 
     simulation_results = {
         'accuracy'                      : np.zeros((par['num_pulses'], par['n_hidden'], num_reps)),
