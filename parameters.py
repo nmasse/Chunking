@@ -31,8 +31,8 @@ par = {
 
     # Chunking trial
     'num_pulses'            : 6,
-    'num_max_pulse'         : 6,
-    'var_num_pulses'        : True,
+    'num_max_pulse'         : 0,
+    'var_num_pulses'        : False,
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 500,
     'resp_cue_time'         : 200,
@@ -115,7 +115,6 @@ def update_parameters(updates):
     for key, val in updates.items():
         par[key] = val
         #print('Updating ', key)
-
     update_trial_params()
     update_dependencies()
 
@@ -202,6 +201,7 @@ def update_trial_params():
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
     elif par['trial_type'] == 'chunking':
+
         if par['var_num_pulses']:
             par['num_pulses'] = par['num_max_pulse']
         if par['var_delay']:

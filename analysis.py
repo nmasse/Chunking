@@ -61,6 +61,8 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
                 lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
     else:
         trial_info = stim.generate_trial()
+        print(trial_info['neural_input'].shape)
+        print(x['parameters']['num_time_steps'])
         input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
         y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
@@ -440,7 +442,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
     """
     Simulation will start from the start of the test period until the end of trial
     """
-    onset = [trial_info['timeline'][0][-2*p-2] for p in range(par['num_pulses'])][::-1]
+    onset = [np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1]
 
     simulation_results = {
         'accuracy'                      : np.zeros((par['num_pulses'], par['n_hidden'], num_reps)),
@@ -455,10 +457,6 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
         train_mask = np.zeros((trial_length, par['batch_train_size']),dtype=np.float32)
         train_mask[onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt']] = 1
 
-        plt.figure()
-        plt.plot(train_mask)
-        plt.show()
-        plt.close()
 
         #test_length = trial_length - test_onset
         test_length = par['resp_cue_time']//par['dt']
