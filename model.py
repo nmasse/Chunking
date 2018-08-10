@@ -243,13 +243,21 @@ def main(gpu_id = None):
         init = tf.global_variables_initializer()
         sess.run(init)
 
+
         # keep track of the model performance across training
-        model_performance = {'accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': []}
+        model_performance = {'accuracy': [], 'pulse_accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': []}
 
         for i in range(par['num_iterations']):
 
             # generate batch of batch_train_size
             trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'])
+
+            onset = [np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1]
+            pulse_masks = [np.zeros((trial_length, par['batch_train_size']),dtype=np.float32)] * par['num_pulses']
+            for p in range(par['num_pulses']):
+                pulse_masks[p][onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt']] = 1
+
+
 
             """
             Run the model
@@ -261,15 +269,36 @@ def main(gpu_id = None):
 
             accuracy = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
 
+            pulse_accuracy = []
+            for p in range(par['num_pulses']):
+                pulse_accuracy.append(analysis.get_perf(trial_info['desired_output'], y_hat, pulse_masks[p]))
 
-            model_performance = append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, (i+1)*N)
+
+            model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*N)
 
             """
             Save the network model and output model performance to screen
             """
             if i%par['iters_between_outputs']==0 and i > 0:
                 print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
-            if accuracy > 0.98:
+
+            if i%5000 == 0:
+                weights = eval_weights()
+                syn_x_stacked = np.stack(syn_x_hist, axis=1)
+                syn_u_stacked = np.stack(syn_u_hist, axis=1)
+                h_stacked = np.stack(state_hist, axis=1)
+                trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
+                mean_h = np.mean(np.mean(h_stacked,axis=2),axis=1)
+                results = {
+                    'model_performance': model_performance,
+                    'parameters': par,
+                    'weights': weights,
+                    'trial_time': trial_time,
+                    'mean_h': mean_h,
+                    'timeline': trial_info['timeline']}
+                pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
+
+            if accuracy > 0.995:
                 for b in range(10):
                     plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T-np.max(np.array(y_hat)[:,:,b].T))]
                     fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
@@ -305,8 +334,12 @@ def main(gpu_id = None):
                 'mean_h': mean_h,
                 'timeline': trial_info['timeline']}
             pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
-            #analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, analysis = False, stim_num=0,\
-                #simulation = False, lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
+
+            #x = pickle.load(open(par['save_dir'] + par['save_fn'], 'rb'))
+
+            #analysis.analyze_model(x, trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False, stim_num=0,\
+                #simulation = True, cut = False, lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
+
 
             # Generate another batch of trials with test_mode = True (sample and test stimuli
             # are independently drawn), and then perform tuning and decoding analysis
@@ -319,9 +352,10 @@ def main(gpu_id = None):
 def softmax(x):
     return np.exp(x)/np.sum(np.exp(x), axis=0)
 
-def append_model_performance(model_performance, accuracy, loss, perf_loss, spike_loss, trial_num):
+def append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, trial_num):
 
     model_performance['accuracy'].append(accuracy)
+    model_performance['pulse_accuracy'].append(pulse_accuracy)
     model_performance['loss'].append(loss)
     model_performance['perf_loss'].append(perf_loss)
     model_performance['spike_loss'].append(spike_loss)

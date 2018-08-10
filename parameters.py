@@ -68,8 +68,8 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 256,
-    'num_iterations'        : 1,
+    'batch_train_size'      : 1024,
+    'num_iterations'        : 150001,
     'iters_between_outputs' : 50,
 
     # Task specs

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import random as rd
 import pickle
+from plot import *
 
 task_list = ['chunking']
 
@@ -53,22 +54,22 @@ except:
     gpu_id = None
 
 
-num_pulses = [2,3, 4,5,6,8, 10, 12, 14, 18, 20,22,24,26,28,30,32,34,36]
+num_pulses = [8,10]
 
 for task in task_list:
     for n in num_pulses:
-        for i in range(2):
-            if i == 0:
-                print('Training network on ', task,' task, ', n, ' pulses, with cue...')
-                save_fn = task + '_' + str(n) + '_cue_on.pkl'
-                updates = {'trial_type': task, 'save_fn': save_fn, 'num_pulses': n, 'order_cue': True}
-                update_parameters(updates)
-                try_model(gpu_id)
-                plot(save_fn, n, savename=str(n)+'_pulses_cue_on')
-            elif i == 1:
-                print('Training network on ', task,' task, ', n, ' pulses, without cue...')
-                save_fn = task + '_' + str(n) + '_cue_off.pkl'
-                updates = {'trial_type': task, 'save_fn': save_fn, 'num_pulses': n, 'order_cue': False}
-                update_parameters(updates)
-                try_model(gpu_id)
-                plot(save_fn, n, savename=str(n)+'_pulses_cue_off')
+        # for i in range(2):
+        #     if i == 0:
+        print('Training network on ', task,' task, ', n, ' pulses, with cue...')
+        save_fn = task + '_' + str(n) + '_cue_on.pkl'
+        updates = {'trial_type': task, 'save_fn': save_fn, 'num_pulses': n, 'order_cue': True}
+        update_parameters(updates)
+        try_model(gpu_id)
+        #plot(save_fn, n, savename=str(n)+'_pulses_cue_on')
+            # elif i == 1:
+            #     print('Training network on ', task,' task, ', n, ' pulses, without cue...')
+            #     save_fn = task + '_' + str(n) + '_cue_off.pkl'
+            #     updates = {'trial_type': task, 'save_fn': save_fn, 'num_pulses': n, 'order_cue': False}
+            #     update_parameters(updates)
+            #     try_model(gpu_id)
+            #     plot(save_fn, n, savename=str(n)+'_pulses_cue_off')
