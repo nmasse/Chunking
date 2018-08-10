@@ -71,12 +71,12 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], simulation = True, \
-                lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], simulation = False, cut = True,\
+                lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
 
 
-def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
-        lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False):
+def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
+        cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):
 
     """
     Converts neuronal and synaptic values, stored in lists, into 3D arrays
@@ -89,6 +89,7 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
     print('h_stacked', h_stacked.shape)
     trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
     mean_h = np.mean(np.mean(h_stacked,axis=2),axis=1)
+
 
     save_fn = par['save_dir'] + par['save_fn']
 
@@ -131,7 +132,11 @@ def analyze_model(trial_info, y_hat, h, syn_x, syn_u, model_performance, weights
             syn_u_stacked, weights)
         for key, val in simulation_results.items():
             results[key] = val
-
+    if cut:
+        print('cutting weights...')
+        cutting_results = cut_weights(x, trial_info, trial_time, h_stacked, syn_x_stacked, syn_u_stacked, weights)
+        for key, val in cutting_results.items():
+            results[key] = val
     """
     Calculate neuronal and synaptic sample motion tuning
     """
@@ -449,6 +454,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
         'accuracy_neural_shuffled'      : np.zeros((par['num_pulses'], par['n_hidden'], num_reps)),
         'accuracy_syn_shuffled'         : np.zeros((par['num_pulses'], par['n_hidden'], num_reps))}
 
+
     for p in range(par['num_pulses']):
         test_onset = onset[p]
 
@@ -505,6 +511,61 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
                 simulation_results['accuracy_syn_shuffled'][p,m,n] = get_perf(y, y_hat, train_mask)
 
     return simulation_results
+
+def cut_weights(x_dict, trial_info, trial_time, h, syn_x, syn_u, network_weights, num_reps = 5, num_top_neurons = 4):
+    """
+    Simulation will start from the start of the test period until the end of trial
+    """
+    onset = [np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1]
+    _, trial_length, batch_train_size = h.shape
+
+    eolongd = (par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'])//par['dt']
+
+    cutting_results = {
+        'accuracy_before_cut'     : np.zeros((par['num_pulses'], num_reps),dtype=np.float32),
+        'accuracy_after_cut'      : np.zeros((par['num_pulses'], num_reps),dtype=np.float32),
+        'synaptic_pev_after_cut'          : np.zeros((par['n_hidden'], par['num_pulses'], trial_length, num_reps),dtype=np.float32),
+        'neuronal_pev_after_cut'          : np.zeros((par['n_hidden'], par['num_pulses'], trial_length, num_reps),dtype=np.float32),
+        'neuronal_pref_dir_after_cut'     : np.zeros((par['n_hidden'],  par['num_pulses'], trial_length, num_reps), dtype=np.float32),
+        'synaptic_pref_dir_after_cut'     : np.zeros((par['n_hidden'],  par['num_pulses'], trial_length, num_reps), dtype=np.float32)}
+
+    for p in range(par['num_pulses']):
+
+        train_mask = np.zeros((trial_length, par['batch_train_size']),dtype=np.float32)
+        train_mask[onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt']] = 1
+
+        arr = x_dict['synaptic_pev'][:,p,eolongd]
+        top_ind = arr.argsort()[-num_top_neurons:][::-1]
+
+
+        x = np.split(trial_info['neural_input'],trial_length,axis=1)
+        y = trial_info['desired_output']
+        #train_mask = train_mask[test_onset:test_onset+test_length]
+
+        h = h[:,0,:]
+        syn_x = syn_x[:,0,:]
+        syn_u = syn_u[:,0,:]
+
+        for n in range(num_reps):
+            print(n, "out of ", num_reps)
+
+            """
+            Calculating behavioral accuracy without shuffling
+            """
+            y_hat, _, _, _ = run_model(x, h, syn_x, syn_u, network_weights)
+            cutting_results['accuracy_before_cut'][p,n] = get_perf(y, y_hat, train_mask)
+
+            for ind in top_ind:
+                network_weights['w_rnn'][ind,top_ind] = 0
+
+            y_hat_cut, h_cut, syn_x_cut, syn_u_cut = run_model(x, h, syn_x, syn_u, network_weights)
+            cutting_results['accuracy_after_cut'][p,n] = get_perf(y, y_hat_cut, train_mask)
+            tuning_results = calculate_tuning(h_cut, syn_x_cut, syn_u_cut, trial_info, trial_time, network_weights)
+            for key, val in tuning_results.items():
+                cutting_results[key+"_after_cut"][:,:,:,n] = val
+
+
+    return cutting_results
 
 def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights):
 

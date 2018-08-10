@@ -30,7 +30,7 @@ par = {
     'n_output'              : 9,
 
     # Chunking trial
-    'num_pulses'            : 6,
+    'num_pulses'            : 100,
     'num_max_pulse'         : 0,
     'var_num_pulses'        : False,
     'num_resp_cue_tuned'    : 2,
