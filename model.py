@@ -271,8 +271,9 @@ def main(gpu_id = None):
             accuracy = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
 
             pulse_accuracy = []
-            for p in range(par['num_pulses']):
-                pulse_accuracy.append(analysis.get_perf(trial_info['desired_output'], y_hat, pulse_masks[p]))
+            if not par['var_num_pulses']:
+                for p in range(par['num_pulses']):
+                    pulse_accuracy.append(analysis.get_perf(trial_info['desired_output'], y_hat, pulse_masks[p]))
 
 
             model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*N)
