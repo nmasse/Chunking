@@ -252,10 +252,11 @@ def main(gpu_id = None):
             # generate batch of batch_train_size
             trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'])
 
-            onset = [np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1]
-            pulse_masks = [np.zeros((par['num_time_steps'], par['batch_train_size']),dtype=np.float32)] * par['num_pulses']
-            for p in range(par['num_pulses']):
-                pulse_masks[p][onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt']] = 1
+            if not par['var_num_pulses']:
+                onset = [np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1]
+                pulse_masks = [np.zeros((par['num_time_steps'], par['batch_train_size']),dtype=np.float32)] * par['num_pulses']
+                for p in range(par['num_pulses']):
+                    pulse_masks[p][onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt']] = 1
 
 
 
