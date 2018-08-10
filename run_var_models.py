@@ -49,11 +49,14 @@ try:
 except:
     gpu_id = None
 
-num_pulses = [6,8,10]
-num_max_pulse = [6,8,10]
+# num_pulses = [10, 12, 14]
+# num_max_pulse = [10, 12, 14]
 
-if par['var_delay'] and par['var_resp_delay']:
-    for n in num_pulses:
+weekends = [10, 12,14]
+
+for n in weekends:
+    if par['var_delay'] and par['var_resp_delay']:
+        #for n in num_pulses:
         for i in range(2):
             if i == 0:
                 print('Training network with variable delay on', n, ' pulses, with cue...')
@@ -69,9 +72,11 @@ if par['var_delay'] and par['var_resp_delay']:
                 update_parameters(updates)
                 try_model(gpu_id)
                 #plot(save_fn, par['num_pulses'], savename='var_delay_'+str(par['num_pulses'])+'_pulses_cue_off')
+    updates = {'var_delay': False, 'var_resp_delay': False, 'var_num_pulses': True}
+    update_parameters(updates)
 
-if par['var_num_pulses']:
-    for n in num_max_pulse:
+    if par['var_num_pulses']:
+        #for n in num_max_pulse:
         for i in range(2):
             if i == 0:
                 print('Training network with variable pulses on', n, ' max pulses, with cue...')
@@ -87,3 +92,5 @@ if par['var_num_pulses']:
                 update_parameters(updates)
                 try_model(gpu_id)
                 #plot(save_fn, par['num_pulses'], savename='var_delay_'+str(par['num_pulses'])+'_pulses_cue_off')
+    updates = {'var_delay': True, 'var_resp_delay': True, 'var_num_pulses': False}
+    update_parameters(updates)

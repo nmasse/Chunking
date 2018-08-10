@@ -55,15 +55,16 @@ def shufffle_pev(x, num_pulses, cue, pev_type, acc_type, time_lapse):
     plt.tight_layout()
     plt.savefig("./savedir/var_delay/"+pev_type+"_shuffle_"+str(num_pulses)+"_pulses_"+cue+".png")
 
-num_pulses = [8]
-cue_list = ['cue_on']
-pev_type = ['synaptic_pev','neuronal_pev']
-acc_type = ['accuracy_syn_shuffled','accuracy_neural_shuffled']
+if __name__ == "__main__":
+    num_pulses = [8]
+    cue_list = ['cue_on']
+    pev_type = ['synaptic_pev','neuronal_pev']
+    acc_type = ['accuracy_syn_shuffled','accuracy_neural_shuffled']
 
-for num_pulses in num_pulses:
-    for cue in cue_list:
-        for i in range(len(pev_type)):
-                x = pickle.load(open('./savedir/var_delay/shuffling_var_delay_'+str(num_pulses)+"_"+cue+".pkl", 'rb'))
-                plot_pev_cross_time(x, num_pulses, cue, pev_type[i])
-                plot_pev_after_stim(x, num_pulses, cue, pev_type[i], 10)
-                shufffle_pev(x, num_pulses, cue, pev_type[i], acc_type[i], 10)
+    for num_pulses in num_pulses:
+        for cue in cue_list:
+            for i in range(len(pev_type)):
+                    x = pickle.load(open('./savedir/var_delay/shuffling_var_delay_'+str(num_pulses)+"_"+cue+".pkl", 'rb'))
+                    plot_pev_cross_time(x, num_pulses, cue, pev_type[i])
+                    plot_pev_after_stim(x, num_pulses, cue, pev_type[i], 10)
+                    shufffle_pev(x, num_pulses, cue, pev_type[i], acc_type[i], 10)
