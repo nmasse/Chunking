@@ -529,6 +529,10 @@ def cut_weights(x_dict, trial_info, trial_time, h, syn_x, syn_u, network_weights
         'neuronal_pref_dir_after_cut'     : np.zeros((par['n_hidden'],  par['num_pulses'], trial_length, num_reps), dtype=np.float32),
         'synaptic_pref_dir_after_cut'     : np.zeros((par['n_hidden'],  par['num_pulses'], trial_length, num_reps), dtype=np.float32)}
 
+    h = h[:,0,:]
+    syn_x = syn_x[:,0,:]
+    syn_u = syn_u[:,0,:]
+
     for p in range(par['num_pulses']):
 
         train_mask = np.zeros((trial_length, par['batch_train_size']),dtype=np.float32)
@@ -542,9 +546,6 @@ def cut_weights(x_dict, trial_info, trial_time, h, syn_x, syn_u, network_weights
         y = trial_info['desired_output']
         #train_mask = train_mask[test_onset:test_onset+test_length]
 
-        h = h[:,0,:]
-        syn_x = syn_x[:,0,:]
-        syn_u = syn_u[:,0,:]
 
         for n in range(num_reps):
             print(n, "out of ", num_reps)
