@@ -133,11 +133,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
             syn_u_stacked, weights)
         for key, val in simulation_results.items():
             results[key] = val
-    if cut:
-        print('cutting weights...')
-        cutting_results = cut_weights(x, trial_info, trial_time, h_stacked, syn_x_stacked, syn_u_stacked, weights)
-        for key, val in cutting_results.items():
-            results[key] = val
+
     """
     Calculate neuronal and synaptic sample motion tuning
     """
@@ -147,6 +143,14 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
             trial_info, trial_time, weights)
         for key, val in tuning_results.items():
             results[key] = val
+            x[key] = val # added just to be able to run cut_weights in one analysis run
+            
+    if cut:
+        print('cutting weights...')
+        cutting_results = cut_weights(x, trial_info, trial_time, h_stacked, syn_x_stacked, syn_u_stacked, weights)
+        for key, val in cutting_results.items():
+            results[key] = val
+
 
     """
     Decode the sample direction from neuronal activity and synaptic efficacies
