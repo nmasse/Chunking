@@ -32,7 +32,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
             syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-            analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = True, stim_num = i, simulation = False, \
+            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = True, stim_num = i, simulation = False, cut = True,\
                     lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_pulse:
         for i in range(x['parameters']['num_max_pulse']//2,x['parameters']['num_max_pulse']+1):
@@ -46,7 +46,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
             syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-            analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, \
+            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, cut = True,\
                     lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_delay:
         trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=test_mode_pulse,test_mode_delay=test_mode_delay)
@@ -58,7 +58,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], simulation = True, \
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], simulation = True, cut = True,\
                 lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
     else:
         trial_info = stim.generate_trial()
@@ -147,7 +147,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
             results[key] = val
             x[key] = val # added just to be able to run cut_weights in one analysis run
         pickle.dump(results, open(save_fn, 'wb'))
-            
+
     if cut:
         print('cutting weights...')
         cutting_results = cut_weights(x, trial_info, 0, trial_time, h_stacked, syn_x_stacked, syn_u_stacked, weights)
@@ -531,7 +531,7 @@ def cut_weights(x_dict, trial_info, start_time, trial_time, h, syn_x, syn_u, net
     _, trial_length, batch_train_size = h.shape
 
     eolongd = (par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'])//par['dt']
-    start_time = eolongd-(par['long_delay_time']//par['dt'])+1
+    #start_time = eolongd-(par['long_delay_time']//par['dt'])+1
     onset -= start_time
 
     cutting_results = {
