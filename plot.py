@@ -42,6 +42,7 @@ def plot_pev_after_stim(x, num_pulses, cue, pev_type,time_lapse):
     # plt.close()
 
 def shufffle_pev(x, num_pulses, cue, pev_type, acc_type, time_lapse):
+    print('shuffle')
     test_onset = [np.unique(np.array(x['timeline']))[-2*p-2] for p in range(num_pulses)][::-1]
     nrows = num_pulses//2 if num_pulses%2==0 else num_pulses
     ncols = 2 if num_pulses%2==0 else 1
@@ -61,11 +62,12 @@ if __name__ == "__main__":
     cue_list = ['cue_on']
     pev_type = ['synaptic_pev_after_cut','neuronal_pev_after_cut']
     acc_type = ['accuracy_syn_shuffled','accuracy_neural_shuffled']
+    #pev_type = ['synaptic_pev',]
 
     for num_pulses in num_pulses:
         for cue in cue_list:
             for i in range(len(pev_type)):
-                    x = pickle.load(open('./savedir/cutting/cutting_chunking_'+str(num_pulses)+"_"+cue+".pkl", 'rb'))
-                    plot_pev_cross_time(x, num_pulses, cue, pev_type[i])
-                    plot_pev_after_stim(x, num_pulses, cue, pev_type[i], 10)
-                    #shufffle_pev(x, num_pulses, cue, pev_type[i], acc_type[i], 10)
+                    x = pickle.load(open('./savedir/cutting_shuffling_chunking_'+str(num_pulses)+"_"+cue+".pkl", 'rb'))
+                    #plot_pev_cross_time(x, num_pulses, cue, pev_type[i])
+                    #plot_pev_after_stim(x, num_pulses, cue, pev_type[i], 10)
+                    shufffle_pev(x, num_pulses, cue, pev_type[i], acc_type[i], 10)
