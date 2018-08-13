@@ -472,7 +472,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
 
         train_mask = np.zeros((trial_length, par['batch_train_size']),dtype=np.float32)
         train_mask[onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt']] = 1
-        print(np.sum(train_mask))
+        #print(np.sum(train_mask))
 
         #test_length = trial_length - test_onset
         test_length = par['resp_cue_time']//par['dt']
@@ -486,7 +486,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
         x = np.split(trial_info['neural_input'][:,test_onset:test_onset+test_length,trial_ind],test_length,axis=1)
         y = trial_info['desired_output'][:,test_onset:test_onset+test_length,trial_ind]
         train_mask = train_mask[test_onset:test_onset+test_length]
-        print(np.sum(train_mask))
+        #print(np.sum(train_mask))
 
         for n in range(num_reps):
             print(n, "out of ", num_reps)
@@ -498,7 +498,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
             syn_x_init = syn_x[:,test_onset-1,trial_ind]
             syn_u_init = syn_u[:,test_onset-1,trial_ind]
             y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-            print(np.sum(train_mask))
+            #print(np.sum(train_mask))
             simulation_results['accuracy'][p,:,n] = get_perf(y, y_hat, train_mask)
 
             for m in range(par['n_hidden']):
@@ -777,16 +777,16 @@ def get_perf(y, y_hat, mask):
     y is the desired output
     y_hat is the actual output
     """
-    print("Entering get_perf...")
-    print(np.sum(train_mask))
+    #print("Entering get_perf...")
+    #print(np.sum(mask))
     y_hat = np.stack(y_hat, axis=1)
     mask *= y[0,:,:]==0
-    print(np.sum(train_mask))
+    #print(np.sum(mask))
     y = np.argmax(y, axis = 0)
     y_hat = np.argmax(y_hat, axis = 0)
-    print(np.float32(y == y_hat))
-    print(np.sum(np.float32(y == y_hat)*np.squeeze(mask)))
-    print(np.sum(mask))
+    # print(np.float32(y == y_hat))
+    # print(np.sum(np.float32(y == y_hat)*np.squeeze(mask)))
+    # print(np.sum(mask))
     accuracy = np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
     return accuracy
