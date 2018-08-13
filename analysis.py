@@ -46,8 +46,8 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
             syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, cut = True,\
-                    lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
+            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, None, x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = True, cut = True,\
+                    lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_delay:
         trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=test_mode_pulse,test_mode_delay=test_mode_delay)
         input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
@@ -472,7 +472,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
 
         train_mask = np.zeros((trial_length, par['batch_train_size']),dtype=np.float32)
         train_mask[onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt']] = 1
-
+        print(np.sum(train_mask))
 
         #test_length = trial_length - test_onset
         test_length = par['resp_cue_time']//par['dt']
@@ -486,7 +486,8 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5)
         x = np.split(trial_info['neural_input'][:,test_onset:test_onset+test_length,trial_ind],test_length,axis=1)
         y = trial_info['desired_output'][:,test_onset:test_onset+test_length,trial_ind]
         train_mask = train_mask[test_onset:test_onset+test_length]
-
+        print(np.sum(train_mask))
+        
         for n in range(num_reps):
             print(n, "out of ", num_reps)
 
@@ -779,6 +780,9 @@ def get_perf(y, y_hat, mask):
     mask *= y[0,:,:]==0
     y = np.argmax(y, axis = 0)
     y_hat = np.argmax(y_hat, axis = 0)
+    print(np.float32(y == y_hat))
+    print(np.sum(np.float32(y == y_hat)*np.squeeze(mask)))
+    print(np.sum(mask))
     accuracy = np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
 
     return accuracy
