@@ -165,6 +165,7 @@ class Stimulus:
 
         if var_delay:
             if test_mode_delay:
+                print('Setting unifom delay time...')
                 trial_info['delay'][:,:par['num_max_pulse']-1] = 200
                 trial_info['delay'][:,-1] = 500
             else:
@@ -176,6 +177,7 @@ class Stimulus:
 
         if var_resp_delay:
             if test_mode_delay:
+                print('Setting unifom response delay time...')
                 trial_info['resp_delay'][:,:par['num_max_pulse']-1] = 200
             else:
                 trial_info['resp_delay'][:,:par['num_max_pulse']-1] = np.random.choice([100,200,300],size=(par['batch_train_size'],par['num_max_pulse']-1))
