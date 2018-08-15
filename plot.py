@@ -24,7 +24,7 @@ def plot_pev_after_stim(x, num_pulses, cue, pev_type,time_lapse):
     fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(12,12))
     i = 0
     for ax in axes.flat:
-        #im = ax.imshow(np.mean(x[pev_type][:,:,np.unique(x['timeline'])[2*i+1]+time_lapse],axis=2),aspect='auto')
+        #im = ax.imshow(np.mean(x[pev_type][:,:,np.unique(x['timeline'])[2*i+1]+time_lapse,:],axis=2),aspect='auto')
         #eolongd = (par['dead_time']+par['fix_time'] + num_pulses * par['sample_time'] + (num_pulses-1)*par['delay_time'] + par['long_delay_time'])//par['dt']
         im = ax.imshow(x[pev_type][:,:,np.unique(x['timeline'])[2*i+1]+time_lapse],aspect='auto')
         i += 1
@@ -44,6 +44,7 @@ def plot_pev_after_stim(x, num_pulses, cue, pev_type,time_lapse):
 
 def shufffle_pev(x, num_pulses, cue, pev_type, acc_type, time_lapse):
     print('shuffle')
+    print(np.unique(np.array(x['timeline'])))
     test_onset = [np.unique(np.array(x['timeline']))[-2*p-2] for p in range(num_pulses)][::-1]
     nrows = num_pulses//2 if num_pulses%2==0 else num_pulses
     ncols = 2 if num_pulses%2==0 else 1
@@ -54,13 +55,14 @@ def shufffle_pev(x, num_pulses, cue, pev_type, acc_type, time_lapse):
     i = 0
     for ax in axes.flat:
         ax.scatter(x[pev_type][:,i,eolongd-1], np.mean(x[acc_type][i,:,:],axis=1), s=5)
+        #ax.scatter(x[pev_type][:,i,eolongd-1,0], np.mean(x[acc_type][i,:,:],axis=1), s=5)
         i += 1
     plt.savefig("./savedir/var_delay/"+pev_type+"_shuffle_"+str(num_pulses)+"_pulses_"+cue+".png")
 
 if __name__ == "__main__":
     num_pulses = [8]
     cue_list = ['cue_on']
-    pev_type = ['synaptic_pev','neuronal_pev']
+    pev_type = ['synaptic_pev', 'neuronal_pev']
     acc_type = ['accuracy_syn_shuffled','accuracy_neural_shuffled']
 
     for num_pulses in num_pulses:

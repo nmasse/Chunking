@@ -58,8 +58,8 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = False, cut = False,\
-                lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = False, cut = True,\
+                lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
     else:
         trial_info = stim.generate_trial()
         print(trial_info['neural_input'].shape)
@@ -346,8 +346,8 @@ def svm_wraper(trial_info, x_dict, lin_clf, h, syn_eff, combo, stim, rule, num_r
 
                 # # Choosing top neurons
                 # arr = x_dict['synaptic_pev'][:,n,onset[n]-1]
-                # #top_ind = arr.argsort()[-4:][::-1]
-                # top_ind = np.random.choice(100, size=4)
+                # top_ind = arr.argsort()[-2:][::-1]
+                # #top_ind = np.random.choice(100, size=4)
 
                 for t in range(num_time_steps):
                     if trial_time[t] <= par['dead_time']:
@@ -593,9 +593,7 @@ def cut_weights(x_dict, trial_info, start_time, trial_time, h, syn_x, syn_u, net
         cut_weights = copy.deepcopy(network_weights)
         for ind in top_ind:
             cut_weights['w_rnn'][ind,top_ind] = 0
-        # print("\n\ndebugging...............")
-        # print(cut_weights['w_rnn'][top_ind[0],top_ind[1]])
-        # print(cut_weights['w_rnn'][top_ind[0],top_ind[1]] == network_weights['w_rnn'][top_ind[0],top_ind[1]])
+
         y_hat_cut, h_cut, syn_x_cut, syn_u_cut = run_model(x, h, syn_x, syn_u, cut_weights)
 
         """
@@ -609,10 +607,10 @@ def cut_weights(x_dict, trial_info, start_time, trial_time, h, syn_x, syn_u, net
             # for n in range(num_reps):
             cutting_results['accuracy_after_cut'][p,p2,:] = get_perf(y, y_hat_cut, train_mask)
 
-        # for n in range(num_reps):
-        #tuning_results = calculate_tuning(h_cut, syn_x_cut, syn_u_cut, trial_info, trial_time[start_time:], cut_weights)
-        #for key, val in tuning_results.items():
-        #    cutting_results[key+"_after_cut"][:,:,:,:] = val
+        for n in range(num_reps):
+        tuning_results = calculate_tuning(h_cut, syn_x_cut, syn_u_cut, trial_info, trial_time[start_time:], cut_weights)
+        for key, val in tuning_results.items():
+           cutting_results[key+"_after_cut"][:,:,:,:] = val
 
 
     return cutting_results
