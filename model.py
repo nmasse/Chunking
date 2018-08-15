@@ -226,7 +226,8 @@ def main(gpu_id = None):
     """
     stim = stimulus.Stimulus()
 
-    weights = pickle.load(open('./savedir/var_pulses_8_cue_off.pkl', 'rb'))
+    f = pickle.load(open('./savedir/var_pulses_8_cue_off.pkl', 'rb'))
+    weights = f['weights']
 
     n_input, n_hidden, n_output = par['shape']
     N = par['batch_train_size'] # trials per iteration, calculate gradients after batch_train_size
