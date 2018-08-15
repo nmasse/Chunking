@@ -608,7 +608,8 @@ def cut_weights(x_dict, trial_info, start_time, trial_time, h, syn_x, syn_u, net
             cutting_results['accuracy_after_cut'][p,p2,:] = get_perf(y, y_hat_cut, train_mask)
 
         for n in range(num_reps):
-        tuning_results = calculate_tuning(h_cut, syn_x_cut, syn_u_cut, trial_info, trial_time[start_time:], cut_weights)
+            tuning_results = calculate_tuning(h_cut, syn_x_cut, syn_u_cut, trial_info, trial_time[start_time:], cut_weights)
+
         for key, val in tuning_results.items():
            cutting_results[key+"_after_cut"][:,:,:,:] = val
 
