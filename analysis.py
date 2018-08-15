@@ -58,8 +58,8 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = True, cut = True,\
-                lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = False, cut = False,\
+                lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
     else:
         trial_info = stim.generate_trial()
         print(trial_info['neural_input'].shape)
@@ -162,7 +162,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
     """
     if decoding:
         print('decoding activity...')
-        decoding_results = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info, trial_time, \
+        decoding_results = calculate_svms(x, h_stacked, syn_x_stacked, syn_u_stacked, trial_info, trial_time, \
             num_reps = par['decoding_reps'], decode_test = par['decode_test'], decode_rule = par['decode_rule'], \
             decode_sample_vs_test = par['decode_sample_vs_test'], analysis=analysis, test_mode_pulse=test_mode_pulse, pulse=pulse, test_mode_delay=test_mode_delay, stim_num=stim_num)
         for key, val in decoding_results.items():
@@ -173,7 +173,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
     print('Analysis results saved in ', save_fn)
 
 
-def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
+def calculate_svms(x_dict,h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
     decode_test = False, decode_rule = False, decode_sample_vs_test = False, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False, stim_num=0):
 
     """
@@ -192,7 +192,10 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
     direction from this value
     """
     syn_efficacy = syn_x*syn_u
+    print("h shape: ",h.shape)
+    print("syn shape: ",syn_efficacy.shape)
     combined = np.concatenate((h, syn_efficacy), axis=0)
+
 
     if par['trial_type'] == 'DMC':
         """
@@ -220,6 +223,7 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
 
     else:
         sample = np.array(trial_info['sample'])
+        print("sample shape: ",sample.shape)
         rule = np.array(trial_info['rule'])
         print('sample ', sample.shape)
 
@@ -233,20 +237,20 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
 
     if analysis:
         decoding_results['neuronal_sample_decoding'+str(stim_num)], decoding_results['synaptic_sample_decoding'+str(stim_num)],decoding_results['combined_decoding'+str(stim_num)] = \
-            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse, stim_num)
+            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse, stim_num)
         # neu, syn, comb = svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time, analysis, stim_num)
         # decoding_results['neuronal_sample_decoding'] = np.concatenate((decoding_results['neuronal_sample_decoding'], neu), axis = 1)
         # decoding_results['synaptic_sample_decoding'] = np.concatenate((decoding_results['synaptic_sample_decoding'], syn), axis = 1)
         # decoding_results['combined_decoding'] = np.concatenate((decoding_results['combined_decoding'], comb), axis = 1)
     elif test_mode_pulse:
         decoding_results['neuronal_sample_decoding'+str(pulse)], decoding_results['synaptic_sample_decoding'+str(pulse)],decoding_results['combined_decoding'+str(pulse)] = \
-            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse)
+            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse)
     elif test_mode_delay:
         decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'],decoding_results['combined_decoding'] = \
-            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse, test_mode_delay)
+            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse, test_mode_delay)
     else:
         decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'],decoding_results['combined_decoding'] = \
-            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time)
+            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time)
 
     if decode_sample_vs_test:
         print('sample vs. test decoding...')
@@ -256,23 +260,27 @@ def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
     if decode_test:
         print('test decoding...')
         decoding_results['neuronal_test_decoding'], decoding_results['synaptic_test_decoding'] = \
-            svm_wraper(lin_clf, h, syn_efficacy, test, rule, num_reps, trial_time)
+            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, test, rule, num_reps, trial_time)
 
     if decode_rule:
         print('rule decoding...')
         decoding_results['neuronal_rule_decoding'], decoding_results['synaptic_rule_decoding'] = \
-            svm_wraper(lin_clf, h, syn_efficacy, trial_info['rule'], np.zeros_like(sample), num_reps, trial_time)
+            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, trial_info['rule'], np.zeros_like(sample), num_reps, trial_time)
 
     return decoding_results
 
 
 
-def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time, analysis=False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0):
+def svm_wraper(trial_info, x_dict, lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time, analysis=False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0):
 
     """
     Wraper function used to decode sample/test or rule information
     from hidden activity (h) and synaptic efficacies (syn_eff)
     """
+
+    onset = np.array([np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1])
+    eolongd = (par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'])//par['dt']
+
     train_pct = 0.75
     trials_per_cond = 25
     _, num_time_steps, num_trials = h.shape
@@ -335,6 +343,11 @@ def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time, ana
                     equal_train_ind[u] =  train_ind[q]
                     q = np.random.randint(len(test_ind), size = trials_per_stim)
                     equal_test_ind[u] =  test_ind[q]
+
+                # # Choosing top neurons
+                # arr = x_dict['synaptic_pev'][:,n,onset[n]-1]
+                # #top_ind = arr.argsort()[-4:][::-1]
+                # top_ind = np.random.choice(100, size=4)
 
                 for t in range(num_time_steps):
                     if trial_time[t] <= par['dead_time']:
@@ -572,8 +585,8 @@ def cut_weights(x_dict, trial_info, start_time, trial_time, h, syn_x, syn_u, net
         Cutting top neurons from synaptic_pev result
         """
         arr = x_dict['synaptic_pev'][:,p,onset[p]+start_time-1]
-        #top_ind = arr.argsort()[-num_top_neurons:][::-1]
-        top_ind = np.random.choice(100, size=4)
+        top_ind = arr.argsort()[-num_top_neurons:][::-1]
+        #top_ind = np.random.choice(100, size=4)
         cutting_results['cut_neurons'][p,:] = top_ind
         print(top_ind)
 
