@@ -228,6 +228,7 @@ def main(gpu_id = None):
 
     f = pickle.load(open('./savedir/var_pulses_8_cue_off.pkl', 'rb'))
     par['weights_trained'] = f['weights']
+    update_parameters(f['parameters'])
 
     n_input, n_hidden, n_output = par['shape']
     N = par['batch_train_size'] # trials per iteration, calculate gradients after batch_train_size
@@ -309,6 +310,20 @@ def main(gpu_id = None):
                 pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
 
             if accuracy > 0.995:
+                weights = eval_weights()
+                syn_x_stacked = np.stack(syn_x_hist, axis=1)
+                syn_u_stacked = np.stack(syn_u_hist, axis=1)
+                h_stacked = np.stack(state_hist, axis=1)
+                trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
+                mean_h = np.mean(np.mean(h_stacked,axis=2),axis=1)
+                results = {
+                    'model_performance': model_performance,
+                    'parameters': par,
+                    'weights': weights,
+                    'trial_time': trial_time,
+                    'mean_h': mean_h,
+                    'timeline': trial_info['timeline']}
+                pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
                 for b in range(10):
                     plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T-np.max(np.array(y_hat)[:,:,b].T))]
                     fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
