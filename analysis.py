@@ -789,16 +789,10 @@ def get_perf(y, y_hat, mask):
     y is the desired output
     y_hat is the actual output
     """
-    #print("Entering get_perf...")
-    #print(np.sum(mask))
-    y_hat = np.stack(y_hat, axis=1)
-    mask *= y[0,:,:]==0
-    #print(np.sum(mask))
-    y = np.argmax(y, axis = 0)
-    y_hat = np.argmax(y_hat, axis = 0)
-    # print(np.float32(y == y_hat))
-    # print(np.sum(np.float32(y == y_hat)*np.squeeze(mask)))
-    # print(np.sum(mask))
-    accuracy = np.sum(np.float32(y == y_hat)*np.squeeze(mask))/np.sum(mask)
+    y_hat_max = np.stack(y_hat, axis=1)
+    mask_test = mask*(y[0,:,:]==0)
+    y_max = np.argmax(y, axis = 0)
+    y_hat_max = np.argmax(y_hat_max, axis = 0)
+    accuracy = np.sum(np.float32(y_max == y_hat_max)*mask_test)/np.sum(mask_test)
 
     return accuracy
