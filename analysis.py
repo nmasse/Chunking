@@ -58,8 +58,8 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = False, cut = True,\
-                lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = True, cut = True,\
+                lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
     else:
         trial_info = stim.generate_trial()
         print(trial_info['neural_input'].shape)
@@ -72,8 +72,8 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = True, cut = True,\
-                lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, cut = True,\
+                lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
 
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
@@ -607,11 +607,11 @@ def cut_weights(x_dict, trial_info, start_time, trial_time, h, syn_x, syn_u, net
             # for n in range(num_reps):
             cutting_results['accuracy_after_cut'][p,p2,:] = get_perf(y, y_hat_cut, train_mask)
 
-        for n in range(num_reps):
-            tuning_results = calculate_tuning(h_cut, syn_x_cut, syn_u_cut, trial_info, trial_time[start_time:], cut_weights)
-
-        for key, val in tuning_results.items():
-           cutting_results[key+"_after_cut"][:,:,:,0] = val
+        # for n in range(num_reps):
+        #     tuning_results = calculate_tuning(h_cut, syn_x_cut, syn_u_cut, trial_info, trial_time[start_time:], cut_weights)
+        #
+        # for key, val in tuning_results.items():
+        #    cutting_results[key+"_after_cut"][:,:,:,0] = val
 
 
     return cutting_results
