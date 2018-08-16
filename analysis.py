@@ -13,12 +13,15 @@ import copy
 
 def analyze_model_from_file(filename, savefile = None, analysis = False, test_mode_pulse=False, test_mode_delay=False):
 
-    x = pickle.load(open('./savedir/'+filename, 'rb'))
+    x = pickle.load(open('./savedir/perfect/'+filename, 'rb'))
     if savefile is None:
         x['parameters']['save_fn'] = 'test.pkl'
     else:
         x['parameters']['save_fn'] = savefile
     update_parameters(x['parameters'])
+    print("\n\n\nLook here!!!!!!!!!!!")
+    print(par['num_max_pulse'])
+    print(par['num_pulses'])
     stim = stimulus.Stimulus()
     if analysis:
         for i in range(x['parameters']['num_pulses']):
@@ -46,7 +49,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
             syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = True, cut = True,\
+            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, cut = False,\
                     lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_delay:
         trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=test_mode_pulse,test_mode_delay=test_mode_delay)
@@ -72,7 +75,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = True, cut = True,\
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, cut = False,\
                 lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
 
 
