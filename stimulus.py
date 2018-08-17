@@ -12,13 +12,10 @@ class Stimulus:
         self.create_tuning_functions()
 
 
-    def generate_trial(self, var_delay=False, var_resp_delay=False, var_num_pulses=False, test_mode = False):
+    def generate_trial(self, var_delay=False, var_resp_delay=False, var_num_pulses=False, all_RF=False, test_mode = False):
 
-        if task == "sequence_one":
-            return self.generate_sequence_one_trial()
-
-        elif task == "sequence_all":
-            return self.generate_sequence_all_trial()
+        if task == "sequence":
+            return self.generate_sequence_trial(var_delay, var_resp_delay, var_num_pulses, all_RF)
 
         elif task == "RF_detection":
             return self.generate_RF_detection_trial()
