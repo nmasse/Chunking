@@ -84,7 +84,7 @@ par = {
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 100,
     'fix_time'              : 200,
-    'sample_time'           : 200,
+    'sample_time'           : 500,
     'delay_time'            : 200,
     'test_time'             : 500,
     'variable_delay_max'    : 300,
