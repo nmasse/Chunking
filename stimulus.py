@@ -96,6 +96,86 @@ class Stimulus:
         return trial_info
 
 
+    def generate_RF_cue_trial(self, var_delay=True):
+
+        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+                      'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
+                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
+
+        start = int((par['dead_time'] + par['fix_time'])//par['dt'])
+        pulse_dur = int(par['sample_time']//par['dt'])
+        resp_dur = int(par['resp_cue_time']//par['dt'])
+        mask_dur = int(par['mask_duration']//par['dt'])
+        resp_start = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['sample_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
+        delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
+
+        directions = np.random.choice(par['num_motion_dirs'], size=[par['batch_train_size'], par['num_RFs']])
+        targets = np.random.choice(par['num_RFs'], size=[par['batch_train_size']])
+
+        trial_info['train_mask'][:par['dead_time']//par['dt'],:] = 0
+        for b in range(par['batch_train_size']):
+
+            # Select response onset
+            if var_delay:
+                trial_resp_start = resp_start + np.int32(50*np.random.normal(0,10)//par['dt'])
+                trial_resp_start = np.clip(trial_resp_start, np.int32(resp_start//2), np.int32(resp_start*3//2))
+            else:
+                trial_resp_start = resp_start
+
+            # Stimulus and response
+            stim = np.sum([self.motion_tuning[directions[b,rf],rf] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
+            resp = directions[b,targets[b]]
+
+            # Designated cue
+            cue  = np.zeros([1,par['n_input']])
+            cue[:,targets[b]*par['num_motion_tuned']:(targets[b]+1)*par['num_motion_tuned']] = par['tuning_height']/8
+
+            # Building neural input
+            trial_info['neural_input'][start:start+pulse_dur,b,:] += stim
+            trial_info['neural_input'][trial_resp_start:,b,:] += cue
+            trial_info['neural_input'][:trial_resp_start,b,:] += np.transpose(self.fix_tuning)
+
+            # Building network output
+
+            trial_info['desired_output'][:trial_resp_start,b,0] = 0
+
+            #trial_info['desired_output'][:trial_resp_start,b,0] = 1
+            #trial_info['desired_output'][trial_resp_start:,b,1+resp] = 1
+
+            # Building network mask
+            trial_info['train_mask'][trial_resp_start+mask_dur:,b] *= par['response_multiplier']
+            trial_info['train_mask'][trial_resp_start:trial_resp_start+mask_dur,b] = 0
+
+
+        fig, ax = plt.subplots(3)
+
+        ax[0].imshow(trial_info['neural_input'][:,b,:].T, aspect='auto', clim=[0,4])
+        ax[1].imshow(trial_info['desired_output'][:,b,:].T, aspect='auto', clim=[0,4])
+        ax[2].imshow(trial_info['train_mask'][:,b,np.newaxis].T, aspect='auto', clim=[0,4])
+        plt.show()
+
+
+
+
+
+
+        quit()
+
+
+
+        print(par['num_time_steps'], par['dt'])
+        print(par['dead_time']//par['dt'], par['fix_time']//par['dt'])
+        print(par['sample_time']//par['dt'])
+        print(par['resp_cue_time']//par['dt'])
+        print(par['mask_duration']//par['dt'])
+        print(par['num_pulses'], par['sample_time']//par['dt'], par['long_delay_time']//par['dt'])
+        print(par['delay_times']//par['dt'])
+
+        quit()
+
+
     def create_tuning_functions(self):
 
         # Motion tuning   --> directional preferences
