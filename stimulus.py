@@ -9,7 +9,7 @@ class Stimulus:
 
         # Generate tuning functions
         self.create_tuning_functions()
-        
+
 
     def generate_trial(self, task, var_delay=False, var_resp_delay=False, var_num_pulses=False, all_RF=False, test_mode = False):
 
@@ -20,7 +20,7 @@ class Stimulus:
             return self.generate_RF_detection_trial()
 
         elif task == "RF_cue":
-            return self.generate_RF_cue_trial()
+            return self.generate_RF_cue_trial(var_delay or var_resp_delay)
 
         elif task == "var_chunking":
             return self.generate_var_chunking_trial(par['num_pulses'], var_delay, var_resp_delay, var_num_pulses, test_mode)
@@ -217,8 +217,14 @@ class Stimulus:
 
             # Select response onset
             if var_delay:
-                trial_resp_start = resp_start + np.int32(50*np.random.normal(0,10)//par['dt'])
-                trial_resp_start = np.clip(trial_resp_start, np.int32(resp_start//2), np.int32(resp_start*3//2))
+                s = np.int32(np.random.exponential(scale=par['var_delay_scale']))
+                trial_resp_start = resp_start + s
+                if resp_start+s >= par['num_time_steps']-mask_dur:
+                    catch = True
+                    trial_resp_start = -1
+                else:
+                    catch = False
+
             else:
                 trial_resp_start = resp_start
 
@@ -236,42 +242,16 @@ class Stimulus:
             trial_info['neural_input'][:trial_resp_start,b,:] += np.transpose(self.fix_tuning)
 
             # Building network output
-
-            trial_info['desired_output'][:trial_resp_start,b,0] = 0
-
-            #trial_info['desired_output'][:trial_resp_start,b,0] = 1
-            #trial_info['desired_output'][trial_resp_start:,b,1+resp] = 1
+            trial_info['desired_output'][:trial_resp_start,b,:] = 0 # Superfluous, but explicitly specifies fixation
+            trial_info['desired_output'][trial_resp_start:,b,:] = self.output_tuning[resp]
 
             # Building network mask
-            trial_info['train_mask'][trial_resp_start+mask_dur:,b] *= par['response_multiplier']
+            if not catch:
+                trial_info['train_mask'][trial_resp_start+mask_dur:,b] *= par['response_multiplier']
             trial_info['train_mask'][trial_resp_start:trial_resp_start+mask_dur,b] = 0
+            trial_info['train_mask'][-1,b] = 0
 
-
-        fig, ax = plt.subplots(3)
-
-        ax[0].imshow(trial_info['neural_input'][:,b,:].T, aspect='auto', clim=[0,4])
-        ax[1].imshow(trial_info['desired_output'][:,b,:].T, aspect='auto', clim=[0,4])
-        ax[2].imshow(trial_info['train_mask'][:,b,np.newaxis].T, aspect='auto', clim=[0,4])
-        plt.show()
-
-
-
-
-
-
-        quit()
-
-
-
-        print(par['num_time_steps'], par['dt'])
-        print(par['dead_time']//par['dt'], par['fix_time']//par['dt'])
-        print(par['sample_time']//par['dt'])
-        print(par['resp_cue_time']//par['dt'])
-        print(par['mask_duration']//par['dt'])
-        print(par['num_pulses'], par['sample_time']//par['dt'], par['long_delay_time']//par['dt'])
-        print(par['delay_times']//par['dt'])
-
-        quit()
+        return trial_info
 
 
     def create_tuning_functions(self):
@@ -338,11 +318,3 @@ class Stimulus:
         ax.set_title('Motion input')
         plt.show()
         plt.savefig('stimulus.pdf', format='pdf')
-
-s = Stimulus()
-par['num_pulses'] = 6
-par['num_RFs'] = 6
-par['order_cue'] = False
-all_RF = True
-task = 'sequence'
-s.generate_trial(task, var_delay=False, var_resp_delay=False, var_num_pulses=False, all_RF=True, test_mode = False)
