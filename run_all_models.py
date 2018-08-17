@@ -54,22 +54,19 @@ except:
     gpu_id = None
 
 
-num_pulses = [8,10]
+num_pulses = [7]
+load_weights = False
 
 for task in task_list:
-    for n in num_pulses:
-        # for i in range(2):
-        #     if i == 0:
-        print('Training network on ', task,' task, ', n, ' pulses, with cue...')
-        save_fn = task + '_' + str(n) + '_cue_on.pkl'
-        updates = {'trial_type': task, 'save_fn': save_fn, 'num_pulses': n, 'order_cue': True}
-        update_parameters(updates)
-        try_model(gpu_id)
-        #plot(save_fn, n, savename=str(n)+'_pulses_cue_on')
-            # elif i == 1:
-            #     print('Training network on ', task,' task, ', n, ' pulses, without cue...')
-            #     save_fn = task + '_' + str(n) + '_cue_off.pkl'
-            #     updates = {'trial_type': task, 'save_fn': save_fn, 'num_pulses': n, 'order_cue': False}
-            #     update_parameters(updates)
-            #     try_model(gpu_id)
-            #     plot(save_fn, n, savename=str(n)+'_pulses_cue_off')
+    for n in range(1):
+        for v in range(10):
+
+            print('Training network on ', task,' task, ', num_pulses[n], ' pulses, without cue...')
+            save_fn = task + '_' + str(num_pulses[n]) + '_var_delay_cue_off_v' + str(v) + '.pkl'
+            #save_fn = task + '_' + str(num_pulses[n]) + '_cue_on_v' + str(v) + '.pkl'
+
+            updates = {'trial_type': task, 'save_fn': save_fn, 'num_pulses': num_pulses[n], 'num_max_pulse': num_pulses[n], 'order_cue': False, \
+                'load_prev_weights': load_weights, 'var_num_pulses': False, 'var_delay': True}
+            update_parameters(updates)
+
+            try_model(gpu_id)

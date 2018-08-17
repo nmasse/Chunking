@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import os
+import pickle
 
 print("--> Loading parameters...")
 
@@ -19,28 +20,31 @@ par = {
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
-    'var_delay'             : False,
-    'var_resp_delay'        : False,
+    'var_delay'             : True,
+    'var_resp_delay'        : True,
 
     # Network shape
     'num_motion_tuned'      : 24,
     'num_fix_tuned'         : 2,
-    'num_rule_tuned'        : 0,
+    'num_rule_tuned'        : 8,
     'n_hidden'              : 100,
     'n_output'              : 9,
 
     # Chunking trial
-    'num_pulses'            : 100,
-    'num_max_pulse'         : 0,
+    'num_pulses'            : 6,
     'var_num_pulses'        : False,
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 500,
     'resp_cue_time'         : 200,
     'order_cue'             : True,
     'balance_EI'            : True,
+    'load_prev_weights'     : False,
+    'weight_load_fn'        : './savedir/chunking_10_cue_on.pkl',
+    'response_multiplier'   : 4, # mutliply the mask by this number during response windows... can help training
+
 
     # Timings and rates
-    'dt'                    : 10,
+    'dt'                    : 20,
     'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
@@ -50,7 +54,7 @@ par = {
     'clip_max_grad_val'     : 1,
     'input_mean'            : 0.0,
     'noise_in_sd'           : 0,
-    'noise_rnn_sd'          : 0.2, #originally 0.05
+    'noise_rnn_sd'          : 0.1,
 
     # Tuning function data
     'num_motion_dirs'       : 8,
@@ -81,7 +85,7 @@ par = {
     'delay_time'            : 200,
     'test_time'             : 500,
     'variable_delay_max'    : 300,
-    'mask_duration'         : 50,  # duration of traing mask after test onset
+    'mask_duration'         : 40,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
@@ -117,6 +121,20 @@ def update_parameters(updates):
         #print('Updating ', key)
     update_trial_params()
     update_dependencies()
+    if par['load_prev_weights']:
+        load_previous_weights()
+
+def load_previous_weights():
+
+    x = pickle.load(open(par['weight_load_fn'],'rb'))
+    n =  x['weights']['w_in'].shape[1]
+    par['w_in0'][:, :n] = x['weights']['w_in']
+    par['w_rnn0'] = x['weights']['w_rnn']
+    par['w_out0'] = x['weights']['w_out']
+    par['b_rnn0'] = x['weights']['b_rnn']
+    par['b_out0'] = x['weights']['b_out']
+    print('Weights from ', par['weight_load_fn'],' loaded.')
+
 
 def update_trial_params():
 
@@ -202,19 +220,18 @@ def update_trial_params():
 
     elif par['trial_type'] == 'chunking':
 
-        if par['var_num_pulses']:
-            par['num_pulses'] = par['num_max_pulse']
+        par['num_rule_tuned'] = par['num_pulses'] if par['var_num_pulses'] else 0
+
+        par['delay_times'] = par['delay_time']*np.ones((par['num_pulses']), dtype = np.int16)
         if par['var_delay']:
-            par['delay_time'] = 300
-            par['long_delay_time'] = 700
-            par['num_max_pulse'] = par['num_pulses']
-        if par['order_cue']:
-            if par['num_max_pulse']:
-                par['num_order_cue_tuned'] = par['num_max_pulse']
-            else:
-                par['num_order_cue_tuned'] = par['num_pulses']
-        else:
-            pass
+            # we will suffle these times for each trial
+            par['delay_times'][1::3] += 100
+            par['delay_times'][2::3] -= 100
+
+        # rule signal can appear at the end of delay1_time
+        par['num_time_steps'] = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['sample_time'] + \
+            (2*par['num_pulses']-1)*par['resp_cue_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
+
 
     else:
         print(par['trial_type'], ' not a recognized trial type')
@@ -228,10 +245,7 @@ def update_dependencies():
 
     # Number of input neurons
     if par['trial_type'] == 'chunking':
-        if par['order_cue']:
-            par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned'] + par['num_order_cue_tuned']
-        else:
-            par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned']
+        par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
     else:
         par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
     # General network shape
@@ -281,7 +295,7 @@ def update_dependencies():
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
 
     # Length of each trial in time steps
-    par['num_time_steps'] = par['trial_length']//par['dt']
+    #par['num_time_steps'] = par['trial_length']//par['dt']
 
 
     ####################################################################

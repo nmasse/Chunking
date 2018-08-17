@@ -8,75 +8,89 @@ from sklearn import svm
 import time
 import pickle
 import stimulus
-import matplotlib.pyplot as plt
 import copy
+import matplotlib.pyplot as plt
+from itertools import product
 
 def analyze_model_from_file(filename, savefile = None, analysis = False, test_mode_pulse=False, test_mode_delay=False):
 
-    x = pickle.load(open('./savedir/perfect/'+filename, 'rb'))
+    tuning = True
+    decoding = True
+    simulation = True
+    cut_weight_analysis = True
+    currents = True
+
+    results = pickle.load(open(filename, 'rb'))
     if savefile is None:
-        x['parameters']['save_fn'] = 'test.pkl'
+        results['parameters']['save_fn'] = 'test.pkl'
     else:
-        x['parameters']['save_fn'] = savefile
-    update_parameters(x['parameters'])
-    print("\n\n\nLook here!!!!!!!!!!!")
-    print(par['num_max_pulse'])
-    print(par['num_pulses'])
+        results['parameters']['save_fn'] = savefile
+    update_parameters(results['parameters'])
+    update_parameters({'response_multiplier' : 1., 'load_prev_weights': False})
+
     stim = stimulus.Stimulus()
-    if analysis:
-        for i in range(x['parameters']['num_pulses']):
-            trial_info = stim.generate_trial(analysis = True, num_fixed =i)
-            input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
-            y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
-                x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
+    trial_info = stim.generate_trial(analysis = False, var_delay = False, var_resp_delay = False, var_num_pulses = False, test_mode = False)
+    input_data = np.squeeze(np.split(trial_info['neural_input'], results['parameters']['num_time_steps'], axis=1))
+    y_hat, h, syn_x, syn_u = run_model(input_data, results['parameters']['h_init'], \
+        results['parameters']['syn_x_init'], results['parameters']['syn_u_init'], results['weights'])
+    trial_time = np.arange(0,h.shape[1]*par['dt'], par['dt'])
 
-            h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
-            syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
-            syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = True, stim_num = i, simulation = False, cut = True,\
-                    lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
-    elif test_mode_pulse:
-        for i in range(x['parameters']['num_max_pulse']//2,x['parameters']['num_max_pulse']+1):
-            trial_info = stim.generate_trial(analysis = False, num_fixed =0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=True,pulse=i)
-            input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
+    """
+    Calculate currents
+    """
+    if currents:
+        print('calculate current...')
+        current_results = calculate_currents(h, syn_x, syn_u, trial_info['neural_input'], results['weights'])
+        for key, val in current_results.items():
+            results[key] = val
+            #x[key] = val # added just to be able to run cut_weights in one analysis run
+        pickle.dump(results, open(savefile, 'wb'))
 
-            y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
-                x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
+    """
+    Calculate neuronal and synaptic sample motion tuning
+    """
+    if tuning:
+        print('calculate tuning...')
+        sample = np.reshape(np.array(trial_info['sample']),(par['batch_train_size'], par['num_pulses']))
+        tuning_results = calculate_tuning(h, syn_x, syn_u, sample)
+        for key, val in tuning_results.items():
+            results[key] = val
+            #x[key] = val # added just to be able to run cut_weights in one analysis run
+        pickle.dump(results, open(savefile, 'wb'))
 
-            h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
-            syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
-            syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
+    """
+    Calculate the neuronal and synaptic contributions towards solving the task
+    """
+    print('weights ',results['weights']['w_in'].shape, results['weights']['w_rnn'].shape)
+    if simulation:
+        print('simulating network...')
+        simulation_results = simulate_network(trial_info, h, syn_x, syn_u, trial_info['neural_input'], results['weights'])
+        for key, val in simulation_results.items():
+            results[key] = val
+        pickle.dump(results, open(savefile, 'wb'))
 
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, cut = False,\
-                    lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
-    elif test_mode_delay:
-        trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=test_mode_pulse,test_mode_delay=test_mode_delay)
-        input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
+    """
+    Decode the sample direction from neuronal activity and synaptic efficacies
+    using support vector machines
+    """
+    if decoding:
+        print('decoding activity...')
+        decoding_results =  svm_wraper_simple(h, syn_x, syn_u, trial_info, num_reps = 3, num_reps_stability = 0)
+        for key, val in decoding_results.items():
+            results[key] = val
+        pickle.dump(results, open(savefile, 'wb') )
 
-        y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
-            x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
 
-        h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
-        syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
-        syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = True, cut = True,\
-                lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
-    else:
-        trial_info = stim.generate_trial()
-        print(trial_info['neural_input'].shape)
-        print(x['parameters']['num_time_steps'])
-        input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
-        y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
-            x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
+    if cut_weight_analysis:
+        print('Removing weights...')
+        cut_results = cut_weights(results, trial_info, h, syn_x, syn_u, results['weights'], num_reps = 1, num_top_neurons = 4)
+        for key, val in cut_results.items():
+            results[key] = val
+        pickle.dump(results, open(savefile, 'wb'))
 
-        h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
-        syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
-        syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, cut = False,\
-                lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
 
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
@@ -165,7 +179,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
     """
     if decoding:
         print('decoding activity...')
-        decoding_results = calculate_svms(x, h_stacked, syn_x_stacked, syn_u_stacked, trial_info, trial_time, \
+        decoding_results = calculate_svms(h_stacked, syn_x_stacked, syn_u_stacked, trial_info, trial_time, \
             num_reps = par['decoding_reps'], decode_test = par['decode_test'], decode_rule = par['decode_rule'], \
             decode_sample_vs_test = par['decode_sample_vs_test'], analysis=analysis, test_mode_pulse=test_mode_pulse, pulse=pulse, test_mode_delay=test_mode_delay, stim_num=stim_num)
         for key, val in decoding_results.items():
@@ -176,7 +190,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
     print('Analysis results saved in ', save_fn)
 
 
-def calculate_svms(x_dict,h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
+def calculate_svms(h, syn_x, syn_u, trial_info, trial_time, num_reps = 10, \
     decode_test = False, decode_rule = False, decode_sample_vs_test = False, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False, stim_num=0):
 
     """
@@ -185,19 +199,6 @@ def calculate_svms(x_dict,h, syn_x, syn_u, trial_info, trial_time, num_reps = 20
     rule is the rule index for each trial_length
     """
 
-    lin_clf = svm.SVC(C=1, kernel='linear', decision_function_shape='ovr', shrinking=False, tol=1e-4)
-
-    num_time_steps = len(trial_time)
-    decoding_results = {}
-
-    """
-    The synaptic efficacy is the product of syn_x and syn_u, will decode sample
-    direction from this value
-    """
-    syn_efficacy = syn_x*syn_u
-    print("h shape: ",h.shape)
-    print("syn shape: ",syn_efficacy.shape)
-    combined = np.concatenate((h, syn_efficacy), axis=0)
 
 
     if par['trial_type'] == 'DMC':
@@ -226,7 +227,6 @@ def calculate_svms(x_dict,h, syn_x, syn_u, trial_info, trial_time, num_reps = 20
 
     else:
         sample = np.array(trial_info['sample'])
-        print("sample shape: ",sample.shape)
         rule = np.array(trial_info['rule'])
         print('sample ', sample.shape)
 
@@ -240,20 +240,20 @@ def calculate_svms(x_dict,h, syn_x, syn_u, trial_info, trial_time, num_reps = 20
 
     if analysis:
         decoding_results['neuronal_sample_decoding'+str(stim_num)], decoding_results['synaptic_sample_decoding'+str(stim_num)],decoding_results['combined_decoding'+str(stim_num)] = \
-            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse, stim_num)
+            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse, stim_num)
         # neu, syn, comb = svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time, analysis, stim_num)
         # decoding_results['neuronal_sample_decoding'] = np.concatenate((decoding_results['neuronal_sample_decoding'], neu), axis = 1)
         # decoding_results['synaptic_sample_decoding'] = np.concatenate((decoding_results['synaptic_sample_decoding'], syn), axis = 1)
         # decoding_results['combined_decoding'] = np.concatenate((decoding_results['combined_decoding'], comb), axis = 1)
     elif test_mode_pulse:
         decoding_results['neuronal_sample_decoding'+str(pulse)], decoding_results['synaptic_sample_decoding'+str(pulse)],decoding_results['combined_decoding'+str(pulse)] = \
-            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse)
+            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse)
     elif test_mode_delay:
         decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'],decoding_results['combined_decoding'] = \
-            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse, test_mode_delay)
+            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time,analysis, test_mode_pulse, pulse, test_mode_delay)
     else:
         decoding_results['neuronal_sample_decoding'], decoding_results['synaptic_sample_decoding'],decoding_results['combined_decoding'] = \
-            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time)
+            svm_wraper(lin_clf, h, syn_efficacy, combined, sample, rule, num_reps, trial_time)
 
     if decode_sample_vs_test:
         print('sample vs. test decoding...')
@@ -263,27 +263,67 @@ def calculate_svms(x_dict,h, syn_x, syn_u, trial_info, trial_time, num_reps = 20
     if decode_test:
         print('test decoding...')
         decoding_results['neuronal_test_decoding'], decoding_results['synaptic_test_decoding'] = \
-            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, test, rule, num_reps, trial_time)
+            svm_wraper(lin_clf, h, syn_efficacy, test, rule, num_reps, trial_time)
 
     if decode_rule:
         print('rule decoding...')
         decoding_results['neuronal_rule_decoding'], decoding_results['synaptic_rule_decoding'] = \
-            svm_wraper(trial_info, x_dict,lin_clf, h, syn_efficacy, trial_info['rule'], np.zeros_like(sample), num_reps, trial_time)
+            svm_wraper(lin_clf, h, syn_efficacy, trial_info['rule'], np.zeros_like(sample), num_reps, trial_time)
 
     return decoding_results
 
 
+def svm_wraper_simple(h, syn_x, syn_u, trial_info, num_reps = 3, num_reps_stability = 0):
 
-def svm_wraper(trial_info, x_dict, lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time, analysis=False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0):
+    par['decode_stability'] = False
+    train_pct = 0.5
+    _, num_time_steps, num_trials = h.shape
+    lin_clf = svm.SVC(C=1, kernel='linear', decision_function_shape='ovr', shrinking=False, tol=1e-3)
+
+    score = np.zeros((3, par['num_pulses'], num_reps, num_time_steps), dtype = np.float32)
+    score_dynamic = np.zeros((3, par['num_pulses'], num_reps_stability, num_time_steps, num_time_steps), dtype = np.float32)
+
+    # number of reps used to calculate encoding stability should not be larger than number of normal deocding reps
+    num_reps_stability = np.minimum(num_reps_stability, num_reps)
+
+    for p in range(par['num_pulses']):
+        print('Decoding pulse number ', p)
+        labels = trial_info['sample'][:, p]
+        for rep in range(num_reps):
+
+            q = np.random.permutation(num_trials)
+            ind_train = q[:round(train_pct*num_trials)]
+            ind_test = q[round(train_pct*num_trials):]
+
+            for data_type in [0,1,2]:
+                if data_type == 0:
+                    z = np.array(h)
+                elif data_type == 1:
+                    z = np.array(syn_x*syn_u)
+                elif data_type == 2:
+                    z = np.array( np.concatenate((h, syn_x*syn_u), axis=0))
+
+                for t in range(num_time_steps):
+                    lin_clf.fit(z[:,t,ind_train].T, labels[ind_train])
+                    predicted_sample = lin_clf.predict(z[:,t,ind_test].T)
+                    score[data_type, p, rep, t] = np.mean( labels[ind_test]==predicted_sample)
+
+                    if rep < num_reps_stability and par['decode_stability']:
+                        print('Should be see this.')
+                        for t1 in range(num_time_steps):
+                            predicted_sample = lin_clf.predict(z[:,t1,ind_test].T)
+                            score_dynamic[data_type, p, rep, t, t1] = np.mean(labels[ind_test]==predicted_sample)
+
+    results = {'neuronal_decoding': score[0,:,:,:], 'synaptic_decoding': score[1,:,:,:], 'combined_decoding': score[2,:,:,:]}
+    return results
+
+
+def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time, analysis=False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0):
 
     """
     Wraper function used to decode sample/test or rule information
     from hidden activity (h) and synaptic efficacies (syn_eff)
     """
-
-    onset = np.array([np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1])
-    eolongd = (par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'])//par['dt']
-
     train_pct = 0.75
     trials_per_cond = 25
     _, num_time_steps, num_trials = h.shape
@@ -346,11 +386,6 @@ def svm_wraper(trial_info, x_dict, lin_clf, h, syn_eff, combo, stim, rule, num_r
                     equal_train_ind[u] =  train_ind[q]
                     q = np.random.randint(len(test_ind), size = trials_per_stim)
                     equal_test_ind[u] =  test_ind[q]
-
-                # # Choosing top neurons
-                # arr = x_dict['synaptic_pev'][:,n,onset[n]-1]
-                # top_ind = arr.argsort()[-2:][::-1]
-                # #top_ind = np.random.choice(100, size=4)
 
                 for t in range(num_time_steps):
                     if trial_time[t] <= par['dead_time']:
@@ -469,177 +504,225 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
     return lesion_results
 
 
-def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5):
+def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights, num_reps = 1):
+
     """
     Simulation will start from the start of the test period until the end of trial
     """
-    onset = np.array([np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1])
+    _, trial_length, batch_train_size = h.shape
+    mean_pulse_id = np.mean(trial_info['pulse_id'], axis = 1) # trial_info['pulse_id'] should be identical across all trials
+    pulse_onsets = [np.min(np.where(mean_pulse_id==i)[0]) for i in range(par['num_pulses'])]
+    test_length = par['resp_cue_time']//par['dt']
 
     simulation_results = {
-        'accuracy'                      : np.zeros((par['num_pulses'], par['n_hidden'], num_reps)),
+        'accuracy_no_shuffle'           : np.zeros((par['num_pulses'], par['n_hidden'], num_reps)),
         'accuracy_neural_shuffled'      : np.zeros((par['num_pulses'], par['n_hidden'], num_reps)),
         'accuracy_syn_shuffled'         : np.zeros((par['num_pulses'], par['n_hidden'], num_reps))}
 
 
     for p in range(par['num_pulses']):
-        test_onset = onset[p]
 
-        _, trial_length, batch_train_size = h.shape
+        test_onset = pulse_onsets[p]
+        print(pulse_onsets, test_onset,test_length)
 
-        train_mask = np.zeros((trial_length, par['batch_train_size']),dtype=np.float32)
-        train_mask[onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt']] = 1
-        #print(np.sum(train_mask))
+        x = np.split(trial_info['neural_input'][:,test_onset:test_onset+test_length,:],test_length,axis=1)
+        #print('XXX')
+        #print(trial_info['neural_input'].shape)
+        #print(len(x))
+        #print(x[0].shape)
+        y = trial_info['desired_output'][:,test_onset:test_onset+test_length,:]
+        train_mask = trial_info['train_mask'][test_onset:test_onset+test_length, :]
+        pulse_id = trial_info['pulse_id'][test_onset:test_onset+test_length, :]
 
-        #test_length = trial_length - test_onset
-        test_length = par['resp_cue_time']//par['dt']
-        trial_ind = np.arange(par['batch_train_size'])
-
-        print('h', h.shape)
-        print('trial_length',trial_length)
-        print('test_length',test_length)
-        print('test_onset',test_onset)
-        print('trial_info', trial_info['neural_input'].shape)
-        x = np.split(trial_info['neural_input'][:,test_onset:test_onset+test_length,trial_ind],test_length,axis=1)
-        y = trial_info['desired_output'][:,test_onset:test_onset+test_length,trial_ind]
-        train_mask = train_mask[test_onset:test_onset+test_length]
-        #print(np.sum(train_mask))
 
         for n in range(num_reps):
-            print(n, "out of ", num_reps)
+            print('pulse ', p, ' rep ', n, "out of ", num_reps)
 
             """
             Calculating behavioral accuracy without shuffling
             """
-            hidden_init = h[:,test_onset-1,trial_ind]
-            syn_x_init = syn_x[:,test_onset-1,trial_ind]
-            syn_u_init = syn_u[:,test_onset-1,trial_ind]
+            hidden_init = np.array(h[:,test_onset-1,:])
+            syn_x_init = np.array(syn_x[:,test_onset-1,:])
+            syn_u_init = np.array(syn_u[:,test_onset-1,:])
             y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
             #print(np.sum(train_mask))
-            simulation_results['accuracy'][p,:,n] = get_perf(y, y_hat, train_mask)
+
+            simulation_results['accuracy_no_shuffle'][p,:,n], _ = get_perf(y, y_hat, train_mask, pulse_id)
+
+            ind_shuffle = np.random.permutation(batch_train_size)
+
 
             for m in range(par['n_hidden']):
                 """
                 Keep the synaptic values fixed, permute the neural activity
                 """
-                ind_shuffle = np.random.permutation(len(trial_ind))
-                hidden_init = h[:,test_onset-1,trial_ind]
+
+                hidden_init = np.array(h[:,test_onset-1,:])
+                syn_x_init = np.array(syn_x[:,test_onset-1,:])
+                syn_u_init = np.array(syn_u[:,test_onset-1,:])
                 hidden_init[m,:] = hidden_init[m, ind_shuffle]
+
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-                simulation_results['accuracy_neural_shuffled'][p,m,n] = get_perf(y, y_hat, train_mask)
+                simulation_results['accuracy_neural_shuffled'][p,m,n], _ = get_perf(y, y_hat, train_mask, pulse_id)
+                acc, _  = get_perf(y, y_hat, train_mask, pulse_id)
 
                 """
                 Keep the hidden values fixed, permute synaptic values
                 """
-                hidden_init = h[:,test_onset-1,trial_ind]
-                syn_x_init = syn_x[:,test_onset-1,trial_ind]
+                hidden_init = np.array(h[:,test_onset-1,:])
+                syn_x_init = np.array(syn_x[:,test_onset-1,:])
+                syn_u_init = np.array(syn_u[:,test_onset-1,:])
                 syn_x_init[m,:] = syn_x_init[m,ind_shuffle]
-                syn_u_init = syn_u[:,test_onset-1,trial_ind]
                 syn_u_init[m,:] = syn_u_init[m,ind_shuffle]
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-                simulation_results['accuracy_syn_shuffled'][p,m,n] = get_perf(y, y_hat, train_mask)
+                simulation_results['accuracy_syn_shuffled'][p,m,n], _ = get_perf(y, y_hat, train_mask, pulse_id)
+
 
     return simulation_results
 
-def cut_weights(x_dict, trial_info, start_time, trial_time, h, syn_x, syn_u, network_weights, num_reps = 1, num_top_neurons = 4):
-    """
-    Simulation will start from the start of the test period until the end of trial
-    """
-    onset = np.array([np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1])
+def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
 
-    _, trial_length, batch_train_size = h.shape
+    trial_length = h.shape[1]
+    current_results = {
+        'exc_current'            :  np.zeros((par['n_hidden'], trial_length, 2),dtype=np.float32),
+        'inh_current'            :  np.zeros((par['n_hidden'], trial_length, 2),dtype=np.float32),
+        'motion_current'         :  np.zeros((par['n_hidden'], trial_length),dtype=np.float32),
+        'fix_current'            :  np.zeros((par['n_hidden'], trial_length),dtype=np.float32),
+        'order_current'          :  np.zeros((par['n_hidden'], trial_length),dtype=np.float32),
+        'rnn_current'            :  np.zeros((par['n_hidden'], par['n_hidden'], trial_length, 2),dtype=np.float32)}
 
-    eolongd = (par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'])//par['dt']
-    #start_time = eolongd-(par['long_delay_time']//par['dt'])+1
-    onset -= start_time
+    mean_activity = np.mean(h, axis = 2)
+    mean_effective_activity = np.mean(h*syn_x*syn_u, axis = 2)
+    input_activity = np.mean(network_input, axis = 2)
+
+    motion_rng = range(par['num_motion_tuned'])
+    fix_rng = range(par['num_motion_tuned'], par['num_motion_tuned']+par['num_fix_tuned'])
+    order_rng = range(par['num_motion_tuned']+par['num_fix_tuned'], par['num_motion_tuned']+par['num_fix_tuned']+par['num_rule_tuned'])
+
+    current_results['exc_current'][:, :, 0] = np.matmul(network_weights['w_rnn'][:,:80],  mean_activity[:80, :])
+    current_results['exc_current'][:, :, 1] = np.matmul(network_weights['w_rnn'][:,:80],  mean_effective_activity[:80, :])
+    current_results['inh_current'][:, :, 0] = np.matmul(network_weights['w_rnn'][:,80:],  mean_activity[80:, :])
+    current_results['inh_current'][:, :, 1] = np.matmul(network_weights['w_rnn'][:,80:],  mean_effective_activity[80:, :])
+
+
+    current_results['motion_current'] = np.matmul(network_weights['w_in'][:,motion_rng],  input_activity[motion_rng, :])
+    current_results['fix_current'] = np.matmul(network_weights['w_in'][:,fix_rng],  input_activity[fix_rng, :])
+    current_results['order_current'] = np.matmul(network_weights['w_in'][:,order_rng],  input_activity[order_rng, :])
+
+    for t in range(trial_length):
+        current_results['rnn_current'][:, :, t, 0] = np.matmul(network_weights['w_rnn'],  mean_activity[:, t])
+        current_results['rnn_current'][:, :, t, 1] = np.matmul(network_weights['w_rnn'],  mean_effective_activity[:, t])
+
+
+    return current_results
+
+
+def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, num_reps = 1, num_top_neurons = 1):
+
+    trial_length = h.shape[1]
 
     cutting_results = {
         'cut_neurons'             : np.zeros((par['num_pulses'], num_top_neurons),dtype=np.float32),
-        'accuracy_before_cut'     : np.zeros((par['num_pulses'], par['num_pulses'], num_reps),dtype=np.float32),
-        'accuracy_after_cut'      : np.zeros((par['num_pulses'], par['num_pulses'], num_reps),dtype=np.float32),
-        'synaptic_pev_after_cut'          : np.zeros((par['n_hidden'], par['num_pulses'], trial_length, num_reps),dtype=np.float32),
-        'neuronal_pev_after_cut'          : np.zeros((par['n_hidden'], par['num_pulses'], trial_length, num_reps),dtype=np.float32),
-        'neuronal_pref_dir_after_cut'     : np.zeros((par['n_hidden'],  par['num_pulses'], trial_length, num_reps), dtype=np.float32),
-        'synaptic_pref_dir_after_cut'     : np.zeros((par['n_hidden'],  par['num_pulses'], trial_length, num_reps), dtype=np.float32)}
+        'accuracy_before_cut'     : np.zeros((par['num_pulses'], par['num_pulses']),dtype=np.float32),
+        'accuracy_after_cut_start': np.zeros((par['num_pulses'], par['num_pulses']),dtype=np.float32),
+        'accuracy_after_cut_delay': np.zeros((par['num_pulses'], par['num_pulses']),dtype=np.float32),
+        'synaptic_pev_after_cut'          : np.zeros((par['n_hidden'], par['num_pulses'], trial_length),dtype=np.float32),
+        'neuronal_pev_after_cut'          : np.zeros((par['n_hidden'], par['num_pulses'], trial_length),dtype=np.float32),
+        'neuronal_pref_dir_after_cut'     : np.zeros((par['n_hidden'],  par['num_pulses'], trial_length), dtype=np.float32),
+        'synaptic_pref_dir_after_cut'     : np.zeros((par['n_hidden'],  par['num_pulses'], trial_length), dtype=np.float32)}
 
-    h = h[:,start_time,:]
-    syn_x = syn_x[:,start_time,:]
-    syn_u = syn_u[:,start_time,:]
+        # determine when the first pulse occured
+    mean_pulse_id = np.mean(trial_info['pulse_id'], axis = 1) # trial_info['pulse_id'] should be identical across all trials
+    pulse_onset = np.min(np.where(mean_pulse_id==0)[0])
+    end_delay = pulse_onset - 1
+    print('eod ',end_delay)
 
-    x = np.split(trial_info['neural_input'],trial_length,axis=1)
-    x = x[start_time:]
+    x = np.split(trial_info['neural_input'][:,1:,:],trial_length-1,axis=1)
+    x_delay = np.split(trial_info['neural_input'][:,end_delay:,:],trial_length-end_delay,axis=1)
 
-    y = trial_info['desired_output']
-    y = y[:,start_time:,:]
-
-    train_mask = np.zeros((trial_length-start_time, par['batch_train_size']),dtype=np.float32)
-    y_hat, _, _, _ = run_model(x, h, syn_x, syn_u, network_weights)
 
     for p in range(par['num_pulses']):
         print(p, "out of ", par['num_pulses'], " pulses")
 
+        h_init = np.array(h[:,0,:])
+        syn_x_init = np.array(syn_x[:,0,:])
+        syn_u_init = np.array(syn_u[:,0,:])
+
+        h_init_delay = np.array(h[:,end_delay-1,:])
+        syn_x_init_delay = np.array(syn_x[:,end_delay-1,:])
+        syn_u_init_delay = np.array(syn_u[:,end_delay-1,:])
+
         """
         Calculating behavioral accuracy without shuffling
         """
-        train_mask[:,:] = 0
-        train_mask[onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt'],:] = 1
-        cutting_results['accuracy_before_cut'][:,p,:] = get_perf(y, y_hat, train_mask)
+        y_hat, _, _, _ = run_model(x, h_init, syn_x_init, syn_u_init, network_weights)
+
+        _,pulse_acc =  get_perf(trial_info['desired_output'][:,1:,:], y_hat, \
+            trial_info['train_mask'][1:,:], trial_info['pulse_id'][1:,:])
+        cutting_results['accuracy_before_cut'][p,:] = pulse_acc
 
         """
         Cutting top neurons from synaptic_pev result
         """
-        arr = x_dict['synaptic_pev'][:,p,onset[p]+start_time-1]
-        top_ind = arr.argsort()[-num_top_neurons:][::-1]
-        #top_ind = np.random.choice(100, size=4)
-        cutting_results['cut_neurons'][p,:] = top_ind
-        print(top_ind)
+        ind = np.argsort(results['synaptic_pev'][:, p, end_delay])
+        top_neurons = ind[-num_top_neurons:]
+        cutting_results['cut_neurons'][p,:] = top_neurons
 
-        cut_weights = copy.deepcopy(network_weights)
-        for ind in top_ind:
-            cut_weights['w_rnn'][ind,top_ind] = 0
+        current_weights = copy.deepcopy(network_weights)
+        #current_weights = {**network_weights}
 
-        y_hat_cut, h_cut, syn_x_cut, syn_u_cut = run_model(x, h, syn_x, syn_u, cut_weights)
 
-        """
-        Calculating behavioral accuracy for each pulse after cut
-        """
-        for p2 in range(par['num_pulses']):
-            print(p2, "out of ", par['num_pulses'])
-            train_mask[:,:] = 0
-            train_mask[onset[p2]+par['mask_duration']//par['dt']:onset[p2]+par['sample_time']//par['dt']] = 1
+        for i,j in product(top_neurons,top_neurons):
+            current_weights['w_rnn'][i, j] = 0
 
-            # for n in range(num_reps):
-            cutting_results['accuracy_after_cut'][p,p2,:] = get_perf(y, y_hat_cut, train_mask)
 
-        for n in range(num_reps):
-            tuning_results = calculate_tuning(h_cut, syn_x_cut, syn_u_cut, trial_info, trial_time[start_time:], cut_weights)
+        h_init = np.array(h[:,0,:])
+        syn_x_init = np.array(syn_x[:,0,:])
+        syn_u_init = np.array(syn_u[:,0,:])
 
-        for key, val in tuning_results.items():
-           cutting_results[key+"_after_cut"][:,:,:,0] = val
+        y_hat_cut, h_cut, syn_x_cut, syn_u_cut = run_model(x, h_init, syn_x_init, syn_u_init, current_weights)
+        _,pulse_acc_start =  get_perf(trial_info['desired_output'][:,1:,:], y_hat_cut, \
+            trial_info['train_mask'][1:,:], trial_info['pulse_id'][1:,:])
+        cutting_results['accuracy_after_cut_start'][p,:] = pulse_acc_start
+
+        print('ds ', cutting_results['synaptic_pev_after_cut'][:, p, 1:].shape)
+        sample = np.reshape(trial_info['sample'][:, p], (-1,1))
+        tuning_results_cut = calculate_tuning(h_cut, syn_x_cut, syn_u_cut, sample)
+        cutting_results['synaptic_pev_after_cut'][:, p, 1:] = np.squeeze(tuning_results_cut['synaptic_pev'])
+        cutting_results['synaptic_pref_dir_after_cut'][:, p, 1:] = np.squeeze(tuning_results_cut['synaptic_pref_dir'])
+        cutting_results['neuronal_pev_after_cut'][:, p, 1:] = np.squeeze(tuning_results_cut['neuronal_pev'])
+        cutting_results['neuronal_pref_dir_after_cut'][:, p, 1:] = np.squeeze(tuning_results_cut['neuronal_pref_dir'])
+
+
+        y_hat_cut, _, _, _ = run_model(x_delay, h_init_delay, syn_x_init_delay, syn_u_init_delay, current_weights)
+        _, pulse_acc_delay = get_perf(trial_info['desired_output'][:, end_delay:,:], y_hat_cut, trial_info['train_mask'][end_delay:,:], \
+            trial_info['pulse_id'][end_delay:,:])
+        cutting_results['accuracy_after_cut_delay'][p,:] = pulse_acc_delay
+
 
 
     return cutting_results
 
-def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights):
+def calculate_tuning(h, syn_x, syn_u, sample):
 
     epsilon = 1e-9
     """
     Calculates neuronal and synaptic sample motion direction tuning
     """
+    num_time_steps = h.shape[1]
+    num_pulses = sample.shape[1]
 
-    rule = np.array(trial_info['rule'])
-    sample = np.reshape(np.array(trial_info['sample']),(par['batch_train_size'], par['num_pulses']))
-
-    num_time_steps = len(trial_time)
+    print('pulses, time ',num_pulses,num_time_steps)
 
     # want zeros(n_hidden, n_pulse, n_time)
 
     tuning_results = {
-        'neuronal_pref_dir'     : np.zeros((par['n_hidden'],  par['num_pulses'], num_time_steps), dtype=np.float32),
-        'synaptic_pref_dir'     : np.zeros((par['n_hidden'],  par['num_pulses'], num_time_steps), dtype=np.float32),
-        'neuronal_pev'          : np.zeros((par['n_hidden'],  par['num_pulses'], num_time_steps), dtype=np.float32),
-        'synaptic_pev'          : np.zeros((par['n_hidden'],  par['num_pulses'], num_time_steps), dtype=np.float32)}
+        'neuronal_pref_dir'     : np.zeros((par['n_hidden'],  num_pulses, num_time_steps), dtype=np.float32),
+        'synaptic_pref_dir'     : np.zeros((par['n_hidden'],  num_pulses, num_time_steps), dtype=np.float32),
+        'neuronal_pev'          : np.zeros((par['n_hidden'],  num_pulses, num_time_steps), dtype=np.float32),
+        'synaptic_pev'          : np.zeros((par['n_hidden'],  num_pulses, num_time_steps), dtype=np.float32),
+        'pulse_accuracy_tuning' : np.zeros((par['num_pulses'], num_pulses), dtype=np.float32)}
 
-    mask = np.array(trial_info['train_mask'])
 
     """
     The synaptic efficacy is the product of syn_x and syn_u, will decode sample
@@ -650,14 +733,12 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights):
     sample_dir = np.ones((par['batch_train_size'], 3, par['num_pulses']))
 
 
-    for i in range(par['num_pulses']):
+    for i in range(num_pulses):
         sample_dir[:,1, i] = np.cos(2*np.pi*sample[:,i]/par['num_motion_dirs'])
         sample_dir[:,2, i] = np.sin(2*np.pi*sample[:,i]/par['num_motion_dirs'])
 
-
-    for n in range(par['n_hidden']):
-        for t in range(num_time_steps):
-            for i in range(par['num_pulses']):
+        for n in range(par['n_hidden']):
+            for t in range(num_time_steps):
 
                 # Neuronal sample tuning
                 w = np.linalg.lstsq(sample_dir[:,:,i], h[n,t,:])
@@ -682,6 +763,7 @@ def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights):
                 if response_var > epsilon:
                     tuning_results['synaptic_pev'][n,i,t] = 1 - mse/(response_var + epsilon)
                     tuning_results['synaptic_pref_dir'][n,i,t] = np.arctan2(w[2,0],w[1,0])
+
     return tuning_results
 
 def run_model(x, hidden_init, syn_x_init, syn_u_init, weights, suppress_activity = None):
@@ -690,6 +772,7 @@ def run_model(x, hidden_init, syn_x_init, syn_u_init, weights, suppress_activity
     Run the reccurent network
     History of hidden state activity stored in self.hidden_state_hist
     """
+
     hidden_state_hist, syn_x_hist, syn_u_hist = \
         rnn_cell_loop(x, hidden_init, syn_x_init, syn_u_init, weights, suppress_activity)
 
@@ -744,11 +827,18 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
     """
     if par['synapse_config'] == 'std_stf':
         # implement both synaptic short term facilitation and depression
+        """
         syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
         syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
         syn_x = np.minimum(1, np.maximum(0, syn_x))
         syn_u = np.minimum(1, np.maximum(0, syn_u))
         h_post = syn_u*syn_x*h
+        """
+        syn_x1 = syn_x + par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
+        syn_u1 = syn_u + par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
+        syn_x1 = np.minimum(1, np.maximum(0, syn_x1))
+        syn_u1 = np.minimum(1, np.maximum(0, syn_u1))
+        h_post = syn_u1*syn_x1*h
 
     elif par['synapse_config'] == 'std':
         # implement synaptic short term derpression, but no facilitation
@@ -780,10 +870,10 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
 
     h *= suppress_activity
 
-    return h, syn_x, syn_u
+    return h, syn_x1, syn_u1
 
 
-def get_perf(y, y_hat, mask):
+def get_perf(y, y_hat, mask, pulse_id):
 
     """
     Calculate task accuracy by comparing the actual network output to the desired output
@@ -792,10 +882,17 @@ def get_perf(y, y_hat, mask):
     y is the desired output
     y_hat is the actual output
     """
+    #print("Entering get_perf...")
+    #print(np.sum(mask))
     y_hat_max = np.stack(y_hat, axis=1)
     mask_test = mask*(y[0,:,:]==0)
     y_max = np.argmax(y, axis = 0)
     y_hat_max = np.argmax(y_hat_max, axis = 0)
     accuracy = np.sum(np.float32(y_max == y_hat_max)*mask_test)/np.sum(mask_test)
 
-    return accuracy
+    pulse_accuracy = np.zeros((par['num_pulses']))
+    for i in range(par['num_pulses']):
+        current_mask = mask_test*(pulse_id == i)
+        pulse_accuracy[i] = np.sum(np.float32(y_max == y_hat_max)*current_mask)/np.sum(current_mask)
+
+    return accuracy, pulse_accuracy

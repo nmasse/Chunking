@@ -32,9 +32,10 @@ class Model:
         self.target_data = tf.unstack(target_data, axis=1)
         self.mask = tf.unstack(mask, axis=0)
 
-
         # Load the initial hidden state activity to be used at the start of each trial
-        self.hidden_init = tf.constant(par['h_init'])
+        #self.hidden_init = tf.constant(par['h_init'])
+        with tf.variable_scope('initial_activity'):
+            self.hidden_init = tf.get_variable('hidden_init', initializer = par['h_init'], trainable=True)
 
         # Load the initial synaptic depression and facilitation to be used at the start of each trial
         self.synapse_x_init = tf.constant(par['syn_x_init'])
@@ -59,10 +60,8 @@ class Model:
         self.rnn_cell_loop(self.input_data, self.hidden_init, self.synapse_x_init, self.synapse_u_init)
 
         with tf.variable_scope('output'):
-            # W_out = tf.get_variable('W_out', initializer = par['w_out0'], trainable=True)
-            # b_out = tf.get_variable('b_out', initializer = par['b_out0'], trainable=True)
-            W_out = tf.get_variable('W_out', initializer = par['weights_trained']['w_out'], trainable=True)
-            b_out = tf.get_variable('b_out', initializer = par['weights_trained']['b_out'], trainable=True)
+            W_out = tf.get_variable('W_out', initializer = par['w_out0'], trainable=True)
+            b_out = tf.get_variable('b_out', initializer = par['b_out0'], trainable=True)
 
         """
         Network output
@@ -77,12 +76,9 @@ class Model:
         Initialize weights and biases
         """
         with tf.variable_scope('rnn_cell'):
-            # W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=True)
-            # W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
-            # b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
-            W_in = tf.get_variable('W_in', initializer = par['weights_trained']['w_in'], trainable=True)
-            W_rnn = tf.get_variable('W_rnn', initializer = par['weights_trained']['w_rnn'], trainable=True)
-            b_rnn = tf.get_variable('b_rnn', initializer = par['weights_trained']['b_rnn'], trainable=True)
+            W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=True)
+            W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
+            b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
         self.W_ei = tf.constant(par['EI_matrix'])
 
         self.hidden_state_hist = []
@@ -170,7 +166,7 @@ class Model:
         """
         cross_entropy
         """
-        perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits_v2(logits = y_hat, labels = desired_output, dim=0) \
+        perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
                 for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
 
@@ -226,19 +222,12 @@ def main(gpu_id = None):
     """
     stim = stimulus.Stimulus()
 
-    f = pickle.load(open('./savedir/var_pulses_8_cue_off.pkl', 'rb'))
-    par['weights_trained'] = f['weights']
-    update_parameters(f['parameters'])
-
-    n_input, n_hidden, n_output = par['shape']
-    N = par['batch_train_size'] # trials per iteration, calculate gradients after batch_train_size
-
     """
     Define all placeholder
     """
     mask = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
-    x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
-    y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
+    x = tf.placeholder(tf.float32, shape=[par['n_input'], par['num_time_steps'], par['batch_train_size']])  # input data
+    y = tf.placeholder(tf.float32, shape=[par['n_output'], par['num_time_steps'], par['batch_train_size']]) # target data
 
     config = tf.ConfigProto()
     #config.gpu_options.allow_growth=True
@@ -260,14 +249,8 @@ def main(gpu_id = None):
         for i in range(par['num_iterations']):
 
             # generate batch of batch_train_size
-            trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'])
-
-            if not par['var_num_pulses']:
-                onset = np.array([np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1])
-                pulse_masks = np.array([np.zeros((par['num_time_steps'], par['batch_train_size']),dtype=np.float32)] * par['num_pulses'])
-                for p in range(par['num_pulses']):
-                    pulse_masks[p,onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt'],:] = 1
-
+            trial_info = stim.generate_trial(analysis = False, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], \
+                var_num_pulses=par['var_num_pulses'], test_mode = False)
 
             """
             Run the model
@@ -277,68 +260,25 @@ def main(gpu_id = None):
                 model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: trial_info['neural_input'], \
                 y: trial_info['desired_output'], mask: trial_info['train_mask']})
 
-            accuracy = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
+            accuracy, pulse_accuracy = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
 
-            pulse_accuracy = []
-            if not par['var_num_pulses']:
-                for p in range(par['num_pulses']):
-                    pulse_accuracy.append(analysis.get_perf(trial_info['desired_output'], y_hat, pulse_masks[p]))
-
-
-            model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*N)
+            model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*par['batch_train_size'])
 
             """
             Save the network model and output model performance to screen
             """
-            if i%par['iters_between_outputs']==0 and i > 0:
-                print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
+            if i%par['iters_between_outputs']==0:
+                print_results(i, perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy)
 
-            if i%5000 == 0:
+            if i%200 == 0:
                 weights = eval_weights()
-                syn_x_stacked = np.stack(syn_x_hist, axis=1)
-                syn_u_stacked = np.stack(syn_u_hist, axis=1)
-                h_stacked = np.stack(state_hist, axis=1)
-                trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
-                mean_h = np.mean(np.mean(h_stacked,axis=2),axis=1)
                 results = {
                     'model_performance': model_performance,
                     'parameters': par,
-                    'weights': weights,
-                    'trial_time': trial_time,
-                    'mean_h': mean_h,
-                    'timeline': trial_info['timeline']}
+                    'weights': weights}
                 pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
-
-            if accuracy > 0.995:
-                weights = eval_weights()
-                syn_x_stacked = np.stack(syn_x_hist, axis=1)
-                syn_u_stacked = np.stack(syn_u_hist, axis=1)
-                h_stacked = np.stack(state_hist, axis=1)
-                trial_time = np.arange(0,h_stacked.shape[1]*par['dt'], par['dt'])
-                mean_h = np.mean(np.mean(h_stacked,axis=2),axis=1)
-                results = {
-                    'model_performance': model_performance,
-                    'parameters': par,
-                    'weights': weights,
-                    'trial_time': trial_time,
-                    'mean_h': mean_h,
-                    'timeline': trial_info['timeline']}
-                pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
-                for b in range(10):
-                    plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T-np.max(np.array(y_hat)[:,:,b].T))]
-                    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
-                    j = 0
-                    for ax in axes.flat:
-                        im = ax.imshow(plot_list[j], aspect='auto')
-                        j += 1
-                    cax,kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
-                    plt.colorbar(im, cax=cax, **kw)
-                    plt.savefig("./savedir/output_"+str(par['num_pulses'])+"pulses_iter_"+str(i)+"_"+str(b)+".png")
-                    plt.close()
-                    plt.imshow(trial_info['neural_input'][:,:,b])
-                    plt.savefig("./savedir/input_"+str(par['num_pulses'])+"pulses_iter_"+str(i)+"_"+str(b)+".png")
-                    plt.close()
-                break
+                if accuracy > 0.9:
+                    break
 
         """
         Save model, analyze the network model and save the results
@@ -356,8 +296,7 @@ def main(gpu_id = None):
                 'parameters': par,
                 'weights': weights,
                 'trial_time': trial_time,
-                'mean_h': mean_h,
-                'timeline': trial_info['timeline']}
+                'mean_h': mean_h}
             pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
 
             #x = pickle.load(open(par['save_dir'] + par['save_fn'], 'rb'))
@@ -399,18 +338,23 @@ def eval_weights():
         W_out = tf.get_variable('W_out')
         b_out = tf.get_variable('b_out')
 
+    with tf.variable_scope('initial_activity', reuse=True):
+        h_init = tf.get_variable('hidden_init')
+
     weights = {
         'w_in'  : W_in.eval(),
         'w_rnn' : W_rnn.eval(),
         'w_out' : W_out.eval(),
         'b_rnn' : b_rnn.eval(),
-        'b_out'  : b_out.eval()
+        'b_out'  : b_out.eval(),
+        'h_init' : h_init.eval()
     }
 
     return weights
 
-def print_results(iter_num, trials_per_iter, perf_loss, spike_loss, state_hist, accuracy):
+def print_results(iter_num, perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy):
 
     print('Iter. {:4d}'.format(iter_num) + ' | Accuracy {:0.4f}'.format(accuracy) +
       ' | Perf loss {:0.4f}'.format(perf_loss) + ' | Spike loss {:0.4f}'.format(spike_loss) +
       ' | Mean activity {:0.4f}'.format(np.mean(state_hist)))
+    print('Pulse accuracy ', np.round(pulse_accuracy,4))
