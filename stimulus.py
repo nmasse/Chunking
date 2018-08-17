@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import numpy as np
 from parameters import *
 import matplotlib.pyplot as plt
@@ -8,14 +7,19 @@ class Stimulus:
 
     def __init__(self):
 
+        # Motion direction
+        self.motion_dirs = np.linspace(0,2*np.pi-2*np.pi/par['num_motion_dirs'],par['num_motion_dirs'])
+
         # Generate tuning functions
         self.create_tuning_functions()
 
 
-    def generate_trial(self, var_delay=False, var_resp_delay=False, var_num_pulses=False, all_RF=False, test_mode = False):
+
+
+    def generate_trial(self, task, var_delay=False, var_resp_delay=False, var_num_pulses=False, all_RF=False, test_mode = False):
 
         if task == "sequence":
-            return self.generate_sequence_trial(var_delay, var_resp_delay, var_num_pulses, all_RF)
+            return self.generate_sequence_trial(var_delay, var_resp_delay, all_RF)
 
         elif task == "RF_detection":
             return self.generate_RF_detection_trial()
@@ -87,7 +91,7 @@ class Stimulus:
             # in case there's left over time (true for var pulse conditions)
             trial_info['train_mask'][np.max(resp_times[-1]):, t] = 0
 
-        if False:
+        if True:
             for i in range(5):
                 plt.figure()
                 #plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(list(trial_info['delay'][i,:trial_info['num_pulses'][i]-1])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
@@ -109,17 +113,96 @@ class Stimulus:
 
         return trial_info
 
-    def generate_sequence_one_trial():
-        return None
+    def generate_sequence_trial(self, var_delay=False, var_resp_delay=False, all_RF=False, test_mode=False):
+        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+                      'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
+                      'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
+                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
 
-    def generate_sequence_all_trial():
-        return None
+        num_pulses = par['num_pulses']
+        start = int((par['dead_time'] + par['fix_time'])//par['dt'])
+        pulse_dur = int(par['sample_time']//par['dt'])
+        resp_dur = int(par['resp_cue_time']//par['dt'])
+        mask_dur = int(par['mask_duration']//par['dt'])
+        resp_start = int((par['dead_time'] + par['fix_time'] + num_pulses*par['sample_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
+        delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
+
+
+        for t in range(par['batch_train_size']):
+
+            """
+            Generate trial paramaters
+            """
+            num_pulses = par['num_pulses']
+            loc = np.random.permutation(np.arange(par['num_pulses'])) if all_RF else np.array([np.random.choice(np.arange(par['num_pulses']))] * par['num_pulses'])
+
+            current_delay_times = np.random.permutation(delay_times) if var_delay else delay_times
+            stim_times = [range(start + i*pulse_dur + np.sum(current_delay_times[:i]), start + (i+1)*pulse_dur + np.sum(current_delay_times[:i])) for i in range(num_pulses)]
+
+
+            resp_times = [range(resp_start + 2*i*pulse_dur,resp_start + (2*i+1)*pulse_dur) for i in range(num_pulses)]
+            mask_times = [range(resp_start + 2*i*pulse_dur,resp_start + 2*i*pulse_dur + mask_dur) for i in range(num_pulses)]
+
+            trial_info['train_mask'][:par['dead_time']//par['dt'], t] = 0
+            trial_info['neural_input'][:,t,par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = par['tuning_height'] #self.fix_tuning[:, 0]
+
+            for i in range(num_pulses):
+
+                # stimulus properties
+                trial_info['sample'][t,i] = np.random.randint(par['num_motion_dirs'])
+                trial_info['sample_RF'][t,i] = loc[i]
+
+                trial_info['neural_input'][stim_times[i], t, :] += self.motion_tuning[trial_info['sample'][t,i], trial_info['sample_RF'][t,i]]
+                if par['order_cue']:
+                    trial_info['neural_input'][stim_times[i], t, :] += self.order_tuning[:, i]
+
+                # response properties
+                trial_info['pulse_id'][resp_times[i], t] = i
+                trial_info['desired_output'][resp_times[i], t, 0] = np.cos(self.motion_dirs[trial_info['sample'][t,i]])
+                trial_info['desired_output'][resp_times[i], t, 1] = np.sin(self.motion_dirs[trial_info['sample'][t,i]])
+                trial_info['train_mask'][resp_times[i], t] *= par['response_multiplier']
+                trial_info['train_mask'][mask_times[i], t] = 0
+                
+                if par['num_fix_tuned'] > 0:
+                    trial_info['neural_input'][resp_times[i], t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = 0
+                if par['order_cue']:
+                    trial_info['neural_input'][resp_times[i], t, :] += self.order_tuning[:, i]
+
+            # in case there's left over time (true for var pulse conditions)
+            trial_info['train_mask'][np.max(resp_times[-1]):, t] = 0
+
+        if True:
+            for i in range(5):
+                plt.figure()
+                #plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(list(trial_info['delay'][i,:trial_info['num_pulses'][i]-1])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
+                plt.imshow(trial_info['neural_input'][:,i,:],aspect='auto')
+                plt.colorbar()
+                plt.show()
+                plt.close()
+                plt.figure()
+                plt.plot(trial_info['train_mask'][:,i])
+                #plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(list(trial_info['delay'][i,:trial_info['num_pulses'][i]-1])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
+                plt.show()
+                plt.close()
+                plt.figure()
+                plt.imshow(trial_info['desired_output'][:,i,:],aspect='auto')
+                #plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(list(trial_info['delay'][i,:trial_info['num_pulses'][i]-1])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
+                plt.colorbar()
+                plt.show()
+                plt.close()
+
+        return trial_info
+
 
     def generate_RF_detection_trial():
         return None
 
+
     def generate_RF_cue_trial():
         return None
+
 
     def create_tuning_functions(self):
 
@@ -180,3 +263,9 @@ class Stimulus:
         plt.savefig('stimulus.pdf', format='pdf')
 
 s = Stimulus()
+par['num_pulses'] = 6
+par['num_RFs'] = 6
+par['order_cue'] = False
+all_RF = True
+task = 'sequence'
+s.generate_trial(task, var_delay=False, var_resp_delay=False, var_num_pulses=False, all_RF=True, test_mode = False)

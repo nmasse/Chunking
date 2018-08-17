@@ -29,7 +29,7 @@ par = {
     'num_rule_tuned'        : 8,
     'num_RFs'               : 6,
     'n_hidden'              : 100,
-    'n_output'              : 9,
+    'n_output'              : 2,
 
     # Chunking trial
     'num_pulses'            : 6,
