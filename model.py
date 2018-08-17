@@ -166,8 +166,10 @@ class Model:
         """
         cross_entropy
         """
-        perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
-                for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+        # perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
+        #         for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
+
+        perf_loss = tf.reduce_mean([mask*tf.square(desired_output - y_hat) for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)])
 
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
@@ -226,8 +228,8 @@ def main(gpu_id = None):
     Define all placeholder
     """
     mask = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size']])
-    x = tf.placeholder(tf.float32, shape=[par['n_input'], par['num_time_steps'], par['batch_train_size']])  # input data
-    y = tf.placeholder(tf.float32, shape=[par['n_output'], par['num_time_steps'], par['batch_train_size']]) # target data
+    x = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size'], par['n_input']])  # input data
+    y = tf.placeholder(tf.float32, shape=[par['num_time_steps'], par['batch_train_size'], par['n_output']]) # target data
 
     config = tf.ConfigProto()
     #config.gpu_options.allow_growth=True
@@ -248,9 +250,16 @@ def main(gpu_id = None):
 
         for i in range(par['num_iterations']):
 
+            if i % 2 == 0:
+                task = "sequence"
+                par['all_RF'] = False
+            else:
+                task = "sequence"
+                par['all_RF'] = True
+
             # generate batch of batch_train_size
-            trial_info = stim.generate_trial(analysis = False, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], \
-                var_num_pulses=par['var_num_pulses'], test_mode = False)
+            trial_info = stim.generate_trial(task, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], \
+                var_num_pulses=par['var_num_pulses'], all_RF = par['all_RF'], test_mode = False)
 
             """
             Run the model
@@ -260,7 +269,7 @@ def main(gpu_id = None):
                 model.hidden_state_hist, model.syn_x_hist, model.syn_u_hist], {x: trial_info['neural_input'], \
                 y: trial_info['desired_output'], mask: trial_info['train_mask']})
 
-            accuracy, pulse_accuracy = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
+            accuracy, pulse_accuracy = analysis.get_coord_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
 
             model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*par['batch_train_size'])
 

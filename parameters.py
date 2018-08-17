@@ -22,6 +22,8 @@ par = {
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'var_delay'             : True,
     'var_resp_delay'        : True,
+    'all_RF'                : True,
+    'tol'                   : 0.1,
 
     # Network shape
     'num_motion_tuned'      : 24,
