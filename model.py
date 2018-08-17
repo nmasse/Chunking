@@ -169,7 +169,7 @@ class Model:
         # perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
         #         for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
-        perf_loss = tf.reduce_mean([mask*tf.square(desired_output - tf.transpose(y_hat)) for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)])
+        perf_loss = tf.reduce_mean([mask[...,tf.newaxis]*tf.square(desired_output - tf.transpose(y_hat)) for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)])
 
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions
