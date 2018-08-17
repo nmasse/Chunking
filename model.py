@@ -250,12 +250,16 @@ def main(gpu_id = None):
 
         for i in range(par['num_iterations']):
 
-            if i % 2 == 0:
-                task = "sequence"
+            task = "sequence"
+            if par['weekend'] == 0:
                 par['all_RF'] = False
-            else:
-                task = "sequence"
+            elif par['weekend'] == 1:
                 par['all_RF'] = True
+            else:
+                if i % 2 == 0:
+                    par['all_RF'] = False
+                else:
+                    par['all_RF'] = True
 
             # generate batch of batch_train_size
             trial_info = stim.generate_trial(task, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], \
