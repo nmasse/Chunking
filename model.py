@@ -28,8 +28,8 @@ class Model:
     def __init__(self, input_data, target_data, mask):
 
         # Load the input activity, the target data, and the training mask for this batch of trials
-        self.input_data = tf.unstack(input_data, axis=1)
-        self.target_data = tf.unstack(target_data, axis=1)
+        self.input_data = tf.unstack(input_data, axis=0)
+        self.target_data = tf.unstack(target_data, axis=0)
         self.mask = tf.unstack(mask, axis=0)
 
         # Load the initial hidden state activity to be used at the start of each trial
@@ -148,7 +148,7 @@ class Model:
         All input and RNN activity will be non-negative
         """
         h = tf.nn.relu(h*(1-par['alpha_neuron'])
-                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.nn.relu(rnn_input))
+                       + par['alpha_neuron']*(tf.matmul(tf.nn.relu(W_in), tf.transpose(tf.nn.relu(rnn_input)))
                        + tf.matmul(W_rnn_effective, h_post) + b_rnn)
                        + tf.random_normal([par['n_hidden'], par['batch_train_size']], 0, par['noise_rnn'], dtype=tf.float32))
 
@@ -169,7 +169,7 @@ class Model:
         # perf_loss = [mask*tf.nn.softmax_cross_entropy_with_logits(logits = y_hat, labels = desired_output, dim=0) \
         #         for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)]
 
-        perf_loss = tf.reduce_mean([mask*tf.square(desired_output - y_hat) for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)])
+        perf_loss = tf.reduce_mean([mask*tf.square(desired_output - tf.transpose(y_hat)) for (y_hat, desired_output, mask) in zip(self.y_hat, self.target_data, self.mask)])
 
 
         # L2 penalty term on hidden state activity to encourage low spike rate solutions

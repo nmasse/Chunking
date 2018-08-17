@@ -54,7 +54,7 @@ except:
     gpu_id = None
 
 
-num_pulses = [7]
+num_pulses = [6]
 load_weights = False
 
 for task in task_list:
