@@ -7,8 +7,8 @@ class Stimulus:
 
     def __init__(self):
 
-        # generate tuning functions
-        self.motion_tuning, self.fix_tuning, self.order_tuning = self.create_tuning_functions()
+        # Generate tuning functions
+        self.create_tuning_functions()
 
 
     def generate_trial(self, analysis = False, var_delay=False, var_resp_delay=False, var_num_pulses=False, test_mode = False):
@@ -95,33 +95,39 @@ class Stimulus:
 
         return trial_info
 
+
     def create_tuning_functions(self):
 
-        motion_tuning = np.zeros((par['n_input'], par['num_receptive_fields'], par['num_motion_dirs']))
-        fix_tuning = np.zeros((par['n_input'], 1))
-        order_tuning = np.zeros((par['n_input'], par['num_pulses']))
+        # Motion tuning   --> directional preferences
+        # Fixation tuning --> just fixation
+        # Rule tuning     --> current task
 
-        # generate list of prefered directions
-        pref_dirs = np.float32(np.arange(0,360,360/(par['num_motion_tuned'])))
+        motion_tuning = np.zeros([par['num_motion_dirs'], par['num_RFs'], par['n_input']])
+        fix_tuning    = np.zeros([par['n_input'], 1])
+        rule_tuning   = np.zeros([par['n_input'], 1])
 
-        # generate list of possible stimulus directions
-        stim_dirs = np.float32(np.arange(0,360,360/par['num_motion_dirs']))
+        # Generate lists of preferred and possible stimulus directions
+        pref_dirs = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_motion_tuned']))
+        stim_dirs = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_motion_dirs']))
 
+        # Tune individual neurons to specific stimulus directions
         for n in range(par['num_motion_tuned']):
-            for i in range(len(stim_dirs)):
-                d = np.cos((stim_dirs[i] - pref_dirs[n])/180*np.pi)
-                motion_tuning[n,i] = par['tuning_height']*np.exp(par['kappa']*d)/np.exp(par['kappa'])
+            diff = np.cos(stim_dirs-pref_dirs[n])
+            for r in range(par['num_RFs']):
+                motion_tuning[:,r,r*par['num_motion_tuned']+n] = par['tuning_height']*np.exp(par['kappa']*diff)/np.exp(par['kappa'])
 
+        # Tune fixation neurons to the correct height
         for n in range(par['num_fix_tuned']):
-            fix_tuning[par['num_motion_tuned']+n,0] = par['tuning_height']
+            fix_tuning[par['total_motion_tuned']+n,0] = par['tuning_height']
 
+        # Tune rule neurons to the correct height
         for n in range(par['num_rule_tuned']):
-            for i in range(par['num_pulses']):
-                if n%par['num_pulses'] == i:
-                    order_tuning[par['num_motion_tuned']+par['num_fix_tuned']+n,i] = par['tuning_height']
+            rule_tuning[par['total_motion_tuned']+par['num_fix_tuned']+n,0] = par['tuning_height']
 
-
-        return motion_tuning, fix_tuning, order_tuning
+        # Set tunings to class elements
+        self.motion_tuning = motion_tuning
+        self.fix_tuning    = fix_tuning
+        self.rule_tuning   = rule_tuning
 
 
     def plot_neural_input(self, trial_info):

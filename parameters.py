@@ -27,6 +27,7 @@ par = {
     'num_motion_tuned'      : 24,
     'num_fix_tuned'         : 2,
     'num_rule_tuned'        : 8,
+    'num_RFs'               : 6,
     'n_hidden'              : 100,
     'n_output'              : 9,
 
@@ -244,10 +245,14 @@ def update_dependencies():
     """
 
     # Number of input neurons
+    par['total_motion_tuned'] = par['num_motion_tuned']*par['num_RFs']
+
     if par['trial_type'] == 'chunking':
-        par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
+        par['n_input'] = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
     else:
-        par['n_input'] = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
+        par['n_input'] = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
+
+
     # General network shape
     par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
 
