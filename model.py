@@ -367,3 +367,12 @@ def print_results(iter_num, perf_loss, spike_loss, state_hist, accuracy, pulse_a
       ' | Perf loss {:0.4f}'.format(perf_loss) + ' | Spike loss {:0.4f}'.format(spike_loss) +
       ' | Mean activity {:0.4f}'.format(np.mean(state_hist)))
     print('Pulse accuracy ', np.round(pulse_accuracy,4))
+
+if __name__ == '__main__':
+    try:
+        if len(sys.argv) > 1:
+            main(gpu_id=sys.argv[1])
+        else:
+            main()
+    except KeyboardInterrupt:
+        quit('\nQuit via KeyboardInterrupt.')
