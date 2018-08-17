@@ -249,18 +249,7 @@ class Stimulus:
             trial_info['train_mask'][trial_resp_start:trial_resp_start+mask_dur,b] = 0
             trial_info['train_mask'][-1,b] = 0
 
-
-
-        fig, ax = plt.subplots(3)
-        ax[0].imshow(trial_info['neural_input'][:,0,:].T, aspect='auto')
-        ax[1].imshow(trial_info['desired_output'][:,0,:].T, aspect='auto')
-        ax[2].imshow(trial_info['train_mask'][:,0,np.newaxis].T, aspect='auto')
-        plt.show()
-
         return trial_info
-
-
-
 
 
     def generate_RF_cue_trial(self, var_delay=True):
@@ -395,6 +384,3 @@ class Stimulus:
         ax.set_title('Motion input')
         plt.show()
         plt.savefig('stimulus.pdf', format='pdf')
-
-s = Stimulus()
-s.generate_trial('RF_detection')
