@@ -51,7 +51,7 @@ par = {
     'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
-
+    'var_delay_scale'       : 75,        # Set for 25% catch trials for RF_cue
 
     # Variance values
     'clip_max_grad_val'     : 1,
