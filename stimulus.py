@@ -7,14 +7,9 @@ class Stimulus:
 
     def __init__(self):
 
-        # Motion direction
-        self.motion_dirs = np.linspace(0,2*np.pi-2*np.pi/par['num_motion_dirs'],par['num_motion_dirs'])
-
         # Generate tuning functions
         self.create_tuning_functions()
-
-
-
+        
 
     def generate_trial(self, task, var_delay=False, var_resp_delay=False, var_num_pulses=False, all_RF=False, test_mode = False):
 
@@ -160,11 +155,10 @@ class Stimulus:
 
                 # response properties
                 trial_info['pulse_id'][resp_times[i], t] = i
-                trial_info['desired_output'][resp_times[i], t, 0] = np.cos(self.motion_dirs[trial_info['sample'][t,i]])
-                trial_info['desired_output'][resp_times[i], t, 1] = np.sin(self.motion_dirs[trial_info['sample'][t,i]])
+                trial_info['desired_output'][resp_times[i], t, :] = self.output_tuning[trial_info['sample'][t,i]]
                 trial_info['train_mask'][resp_times[i], t] *= par['response_multiplier']
                 trial_info['train_mask'][mask_times[i], t] = 0
-                
+
                 if par['num_fix_tuned'] > 0:
                     trial_info['neural_input'][resp_times[i], t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = 0
                 if par['order_cue']:
@@ -200,8 +194,84 @@ class Stimulus:
         return None
 
 
-    def generate_RF_cue_trial():
-        return None
+    def generate_RF_cue_trial(self, var_delay=True):
+
+        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+                      'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
+                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
+
+        start = int((par['dead_time'] + par['fix_time'])//par['dt'])
+        pulse_dur = int(par['sample_time']//par['dt'])
+        resp_dur = int(par['resp_cue_time']//par['dt'])
+        mask_dur = int(par['mask_duration']//par['dt'])
+        resp_start = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['sample_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
+        delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
+
+        directions = np.random.choice(par['num_motion_dirs'], size=[par['batch_train_size'], par['num_RFs']])
+        targets = np.random.choice(par['num_RFs'], size=[par['batch_train_size']])
+
+        trial_info['train_mask'][:par['dead_time']//par['dt'],:] = 0
+        for b in range(par['batch_train_size']):
+
+            # Select response onset
+            if var_delay:
+                trial_resp_start = resp_start + np.int32(50*np.random.normal(0,10)//par['dt'])
+                trial_resp_start = np.clip(trial_resp_start, np.int32(resp_start//2), np.int32(resp_start*3//2))
+            else:
+                trial_resp_start = resp_start
+
+            # Stimulus and response
+            stim = np.sum([self.motion_tuning[directions[b,rf],rf] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
+            resp = directions[b,targets[b]]
+
+            # Designated cue
+            cue  = np.zeros([1,par['n_input']])
+            cue[:,targets[b]*par['num_motion_tuned']:(targets[b]+1)*par['num_motion_tuned']] = par['tuning_height']/8
+
+            # Building neural input
+            trial_info['neural_input'][start:start+pulse_dur,b,:] += stim
+            trial_info['neural_input'][trial_resp_start:,b,:] += cue
+            trial_info['neural_input'][:trial_resp_start,b,:] += np.transpose(self.fix_tuning)
+
+            # Building network output
+
+            trial_info['desired_output'][:trial_resp_start,b,0] = 0
+
+            #trial_info['desired_output'][:trial_resp_start,b,0] = 1
+            #trial_info['desired_output'][trial_resp_start:,b,1+resp] = 1
+
+            # Building network mask
+            trial_info['train_mask'][trial_resp_start+mask_dur:,b] *= par['response_multiplier']
+            trial_info['train_mask'][trial_resp_start:trial_resp_start+mask_dur,b] = 0
+
+
+        fig, ax = plt.subplots(3)
+
+        ax[0].imshow(trial_info['neural_input'][:,b,:].T, aspect='auto', clim=[0,4])
+        ax[1].imshow(trial_info['desired_output'][:,b,:].T, aspect='auto', clim=[0,4])
+        ax[2].imshow(trial_info['train_mask'][:,b,np.newaxis].T, aspect='auto', clim=[0,4])
+        plt.show()
+
+
+
+
+
+
+        quit()
+
+
+
+        print(par['num_time_steps'], par['dt'])
+        print(par['dead_time']//par['dt'], par['fix_time']//par['dt'])
+        print(par['sample_time']//par['dt'])
+        print(par['resp_cue_time']//par['dt'])
+        print(par['mask_duration']//par['dt'])
+        print(par['num_pulses'], par['sample_time']//par['dt'], par['long_delay_time']//par['dt'])
+        print(par['delay_times']//par['dt'])
+
+        quit()
 
 
     def create_tuning_functions(self):
@@ -209,10 +279,12 @@ class Stimulus:
         # Motion tuning   --> directional preferences
         # Fixation tuning --> just fixation
         # Rule tuning     --> current task
+        # Output tuning   --> sin/cos directional outputs
 
         motion_tuning = np.zeros([par['num_motion_dirs'], par['num_RFs'], par['n_input']])
         fix_tuning    = np.zeros([par['n_input'], 1])
         rule_tuning   = np.zeros([par['n_input'], 1])
+        output_tuning = np.zeros([par['num_motion_dirs'], par['n_output']])
 
         # Generate lists of preferred and possible stimulus directions
         pref_dirs = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_motion_tuned']))
@@ -232,10 +304,15 @@ class Stimulus:
         for n in range(par['num_rule_tuned']):
             rule_tuning[par['total_motion_tuned']+par['num_fix_tuned']+n,0] = par['tuning_height']
 
+        # Tune output neurons to the correct directions
+        for d in range(par['num_motion_dirs']):
+            output_tuning[d] = [np.cos(stim_dirs[d]), np.sin(stim_dirs[d])]
+
         # Set tunings to class elements
         self.motion_tuning = motion_tuning
         self.fix_tuning    = fix_tuning
         self.rule_tuning   = rule_tuning
+        self.output_tuning = output_tuning
 
 
     def plot_neural_input(self, trial_info):
