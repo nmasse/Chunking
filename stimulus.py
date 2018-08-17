@@ -32,7 +32,7 @@ class Stimulus:
         resp_dur = int(par['resp_cue_time']//par['dt'])
         mask_dur = int(par['mask_duration']//par['dt'])
         resp_start = int((par['dead_time'] + par['fix_time'] + num_pulses*par['sample_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
-        delay_time = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
+        delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
 
         for t in range(par['batch_train_size']):
 
@@ -41,9 +41,10 @@ class Stimulus:
             """
             num_pulses = np.random.choice(range(1,par['num_pulses']+1)) if (var_num_pulses and not test_mode) else par['num_pulses']
 
-            delay_dur = np.random.permutation(delay_time)
+            current_delay_times = np.random.permutation(delay_times) if var_delay else delay_times
+            stim_times = [range(start + i*pulse_dur + np.sum(current_delay_times[:i]), start + (i+1)*pulse_dur + np.sum(current_delay_times[:i])) for i in range(num_pulses)]
 
-            stim_times = [range(start + i*pulse_dur + np.sum(delay_dur[:i]), start + (i+1)*pulse_dur + np.sum(delay_dur[:i])) for i in range(num_pulses)]
+
             resp_times = [range(resp_start + 2*i*pulse_dur,resp_start + (2*i+1)*pulse_dur) for i in range(num_pulses)]
             mask_times = [range(resp_start + 2*i*pulse_dur,resp_start + 2*i*pulse_dur + mask_dur) for i in range(num_pulses)]
 
