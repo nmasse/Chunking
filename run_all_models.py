@@ -55,7 +55,7 @@ except:
 num_pulses = 6
 load_weights = False
 
-for v in range(2):
+for v in range(3):
 
     print('Training network on sequence task, ', num_pulses, ' pulses, without cue, version ', v,'...')
     save_fn = 'sequence_' + str(num_pulses) + '_var_delay_cue_off_v' + str(v) + '.pkl'

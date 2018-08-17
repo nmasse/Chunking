@@ -30,7 +30,7 @@ par = {
     'num_fix_tuned'         : 2,
     'num_rule_tuned'        : 8,
     'num_RFs'               : 6,
-    'n_hidden'              : 10,
+    'n_hidden'              : 100,
     'n_output'              : 2,
 
     # Chunking trial
@@ -75,8 +75,8 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 5,
-    'num_iterations'        : 10,
+    'batch_train_size'      : 1024,
+    'num_iterations'        : 1000000,
     'iters_between_outputs' : 50,
 
     # Task specs

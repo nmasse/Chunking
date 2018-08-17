@@ -167,7 +167,7 @@ class Stimulus:
             # in case there's left over time (true for var pulse conditions)
             trial_info['train_mask'][np.max(resp_times[-1]):, t] = 0
 
-        if True:
+        if False:
             for i in range(5):
                 plt.figure()
                 #plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(list(trial_info['delay'][i,:trial_info['num_pulses'][i]-1])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
