@@ -896,3 +896,22 @@ def get_perf(y, y_hat, mask, pulse_id):
         pulse_accuracy[i] = np.sum(np.float32(y_max == y_hat_max)*current_mask)/np.sum(current_mask)
 
     return accuracy, pulse_accuracy
+
+def get_coord_perf(target, output, mask, pulse_id):
+
+    """
+    Calculate task accuracy by comparing the actual network output to the desired output
+    only examine time points when test stimulus is on
+    in another words, when target[:,:,-1] is not 0
+    """
+
+    mask_test = mask*((target[:,:,0] == 0)*(target[:,:,1]==0))
+
+    accuracy =  np.sum(mask_test*np.float32((np.absolute(target[:,:,0] - output[:,:,0]) < par['tol']) * (np.absolute(target[:,:,1] - output[:,:,1]) < par['tol'])))/np.sum(mask_test)
+
+    pulse_accuracy = np.zeros((par['num_pulses']))
+    for i in range(par['num_pulses']):
+        current_mask = mask_test*(pulse_id == i)
+        pulse_accuracy[i] = np.sum(current_mask*np.float32((np.absolute(target[:,:,0] - output[:,:,0]) < par['tol']) * (np.absolute(target[:,:,1] - output[:,:,1]) < par['tol'])))/np.sum(current_mask)
+
+    return accuracy, pulse_accuracy
