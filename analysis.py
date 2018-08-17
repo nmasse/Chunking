@@ -904,7 +904,7 @@ def get_coord_perf(target, output, mask, pulse_id):
     only examine time points when test stimulus is on
     in another words, when target[:,:,-1] is not 0
     """
-
+    output = np.swapaxes(np.array(output),1,2)
     mask_test = mask*((target[:,:,0] == 0)*(target[:,:,1]==0))
 
     accuracy =  np.sum(mask_test*np.float32((np.absolute(target[:,:,0] - output[:,:,0]) < par['tol']) * (np.absolute(target[:,:,1] - output[:,:,1]) < par['tol'])))/np.sum(mask_test)

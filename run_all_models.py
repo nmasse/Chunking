@@ -8,8 +8,6 @@ import random as rd
 import pickle
 from plot import *
 
-task_list = ['chunking']
-
 
 def try_model(gpu_id):
 
@@ -54,19 +52,17 @@ except:
     gpu_id = None
 
 
-num_pulses = [6]
+num_pulses = 6
 load_weights = False
 
-for task in task_list:
-    for n in range(1):
-        for v in range(10):
+for v in range(2):
 
-            print('Training network on ', task,' task, ', num_pulses[n], ' pulses, without cue...')
-            save_fn = task + '_' + str(num_pulses[n]) + '_var_delay_cue_off_v' + str(v) + '.pkl'
-            #save_fn = task + '_' + str(num_pulses[n]) + '_cue_on_v' + str(v) + '.pkl'
+    print('Training network on sequence task, ', num_pulses, ' pulses, without cue, version ', v,'...')
+    save_fn = 'sequence_' + str(num_pulses) + '_var_delay_cue_off_v' + str(v) + '.pkl'
+    #save_fn = task + '_' + str(num_pulses[n]) + '_cue_on_v' + str(v) + '.pkl'
 
-            updates = {'trial_type': task, 'save_fn': save_fn, 'num_pulses': num_pulses[n], 'num_max_pulse': num_pulses[n], 'order_cue': False, \
-                'load_prev_weights': load_weights, 'var_num_pulses': False, 'var_delay': True}
-            update_parameters(updates)
+    updates = {'save_fn': save_fn, 'num_pulses': num_pulses, 'num_max_pulse': num_pulses, 'order_cue': False, \
+        'load_prev_weights': load_weights, 'var_num_pulses': False, 'var_delay': True, 'var_resp_delay':False, 'weekend': v}
+    update_parameters(updates)
 
-            try_model(gpu_id)
+    try_model(gpu_id)
