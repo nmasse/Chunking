@@ -200,10 +200,6 @@ class Stimulus:
         return None
 
 
-    def generate_RF_cue_trial():
-        return None
-
-
     def generate_RF_cue_trial(self, var_delay=True):
 
         trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
