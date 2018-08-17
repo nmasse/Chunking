@@ -7,14 +7,9 @@ class Stimulus:
 
     def __init__(self):
 
-        # Motion direction
-        self.motion_dirs = np.linspace(0,2*np.pi-2*np.pi/par['num_motion_dirs'],par['num_motion_dirs'])
-
         # Generate tuning functions
         self.create_tuning_functions()
-
-
-
+        
 
     def generate_trial(self, task, var_delay=False, var_resp_delay=False, var_num_pulses=False, all_RF=False, test_mode = False):
 
@@ -160,11 +155,10 @@ class Stimulus:
 
                 # response properties
                 trial_info['pulse_id'][resp_times[i], t] = i
-                trial_info['desired_output'][resp_times[i], t, 0] = np.cos(self.motion_dirs[trial_info['sample'][t,i]])
-                trial_info['desired_output'][resp_times[i], t, 1] = np.sin(self.motion_dirs[trial_info['sample'][t,i]])
+                trial_info['desired_output'][resp_times[i], t, :] = self.output_tuning[trial_info['sample'][t,i]]
                 trial_info['train_mask'][resp_times[i], t] *= par['response_multiplier']
                 trial_info['train_mask'][mask_times[i], t] = 0
-                
+
                 if par['num_fix_tuned'] > 0:
                     trial_info['neural_input'][resp_times[i], t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = 0
                 if par['order_cue']:
@@ -285,10 +279,12 @@ class Stimulus:
         # Motion tuning   --> directional preferences
         # Fixation tuning --> just fixation
         # Rule tuning     --> current task
+        # Output tuning   --> sin/cos directional outputs
 
         motion_tuning = np.zeros([par['num_motion_dirs'], par['num_RFs'], par['n_input']])
         fix_tuning    = np.zeros([par['n_input'], 1])
         rule_tuning   = np.zeros([par['n_input'], 1])
+        output_tuning = np.zeros([par['num_motion_dirs'], par['n_output']])
 
         # Generate lists of preferred and possible stimulus directions
         pref_dirs = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_motion_tuned']))
@@ -308,10 +304,15 @@ class Stimulus:
         for n in range(par['num_rule_tuned']):
             rule_tuning[par['total_motion_tuned']+par['num_fix_tuned']+n,0] = par['tuning_height']
 
+        # Tune output neurons to the correct directions
+        for d in range(par['num_motion_dirs']):
+            output_tuning[d] = [np.cos(stim_dirs[d]), np.sin(stim_dirs[d])]
+
         # Set tunings to class elements
         self.motion_tuning = motion_tuning
         self.fix_tuning    = fix_tuning
         self.rule_tuning   = rule_tuning
+        self.output_tuning = output_tuning
 
 
     def plot_neural_input(self, trial_info):
