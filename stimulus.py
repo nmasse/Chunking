@@ -27,7 +27,7 @@ class Stimulus:
             trial_info = None
 
 
-        #"""
+        """
         for b in range(3):
             fig, ax = plt.subplots(3)
             ax[0].imshow(trial_info['neural_input'][:,b,:].T, aspect='auto', clim=[0,4])
