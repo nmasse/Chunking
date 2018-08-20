@@ -23,7 +23,7 @@ par = {
     'var_delay'             : True,
     'var_resp_delay'        : True,
     'all_RF'                : True,
-    'tol'                   : 0.1,
+    'tol'                   : 0.2,
 
     # Network shape
     'num_motion_tuned'      : 24,
@@ -222,7 +222,7 @@ def update_trial_params():
         par['rule_onset_time'] = par['dead_time']
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
-    elif par['trial_type'] == in ['chunking', 'RF_cue', 'RF_detection']:
+    elif par['trial_type'] in ['RF_cue', 'RF_detection']:
 
         par['num_rule_tuned'] = par['num_pulses'] if par['var_num_pulses'] else 0
 
@@ -236,7 +236,7 @@ def update_trial_params():
         par['num_time_steps'] = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['sample_time'] + \
             (2*par['num_pulses']-1)*par['resp_cue_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
 
-    elif par['trial_type'] == 'sequence':
+    elif par['trial_type'] in ['chunking','sequence']:
         par['num_rule_tuned'] = par['num_pulses'] if par['var_num_pulses'] else 0
 
         par['delay_times'] = par['delay_time']*np.ones((par['num_pulses']), dtype = np.int16)
@@ -328,10 +328,10 @@ def update_dependencies():
     # Length of each trial in ms
     if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
-    elif par['trial_type'] in ['chunking', 'RF_cue', 'RF_detection']:
+    elif par['trial_type'] in ['RF_cue', 'RF_detection']:
         par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
             par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
-    elif par['trial_type'] == 'sequence':
+    elif par['trial_type'] in ['chunking','sequence']:
         par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['pulse_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
             par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
     elif par['trial_type'] == 'sequence_cue':
