@@ -882,10 +882,13 @@ def get_perf(y, y_hat, mask, pulse_id):
     y is the desired output
     y_hat is the actual output
     """
+
+    y_hat = np.stack(y_hat)
+
     #print("Entering get_perf...")
     #print(np.sum(mask))
     y_hat_max = np.stack(y_hat, axis=1)
-    mask_test = mask*(y[0,:,:]==0)
+    mask_test = mask*(y[:,:,0]==0)
     y_max = np.argmax(y, axis = 0)
     y_hat_max = np.argmax(y_hat_max, axis = 0)
     accuracy = np.sum(np.float32(y_max == y_hat_max)*mask_test)/np.sum(mask_test)
@@ -904,6 +907,9 @@ def get_coord_perf(target, output, mask, pulse_id):
     only examine time points when test stimulus is on
     in another words, when target[:,:,-1] is not 0
     """
+
+    output = np.stack(output)
+
     output = np.swapaxes(np.array(output),1,2)
     mask_test = mask*(1-((target[:,:,0]==0) * (target[:,:,1]==0)))
 
