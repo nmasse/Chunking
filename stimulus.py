@@ -135,6 +135,8 @@ class Stimulus:
             trial_info['train_mask'][:par['dead_time']//par['dt'], t] = 0
             trial_info['neural_input'][:,t,par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = par['tuning_height'] #self.fix_tuning[:, 0]
 
+            trial_info['desired_output'][:resp_times[0], t, :] = self.fix_output_tuning
+            
             for i in range(num_pulses):
 
                 # stimulus properties
@@ -199,7 +201,7 @@ class Stimulus:
 
             trial_info['train_mask'][:par['dead_time']//par['dt'], t] = 0
             trial_info['neural_input'][:,t,par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = par['tuning_height'] #self.fix_tuning[:, 0]
-
+            trial_info['desired_output'][:resp_times[0], t, :] = self.fix_output_tuning
             trial_info['test'][t] = np.random.randint(par['num_pulses'])
 
             for i in range(num_pulses):
