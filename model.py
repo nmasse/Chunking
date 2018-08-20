@@ -188,7 +188,7 @@ def main(gpu_id=None):
         # Begin training loop
         print('\nStarting training...\n')
         for i in range(par['num_iterations']):
-            
+
             # Generate a batch of stimulus for training
             trial_info = stim.generate_trial(par['trial_type'], var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], \
                 var_num_pulses=par['var_num_pulses'], all_RF=par['all_RF'], test_mode=False)
@@ -270,9 +270,9 @@ def append_model_performance(model_performance, accuracy, pulse_accuracy, loss, 
 
 def print_results(iter_num, perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy):
 
-    print('Iter. {:4d}'.format(iter_num) + ' | Accuracy {:0.4f}'.format(accuracy) +
-      ' | Perf loss {:0.4f}'.format(perf_loss) + ' | Spike loss {:0.4f}'.format(spike_loss) +
-      ' | Mean activity {:0.4f}'.format(np.mean(state_hist)))
+    print('Iter. {:4d}'.format(iter_num) + ' | Accuracy {:6.4f}'.format(accuracy) +
+      ' | Perf loss {:6.4f}'.format(perf_loss) + ' | Spike loss {:6.4f}'.format(spike_loss) +
+      ' | Mean activity {:6.4f}'.format(np.mean(state_hist)))
     print('Pulse accuracy ', np.round(pulse_accuracy,4))
 
 
