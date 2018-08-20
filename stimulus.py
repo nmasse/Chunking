@@ -11,18 +11,18 @@ class Stimulus:
         self.create_tuning_functions()
 
 
-    def generate_trial(self, task, var_delay=False, var_resp_delay=False, var_num_pulses=False, all_RF=False, test_mode = False):
+    def generate_trial(self, task, var_delay=False, var_num_pulses=False, all_RF=False, test_mode = False):
 
         if task == "sequence":
-            trial_info = self.generate_sequence_trial(var_delay, var_resp_delay, all_RF)
+            trial_info = self.generate_sequence_trial(var_delay, all_RF)
         elif task == "sequence_cue":
-            trial_info = self.generate_sequence_cue_trial(var_delay, var_resp_delay)
+            trial_info = self.generate_sequence_cue_trial(var_delay)
         elif task == "RF_detection":
-            trial_info = self.generate_RF_detection_trial(var_delay or var_resp_delay)
+            trial_info = self.generate_RF_detection_trial(var_delay)
         elif task == "RF_cue":
-            trial_info = self.generate_RF_cue_trial(var_delay or var_resp_delay)
+            trial_info = self.generate_RF_cue_trial(var_delay)
         elif task == "var_chunking":
-            trial_info = self.generate_var_chunking_trial(par['num_pulses'], var_delay, var_resp_delay, var_num_pulses, test_mode)
+            trial_info = self.generate_var_chunking_trial(par['num_pulses'], var_delay, var_num_pulses, test_mode)
         else:
             trial_info = None
 
@@ -41,7 +41,7 @@ class Stimulus:
         return trial_info
 
 
-    def generate_var_chunking_trial(self, num_pulses, analysis, var_delay=False, var_resp_delay=False, var_num_pulses=False, test_mode=False):
+    def generate_var_chunking_trial(self, num_pulses, analysis, var_delay=False, var_num_pulses=False, test_mode=False):
         """
         Generate trials to investigate chunking
         """
@@ -81,8 +81,6 @@ class Stimulus:
                 # stimulus properties
                 trial_info['sample'][t,i] = np.random.randint(par['num_motion_dirs'])
                 trial_info['neural_input'][:, stim_times[i], t] += np.reshape(self.motion_tuning[:, trial_info['sample'][t,i]],(-1,1))
-                if par['order_cue']:
-                    trial_info['neural_input'][:, stim_times[i], t] += np.reshape(self.order_tuning[:, i],(-1,1))
 
                 # response properties
                 trial_info['pulse_id'][resp_times[i], t] = i
@@ -92,8 +90,6 @@ class Stimulus:
                 trial_info['train_mask'][mask_times[i], t] = 0
                 if par['num_fix_tuned'] > 0:
                     trial_info['neural_input'][:, resp_times[i], t] += np.reshape(self.fix_tuning[:, 0],(-1,1))
-                if par['order_cue']:
-                    trial_info['neural_input'][:, resp_times[i], t] += np.reshape(self.order_tuning[:, i],(-1,1))
 
             # in case there's left over time (true for var pulse conditions)
             trial_info['train_mask'][np.max(resp_times[-1]):, t] = 0
@@ -103,7 +99,7 @@ class Stimulus:
 
         return trial_info
 
-    def generate_sequence_trial(self, var_delay=False, var_resp_delay=False, all_RF=False, test_mode=False):
+    def generate_sequence_trial(self, var_delay=False, all_RF=False, test_mode=False):
         trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
                       'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
@@ -113,10 +109,10 @@ class Stimulus:
 
         num_pulses = par['num_pulses']
         start = int((par['dead_time'] + par['fix_time'])//par['dt'])
-        pulse_dur = int(par['pulse_time']//par['dt'])
+        pulse_dur = int(par['sample_time']//par['dt'])
         resp_dur = int(par['resp_cue_time']//par['dt'])
         mask_dur = int(par['mask_duration']//par['dt'])
-        resp_start = int((par['dead_time'] + par['fix_time'] + num_pulses*par['pulse_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
+        resp_start = int((par['dead_time'] + par['fix_time'] + num_pulses*par['sample_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
         delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
 
 
@@ -147,8 +143,6 @@ class Stimulus:
                 trial_info['sample_RF'][t,i] = loc[i]
 
                 trial_info['neural_input'][stim_times[i], t, :] += self.motion_tuning[trial_info['sample'][t,i], trial_info['sample_RF'][t,i]]
-                if par['order_cue']:
-                    trial_info['neural_input'][stim_times[i], t, :] += self.order_tuning[:, i]
 
                 # response properties
                 trial_info['pulse_id'][resp_times[i], t] = i
@@ -158,8 +152,6 @@ class Stimulus:
 
                 if par['num_fix_tuned'] > 0:
                     trial_info['neural_input'][resp_times[i], t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = 0
-                if par['order_cue']:
-                    trial_info['neural_input'][resp_times[i], t, :] += self.order_tuning[:, i]
 
             # in case there's left over time (true for var pulse conditions)
             trial_info['train_mask'][np.max(resp_times[-1]):, t] = 0
@@ -169,7 +161,7 @@ class Stimulus:
 
         return trial_info
 
-    def generate_sequence_cue_trial(self, var_delay=False, var_resp_delay=False, all_RF=False, test_mode=False):
+    def generate_sequence_cue_trial(self, var_delay=False, all_RF=False, test_mode=False):
         trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
                       'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
@@ -180,10 +172,10 @@ class Stimulus:
 
         num_pulses = par['num_pulses']
         start = int((par['dead_time'] + par['fix_time'])//par['dt'])
-        pulse_dur = int(par['pulse_time']//par['dt'])
+        pulse_dur = int(par['sample_time']//par['dt'])
         resp_dur = int(par['resp_cue_time']//par['dt'])
         mask_dur = int(par['mask_duration']//par['dt'])
-        resp_start = int((par['dead_time'] + par['fix_time'] + num_pulses*par['pulse_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
+        resp_start = int((par['dead_time'] + par['fix_time'] + num_pulses*par['sample_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
         delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
 
 
@@ -246,7 +238,7 @@ class Stimulus:
                       'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
 
         start = int((par['dead_time'] + par['fix_time'])//par['dt'])
-        pulse_dur = int(par['sample_time']//par['dt'])
+        pulse_dur = int(par['sample_time_RF']//par['dt'])
         resp_dur = int(par['resp_cue_time']//par['dt'])
         mask_dur = int(par['mask_duration']//par['dt'])
         resp_start = int((par['dead_time'] + par['fix_time'] + par['long_delay_time'])//par['dt'])
@@ -309,7 +301,7 @@ class Stimulus:
                       'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
 
         start = int((par['dead_time'] + par['fix_time'])//par['dt'])
-        pulse_dur = int(par['sample_time']//par['dt'])
+        pulse_dur = int(par['sample_time_RF']//par['dt'])
         resp_dur = int(par['resp_cue_time']//par['dt'])
         mask_dur = int(par['mask_duration']//par['dt'])
         resp_start = int((par['dead_time'] + par['fix_time'] + par['long_delay_time'])//par['dt'])

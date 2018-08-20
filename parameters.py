@@ -12,46 +12,39 @@ Independent parameters
 par = {
     # Setup parameters
     'save_dir'              : './savedir/',
-    'debug_model'           : False,
-    'load_previous_model'   : False,
+    'save_fn'               : 'model_results.pkl',
+    'weight_load_fn'        : './savedir/weights.pkl',
+    'load_prev_weights'     : False,
     'analyze_model'         : True,
-    'check_stim'            : False,
+    'balance_EI'            : True,
 
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
-    'var_delay'             : True,
-    'var_resp_delay'        : True,
-    'all_RF'                : True,
+    'response_multiplier'   : 4,
     'tol'                   : 0.2,
+
+    # Task parameters (non-timing)
+    'trial_type'            : 'RF_cue',
+    'var_delay'             : True,
+    'var_delay_scale'       : 33,        # Set for 20% catch trials for RF
+    'var_num_pulses'        : False,
+    'all_RF'                : True,
+    'num_pulses'            : 2,
 
     # Network shape
     'num_motion_tuned'      : 24,
     'num_fix_tuned'         : 2,
-    'num_rule_tuned'        : 8,
     'num_RFs'               : 6,
     'n_hidden'              : 100,
     'output_type'           : 'one_hot',
-
-    # Chunking trial
-    'num_pulses'            : 2,
-    'var_num_pulses'        : False,
-    'num_resp_cue_tuned'    : 2,
-    'long_delay_time'       : 500,
-    'resp_cue_time'         : 200,
-    'order_cue'             : True,
-    'balance_EI'            : True,
-    'load_prev_weights'     : False,
-    'weight_load_fn'        : './savedir/chunking_10_cue_on.pkl',
-    'response_multiplier'   : 4, # mutliply the mask by this number during response windows... can help training
-
 
     # Timings and rates
     'dt'                    : 20,
     'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
-    'connection_prob'       : 1,         # Usually 1
-    'var_delay_scale'       : 33,        # Set for 20% catch trials for RF_cue
+    'long_delay_time'       : 500,
+    'resp_cue_time'         : 200,
 
     # Variance values
     'clip_max_grad_val'     : 1,
@@ -80,32 +73,21 @@ par = {
     'iters_between_outputs' : 50,
 
     # Task specs
-    'trial_type'            : 'RF_cue', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
-    'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 100,
     'fix_time'              : 200,
-    'pulse_time'            : 200,
-    'sample_time'           : 500,
+    'sample_time'           : 200,  # Sample time for sequence tasks
+    'sample_time_RF'        : 500,  # Sample time for RF-based tasks
     'delay_time'            : 200,
     'test_time'             : 500,
-    'variable_delay_max'    : 300,
-    'mask_duration'         : 40,  # duration of traing mask after test onset
-    'catch_trial_pct'       : 0.0,
-    'num_receptive_fields'  : 1,
-    'num_rules'             : 1, # this will be two for the DMS+DMRS task
-
-    # Save paths
-    'save_fn'               : 'model_results.pkl',
+    'mask_duration'         : 40,  # Duration of traing mask after test onset
+    'num_rules'             : 1,   # Legacy, used in analysis.py
 
     # Analysis
     'svm_normalize'         : True,
     'decoding_reps'         : 5,
-    'simulation_reps'       : 5,
     'decode_test'           : False,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
-    'suppress_analysis'     : False,
-    'analyze_tuning'        : False,
 
 }
 
@@ -119,19 +101,19 @@ def update_parameters(updates):
     Takes a list of strings and values for updating parameters in the parameter dictionary
     Example: updates = [(key, val), (key, val)]
     """
+
     print('Updating parameters...')
     for key, val in updates.items():
         par[key] = val
-        #print('Updating ', key)
-    update_trial_params()
+
     update_dependencies()
     if par['load_prev_weights']:
         load_previous_weights()
 
+
 def load_previous_weights():
 
     x = pickle.load(open(par['weight_load_fn'],'rb'))
-    n =  x['weights']['w_in'].shape[1]
     par['w_in0'][:, :n] = x['weights']['w_in']
     par['w_rnn0'] = x['weights']['w_rnn']
     par['w_out0'] = x['weights']['w_out']
@@ -140,138 +122,33 @@ def load_previous_weights():
     print('Weights from ', par['weight_load_fn'],' loaded.')
 
 
-def update_trial_params():
-
-    """
-    Update all the trial parameters given trial_type
-    """
-
-    par['num_rules'] = 1
-    par['num_rule_tuned'] = 0
-    par['ABBA_delay' ] = 0
-
-    if par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC':
-        par['rotation_match'] = 0
-
-    elif par['trial_type'] == 'DMRS45':
-        par['rotation_match'] = 45
-
-    elif par['trial_type'] == 'DMRS90':
-        par['rotation_match'] = 90
-
-    elif par['trial_type'] == 'DMRS90ccw':
-        par['rotation_match'] = -90
-
-    elif  par['trial_type'] == 'DMRS180':
-        par['rotation_match'] = 180
-
-    elif par['trial_type'] == 'dualDMS':
-        par['catch_trial_pct'] = 0
-        par['num_receptive_fields'] = 2
-        par['num_rules'] = 2
-        par['probe_trial_pct'] = 0
-        par['probe_time'] = 10
-        par['num_rule_tuned'] = 12
-        par['sample_time'] = 500
-        par['test_time'] = 500
-        par['delay_time'] = 1000
-        par['analyze_rule'] = True
-        par['num_motion_tuned'] = 36
-        par['noise_in_sd']  = 0.1
-        par['noise_rnn_sd'] = 0.5
-        par['num_iterations'] = 4000
-
-        par['dualDMS_single_test'] = False
-
-    elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
-        par['catch_trial_pct'] = 0
-        par['match_test_prob'] = 0.5
-        par['max_num_tests'] = 3
-        par['sample_time'] = 400
-        par['delay_time'] = 2400
-        par['ABBA_delay'] = par['delay_time']//par['max_num_tests']//2
-        par['repeat_pct'] = 0
-        par['analyze_test'] = True
-        if par['trial_type'] == 'ABBA':
-            par['repeat_pct'] = 0.5
-
-    elif par['trial_type'] == 'DMS+DMRS' or par['trial_type'] == 'DMS+DMRS_early_cue':
-
-        par['num_rules'] = 2
-        par['num_rule_tuned'] = 12
-        if par['trial_type'] == 'DMS+DMRS':
-            par['rotation_match'] = [0, 90]
-            par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
-            par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 750
-        else:
-            par['rotation_match'] = [0, 45]
-            par['rule_onset_time'] = par['dead_time']
-            par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']-200
-
-    elif par['trial_type'] == 'DMS+DMC':
-        par['num_rules'] = 2
-        par['num_rule_tuned'] = 12
-        par['rotation_match'] = [0, 0]
-        par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
-        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
-
-    elif par['trial_type'] == 'DMS+DMRS+DMC':
-        par['num_rules'] = 3
-        par['num_rule_tuned'] = 18
-        par['rotation_match'] = [0, 90, 0]
-        par['rule_onset_time'] = par['dead_time']
-        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
-
-    elif par['trial_type'] in ['RF_cue', 'RF_detection']:
-
-        par['num_rule_tuned'] = par['num_pulses'] if par['var_num_pulses'] else 0
-
-        par['delay_times'] = par['delay_time']*np.ones((par['num_pulses']), dtype = np.int16)
-        if par['var_delay']:
-            # we will suffle these times for each trial
-            par['delay_times'][1::3] += 100
-            par['delay_times'][2::3] -= 100
-
-        # rule signal can appear at the end of delay1_time
-        par['num_time_steps'] = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['sample_time'] + \
-            (2*par['num_pulses']-1)*par['resp_cue_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
-
-    elif par['trial_type'] in ['chunking','sequence']:
-        par['num_rule_tuned'] = par['num_pulses'] if par['var_num_pulses'] else 0
-
-        par['delay_times'] = par['delay_time']*np.ones((par['num_pulses']), dtype = np.int16)
-        if par['var_delay']:
-            # we will suffle these times for each trial
-            par['delay_times'][1::3] += 100
-            par['delay_times'][2::3] -= 100
-
-        # rule signal can appear at the end of delay1_time
-        par['num_time_steps'] = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['pulse_time'] + \
-            (2*par['num_pulses']-1)*par['resp_cue_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
-
-    elif par['trial_type'] == 'sequence_cue':
-        par['num_rule_tuned'] = par['num_pulses']
-
-        par['delay_times'] = par['delay_time']*np.ones((par['num_pulses']), dtype = np.int16)
-        if par['var_delay']:
-            # we will suffle these times for each trial
-            par['delay_times'][1::3] += 100
-            par['delay_times'][2::3] -= 100
-
-        # rule signal can appear at the end of delay1_time
-        par['num_time_steps'] = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['pulse_time'] + \
-            par['resp_cue_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
-
-    else:
-        print(par['trial_type'], ' not a recognized trial type')
-        quit()
-
-
 def update_dependencies():
     """
     Updates all parameter dependencies
     """
 
+    # Set up a variety of delay times for the appropriate task types
+    par['delay_times'] = par['delay_time']*np.ones((par['num_pulses']), dtype = np.int16)
+    if par['var_delay']:
+        par['delay_times'][1::3] += 100
+        par['delay_times'][2::3] -= 100
+
+    # Determine the number of time steps
+    par['num_time_steps'] = par['dead_time'] + par['fix_time'] \
+        + np.maximum(par['num_pulses']*par['pulse_time'], par['sample_time']) \
+        + (2*par['num_pulses']-1)*par['resp_cue_time'] \
+        + par['long_delay_time']
+        + np.sum(par['delay_times'])
+    par['num_time_steps'] = int(par['num_time_steps']//par['dt'])
+
+    # Number of input neurons
+    par['num_max_pulse'] = par['num_pulses']
+    par['num_rule_tuned'] = par['num_max_pulse']
+    par['total_motion_tuned'] = par['num_motion_tuned']*par['num_RFs']
+
+    par['n_input'] = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
+
+    # Adjust output size and loss function based on output type
     if par['output_type'] == 'directional':
         par['n_output'] = 2
         par['loss_function'] = 'MSE'
@@ -279,20 +156,8 @@ def update_dependencies():
         par['n_output'] = par['num_motion_dirs'] + par['num_RFs'] + 1
         par['loss_function'] = 'cross_entropy'
 
-    # Number of input neurons
-    par['total_motion_tuned'] = par['num_motion_tuned']*par['num_RFs']
-
-    if par['trial_type'] in ['chunking', 'RF_cue', 'RF_detection']:
-        par['n_input'] = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
-    else:
-        par['n_input'] = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
-
-
     # General network shape
-    par['shape'] = (par['n_input'], par['n_hidden'], par['n_output'])
-
-    # Possible rules based on rule type values
-    #par['possible_rules'] = [par['num_receptive_fields'], par['num_categorizations']]
+    par['shape'] = [par['n_input'], par['n_hidden'], par['n_output']]
 
     # If num_inh_units is set > 0, then neurons can be either excitatory or
     # inihibitory; is num_inh_units = 0, then the weights projecting from
@@ -317,31 +182,10 @@ def update_dependencies():
 
     # Membrane time constant of RNN neurons
     par['alpha_neuron'] = np.float32(par['dt'])/par['membrane_time_constant']
-    # The standard deviation of the Gaussian noise added to each RNN neuron
-    # at each time step
+
+    # The standard deviation of the Gaussian noise added to each RNN neuron at each time step
     par['noise_rnn'] = np.sqrt(2*par['alpha_neuron'])*par['noise_rnn_sd']
-    par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd'] # since term will be multiplied by par['alpha_neuron']
-
-
-    # The time step in seconds
-    par['dt_sec'] = par['dt']/1000
-    # Length of each trial in ms
-    if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
-        par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
-    elif par['trial_type'] in ['RF_cue', 'RF_detection']:
-        par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
-            par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
-    elif par['trial_type'] in ['chunking','sequence']:
-        par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['pulse_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
-            par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
-    elif par['trial_type'] == 'sequence_cue':
-        par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['pulse_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
-            par['resp_cue_time']
-    else:
-        par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
-
-    # Length of each trial in time steps
-    #par['num_time_steps'] = par['trial_length']//par['dt']
+    par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd']
 
 
     ####################################################################
@@ -355,14 +199,17 @@ def update_dependencies():
 
 
     # Initialize input weights
-    par['w_in0'] = initialize([par['n_input'], par['n_hidden']], par['connection_prob'])
+    par['w_in0'] = initialize([par['n_input'], par['n_hidden']])
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
     #   zeroes on the diagonal
     # If not, initializes with a diagonal matrix
     if par['EI']:
-        par['w_rnn0'] = initialize([par['n_hidden'], par['n_hidden']], par['connection_prob'])
+        par['w_rnn0'] = initialize([par['n_hidden'], par['n_hidden']])
+
+        if par['balance_EI']:
+            par['w_rnn0'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], shape=1., scale=1.)
 
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
@@ -381,12 +228,9 @@ def update_dependencies():
 
 
     # Initialize output weights and biases
-    par['w_out0'] =initialize([par['n_hidden'], par['n_output']], par['connection_prob'])
+    par['w_out0'] =initialize([par['n_hidden'], par['n_output']])
     par['b_out0'] = np.zeros((1, par['n_output']), dtype=np.float32)
     par['w_out_mask'] = np.ones((par['n_hidden'], par['n_output']), dtype=np.float32)
-
-    if par['balance_EI']:
-        par['w_rnn0'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=1., scale=1.)
 
     # if par['EI']:
     #     par['ind_inh'] = np.where(par['EI_list'] == -1)[0]
@@ -445,17 +289,14 @@ def update_dependencies():
     par['U'] = par['U'].T
 
 
-def initialize(dims, connection_prob, shape=0.25, scale=1.0 ):
+def initialize(dims, shape=0.25, scale=1.0 ):
     w = np.random.gamma(shape, scale, size=dims)
-    #w = np.random.uniform(0,0.25, size=dims)
-    w *= (np.random.rand(*dims) < connection_prob)
     return np.float32(w)
 
 
 def spectral_radius(A):
     return np.max(abs(np.linalg.eigvals(A)))
 
-update_trial_params()
-update_dependencies()
 
+update_dependencies()
 print("--> Parameters successfully loaded.\n")

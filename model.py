@@ -190,7 +190,7 @@ def main(gpu_id=None):
         for i in range(par['num_iterations']):
 
             # Generate a batch of stimulus for training
-            trial_info = stim.generate_trial(par['trial_type'], var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], \
+            trial_info = stim.generate_trial(par['trial_type'], var_delay=par['var_delay'], \
                 var_num_pulses=par['var_num_pulses'], all_RF=par['all_RF'], test_mode=False)
 
             # Put together the feed dictionary
@@ -239,21 +239,6 @@ def main(gpu_id=None):
                 'trial_time': trial_time,
                 'mean_h': mean_h}
             pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
-
-            #x = pickle.load(open(par['save_dir'] + par['save_fn'], 'rb'))
-
-            #analysis.analyze_model(x, trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False, stim_num=0,\
-                #simulation = True, cut = False, lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
-
-
-            # Generate another batch of trials with test_mode = True (sample and test stimuli
-            # are independently drawn), and then perform tuning and decoding analysis
-            # trial_info = stim.generate_trial(test_mode = True)
-            # y_hat, state_hist, syn_x_hist, syn_u_hist = \
-            #     sess.run([model.y_hat, model.hidden_hist, model.syn_x_hist, model.syn_u_hist], \
-            #     {x: trial_info['neural_input'], y: trial_info['desired_output'], mask: trial_info['train_mask']})
-            # analysis.analyze_model(trial_info, y_hat, state_hist, syn_x_hist, syn_u_hist, model_performance, weights, \
-            #     simulation = False, lesion = False, tuning = par['analyze_tuning'], decoding = True, load_previous_file = True, save_raw_data = False)
 
 
 def append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, trial_num):

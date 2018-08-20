@@ -30,7 +30,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
 
     stim = stimulus.Stimulus()
 
-    trial_info = stim.generate_trial(analysis = False, var_delay = False, var_resp_delay = False, var_num_pulses = False, test_mode = False)
+    trial_info = stim.generate_trial(analysis = False, var_delay = False, var_num_pulses = False, test_mode = False)
     input_data = np.squeeze(np.split(trial_info['neural_input'], results['parameters']['num_time_steps'], axis=1))
     y_hat, h, syn_x, syn_u = run_model(input_data, results['parameters']['h_init'], \
         results['parameters']['syn_x_init'], results['parameters']['syn_u_init'], results['weights'])
