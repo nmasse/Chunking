@@ -28,7 +28,7 @@ class Model:
         # Print feedback on network data shape
         print('Stimulus shape:'.ljust(18), input_data.shape)
         print('Target shape:'.ljust(18), target_data.shape)
-        print('Mask shape:'.ljust(18), mask.shape)
+        print('Mask shape:'.ljust(18), mask.shape, '\n')
 
         # Load input activity, target data, training mask, etc.
         self.input_data  = tf.unstack(input_data, axis=0)
