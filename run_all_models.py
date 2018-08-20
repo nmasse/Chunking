@@ -52,7 +52,7 @@ except:
     gpu_id = None
 
 
-num_pulses = 6
+num_pulses = 2
 load_weights = False
 
 for v in range(3):

@@ -188,7 +188,7 @@ def main(gpu_id=None):
         # Begin training loop
         print('\nStarting training...\n')
         for i in range(par['num_iterations']):
-
+            
             # Generate a batch of stimulus for training
             trial_info = stim.generate_trial(par['trial_type'], var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], \
                 var_num_pulses=par['var_num_pulses'], all_RF=par['all_RF'], test_mode=False)

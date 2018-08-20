@@ -30,11 +30,11 @@ par = {
     'num_fix_tuned'         : 2,
     'num_rule_tuned'        : 8,
     'num_RFs'               : 6,
-    'n_hidden'              : 100,
+    'n_hidden'              : 10,
     'output_type'           : 'one_hot',
 
     # Chunking trial
-    'num_pulses'            : 6,
+    'num_pulses'            : 2,
     'var_num_pulses'        : False,
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 500,
@@ -75,8 +75,8 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 1024,
-    'num_iterations'        : 1000000,
+    'batch_train_size'      : 10,
+    'num_iterations'        : 2,
     'iters_between_outputs' : 50,
 
     # Task specs
@@ -84,6 +84,7 @@ par = {
     'rotation_match'        : 0,  # angular difference between matching sample and test
     'dead_time'             : 100,
     'fix_time'              : 200,
+    'pulse_time'            : 200,
     'sample_time'           : 500,
     'delay_time'            : 200,
     'test_time'             : 500,
@@ -235,6 +236,31 @@ def update_trial_params():
         par['num_time_steps'] = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['sample_time'] + \
             (2*par['num_pulses']-1)*par['resp_cue_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
 
+    elif par['trial_type'] == 'sequence':
+        par['num_rule_tuned'] = par['num_pulses'] if par['var_num_pulses'] else 0
+
+        par['delay_times'] = par['delay_time']*np.ones((par['num_pulses']), dtype = np.int16)
+        if par['var_delay']:
+            # we will suffle these times for each trial
+            par['delay_times'][1::3] += 100
+            par['delay_times'][2::3] -= 100
+
+        # rule signal can appear at the end of delay1_time
+        par['num_time_steps'] = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['pulse_time'] + \
+            (2*par['num_pulses']-1)*par['resp_cue_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
+
+    elif par['trial_type'] == 'sequence_cue':
+        par['num_rule_tuned'] = par['num_pulses']
+
+        par['delay_times'] = par['delay_time']*np.ones((par['num_pulses']), dtype = np.int16)
+        if par['var_delay']:
+            # we will suffle these times for each trial
+            par['delay_times'][1::3] += 100
+            par['delay_times'][2::3] -= 100
+
+        # rule signal can appear at the end of delay1_time
+        par['num_time_steps'] = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['pulse_time'] + \
+            par['resp_cue_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
 
     else:
         print(par['trial_type'], ' not a recognized trial type')
@@ -305,6 +331,12 @@ def update_dependencies():
     elif par['trial_type'] == 'chunking' or par['trial_type'] == 'RF_cue':
         par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
             par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
+    elif par['trial_type'] == 'sequence':
+        par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['pulse_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
+            par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
+    elif par['trial_type'] == 'sequence_cue':
+        par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['pulse_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
+            par['resp_cue_time']
     else:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
 
