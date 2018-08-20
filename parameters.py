@@ -222,7 +222,7 @@ def update_trial_params():
         par['rule_onset_time'] = par['dead_time']
         par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
 
-    elif par['trial_type'] == 'chunking' or par['trial_type'] == 'RF_cue':
+    elif par['trial_type'] == in ['chunking', 'RF_cue', 'RF_detection']:
 
         par['num_rule_tuned'] = par['num_pulses'] if par['var_num_pulses'] else 0
 
@@ -282,7 +282,7 @@ def update_dependencies():
     # Number of input neurons
     par['total_motion_tuned'] = par['num_motion_tuned']*par['num_RFs']
 
-    if par['trial_type'] == 'chunking' or par['trial_type'] == 'RF_cue':
+    if par['trial_type'] in ['chunking', 'RF_cue', 'RF_detection']:
         par['n_input'] = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
     else:
         par['n_input'] = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
@@ -328,7 +328,7 @@ def update_dependencies():
     # Length of each trial in ms
     if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
-    elif par['trial_type'] == 'chunking' or par['trial_type'] == 'RF_cue':
+    elif par['trial_type'] in ['chunking', 'RF_cue', 'RF_detection']:
         par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
             par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
     elif par['trial_type'] == 'sequence':
