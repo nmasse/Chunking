@@ -135,9 +135,9 @@ def update_dependencies():
 
     # Determine the number of time steps
     par['num_time_steps'] = par['dead_time'] + par['fix_time'] \
-        + np.maximum(par['num_pulses']*par['pulse_time'], par['sample_time']) \
+        + np.maximum(par['num_pulses']*par['sample_time'], par['sample_time']) \
         + (2*par['num_pulses']-1)*par['resp_cue_time'] \
-        + par['long_delay_time']
+        + par['long_delay_time'] \
         + np.sum(par['delay_times'])
     par['num_time_steps'] = int(par['num_time_steps']//par['dt'])
 
@@ -187,6 +187,7 @@ def update_dependencies():
     par['noise_rnn'] = np.sqrt(2*par['alpha_neuron'])*par['noise_rnn_sd']
     par['noise_in'] = np.sqrt(2/par['alpha_neuron'])*par['noise_in_sd']
 
+    par['dt_sec'] = par['dt']/1000
 
     ####################################################################
     ### Setting up assorted intial weights, biases, and other values ###
