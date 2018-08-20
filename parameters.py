@@ -23,14 +23,14 @@ par = {
     'var_delay'             : True,
     'var_resp_delay'        : True,
     'all_RF'                : True,
-    'tol'                   : 0.1,
+    'tol'                   : 0.2,
 
     # Network shape
     'num_motion_tuned'      : 24,
     'num_fix_tuned'         : 2,
     'num_rule_tuned'        : 8,
     'num_RFs'               : 6,
-    'n_hidden'              : 10,
+    'n_hidden'              : 100,
     'output_type'           : 'one_hot',
 
     # Chunking trial
@@ -76,7 +76,7 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 10000,
+    'num_iterations'        : 100000,
     'iters_between_outputs' : 50,
 
     # Task specs
@@ -142,7 +142,87 @@ def load_previous_weights():
 
 def update_trial_params():
 
-    if par['trial_type'] == in ['chunking', 'RF_cue', 'RF_detection']:
+    """
+    Update all the trial parameters given trial_type
+    """
+
+    par['num_rules'] = 1
+    par['num_rule_tuned'] = 0
+    par['ABBA_delay' ] = 0
+
+    if par['trial_type'] == 'DMS' or par['trial_type'] == 'DMC':
+        par['rotation_match'] = 0
+
+    elif par['trial_type'] == 'DMRS45':
+        par['rotation_match'] = 45
+
+    elif par['trial_type'] == 'DMRS90':
+        par['rotation_match'] = 90
+
+    elif par['trial_type'] == 'DMRS90ccw':
+        par['rotation_match'] = -90
+
+    elif  par['trial_type'] == 'DMRS180':
+        par['rotation_match'] = 180
+
+    elif par['trial_type'] == 'dualDMS':
+        par['catch_trial_pct'] = 0
+        par['num_receptive_fields'] = 2
+        par['num_rules'] = 2
+        par['probe_trial_pct'] = 0
+        par['probe_time'] = 10
+        par['num_rule_tuned'] = 12
+        par['sample_time'] = 500
+        par['test_time'] = 500
+        par['delay_time'] = 1000
+        par['analyze_rule'] = True
+        par['num_motion_tuned'] = 36
+        par['noise_in_sd']  = 0.1
+        par['noise_rnn_sd'] = 0.5
+        par['num_iterations'] = 4000
+
+        par['dualDMS_single_test'] = False
+
+    elif par['trial_type'] == 'ABBA' or par['trial_type'] == 'ABCA':
+        par['catch_trial_pct'] = 0
+        par['match_test_prob'] = 0.5
+        par['max_num_tests'] = 3
+        par['sample_time'] = 400
+        par['delay_time'] = 2400
+        par['ABBA_delay'] = par['delay_time']//par['max_num_tests']//2
+        par['repeat_pct'] = 0
+        par['analyze_test'] = True
+        if par['trial_type'] == 'ABBA':
+            par['repeat_pct'] = 0.5
+
+    elif par['trial_type'] == 'DMS+DMRS' or par['trial_type'] == 'DMS+DMRS_early_cue':
+
+        par['num_rules'] = 2
+        par['num_rule_tuned'] = 12
+        if par['trial_type'] == 'DMS+DMRS':
+            par['rotation_match'] = [0, 90]
+            par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
+            par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 750
+        else:
+            par['rotation_match'] = [0, 45]
+            par['rule_onset_time'] = par['dead_time']
+            par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']-200
+
+    elif par['trial_type'] == 'DMS+DMC':
+        par['num_rules'] = 2
+        par['num_rule_tuned'] = 12
+        par['rotation_match'] = [0, 0]
+        par['rule_onset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + 500
+        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
+
+    elif par['trial_type'] == 'DMS+DMRS+DMC':
+        par['num_rules'] = 3
+        par['num_rule_tuned'] = 18
+        par['rotation_match'] = [0, 90, 0]
+        par['rule_onset_time'] = par['dead_time']
+        par['rule_offset_time'] = par['dead_time']+par['fix_time']+par['sample_time'] + par['delay_time'] + par['test_time']
+
+    elif par['trial_type'] in ['RF_cue', 'RF_detection']:
 
         par['num_rule_tuned'] = par['num_pulses'] if par['var_num_pulses'] else 0
 
@@ -156,7 +236,7 @@ def update_trial_params():
         par['num_time_steps'] = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['sample_time'] + \
             (2*par['num_pulses']-1)*par['resp_cue_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
 
-    elif par['trial_type'] == 'sequence':
+    elif par['trial_type'] in ['chunking','sequence']:
         par['num_rule_tuned'] = par['num_pulses'] if par['var_num_pulses'] else 0
 
         par['delay_times'] = par['delay_time']*np.ones((par['num_pulses']), dtype = np.int16)
@@ -248,10 +328,10 @@ def update_dependencies():
     # Length of each trial in ms
     if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
-    elif par['trial_type'] in ['chunking', 'RF_cue', 'RF_detection']:
+    elif par['trial_type'] in ['RF_cue', 'RF_detection']:
         par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
             par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
-    elif par['trial_type'] == 'sequence':
+    elif par['trial_type'] in ['chunking','sequence']:
         par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['pulse_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
             par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
     elif par['trial_type'] == 'sequence_cue':

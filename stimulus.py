@@ -268,7 +268,6 @@ class Stimulus:
             if var_delay:
                 s = np.int32(np.random.exponential(scale=par['var_delay_scale']))
                 trial_resp_start = resp_start + s
-                print(resp_start, s)
                 if s >= int((2*par['long_delay_time'])//par['dt']):
                     s = int((2*par['long_delay_time'])//par['dt'])
                     catch = True

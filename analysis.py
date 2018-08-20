@@ -883,20 +883,20 @@ def get_perf(y, y_hat, mask, pulse_id):
     y_hat is the actual output
     """
 
-    y_hat = np.stack(y_hat)
+    #y_hat = np.stack(y_hat)
 
     #print("Entering get_perf...")
     #print(np.sum(mask))
-    y_hat_max = np.stack(y_hat, axis=1)
+    y_hat = np.stack(y_hat, axis=0)
     mask_test = mask*(y[:,:,0]==0)
-    y_max = np.argmax(y, axis = 0)
-    y_hat_max = np.argmax(y_hat_max, axis = 0)
-    accuracy = np.sum(np.float32(y_max == y_hat_max)*mask_test)/np.sum(mask_test)
+    y_max = np.argmax(y, axis = 2)
+    y_hat = np.argmax(y_hat, axis = 2)
+    accuracy = np.sum(np.float32(y_max == y_hat)*mask_test)/np.sum(mask_test)
 
     pulse_accuracy = np.zeros((par['num_pulses']))
     for i in range(par['num_pulses']):
         current_mask = mask_test*(pulse_id == i)
-        pulse_accuracy[i] = np.sum(np.float32(y_max == y_hat_max)*current_mask)/np.sum(current_mask)
+        pulse_accuracy[i] = np.sum(np.float32(y_max == y_hat)*current_mask)/np.sum(current_mask)
 
     return accuracy, pulse_accuracy
 
