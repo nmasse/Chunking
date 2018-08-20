@@ -30,11 +30,11 @@ par = {
     'num_fix_tuned'         : 2,
     'num_rule_tuned'        : 8,
     'num_RFs'               : 6,
-    'n_hidden'              : 100,
+    'n_hidden'              : 10,
     'output_type'           : 'one_hot',
 
     # Chunking trial
-    'num_pulses'            : 6,
+    'num_pulses'            : 2,
     'var_num_pulses'        : False,
     'num_resp_cue_tuned'    : 2,
     'long_delay_time'       : 500,
@@ -75,8 +75,8 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 1024,
-    'num_iterations'        : 1000000,
+    'batch_train_size'      : 10,
+    'num_iterations'        : 2,
     'iters_between_outputs' : 50,
 
     # Task specs

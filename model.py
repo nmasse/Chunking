@@ -201,7 +201,7 @@ def main(gpu_id=None):
                 else:
                     par['all_RF'] = True"""
 
-            task = 'RF_cue'
+            task = 'sequence_cue'
 
             # Generate a batch of stimulus for training
             trial_info = stim.generate_trial(task, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], \
