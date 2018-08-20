@@ -267,8 +267,8 @@ class Stimulus:
                 trial_resp_start = resp_start
 
             # Stimulus and response
-            stim1 = np.sum([self.motion_tuning[directions[b,rf],rf] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
-            stim2 = np.sum([self.motion_tuning[new_directions[rf],rf] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
+            stim1 = np.sum([self.motion_tuning[directions[b,rf],rf]/par['num_RFs'] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
+            stim2 = np.sum([self.motion_tuning[new_directions[rf],rf]/par['num_RFs'] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
             resp = self.rf_output_tuning[targets[b]]
 
             # Building neural input
@@ -326,7 +326,7 @@ class Stimulus:
                 trial_resp_start = resp_start
 
             # Stimulus and response
-            stim = np.sum([self.motion_tuning[directions[b,rf],rf] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
+            stim = np.sum([self.motion_tuning[directions[b,rf],rf]/par['num_RFs'] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
             resp = self.dir_output_tuning[directions[b,targets[b]]]
 
             # Designated cue
