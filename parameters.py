@@ -76,11 +76,7 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-<<<<<<< Updated upstream
-    'num_iterations'        : 10000,
-=======
     'num_iterations'        : 100000,
->>>>>>> Stashed changes
     'iters_between_outputs' : 50,
 
     # Task specs
