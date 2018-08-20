@@ -18,7 +18,7 @@ class Stimulus:
         elif task == "sequence_cue":
             trial_info = self.generate_sequence_cue_trial(var_delay, var_resp_delay)
         elif task == "RF_detection":
-            trial_info = self.generate_RF_detection_trial()
+            trial_info = self.generate_RF_detection_trial(var_delay or var_resp_delay)
         elif task == "RF_cue":
             trial_info = self.generate_RF_cue_trial(var_delay or var_resp_delay)
         elif task == "var_chunking":
@@ -27,13 +27,16 @@ class Stimulus:
             trial_info = None
 
 
-        """fig, ax = plt.subplots(3)
-        ax[0].imshow(trial_info['neural_input'][:,0,:], aspect='auto', clim=[0,4])
-        ax[1].imshow(trial_info['desired_output'][:,0,:], aspect='auto', clim=[0,4])
-        ax[2].imshow(trial_info['train_mask'][:,0,np.newaxis], aspect='auto', clim=[0,4])
+        #"""
+        for b in range(3):
+            fig, ax = plt.subplots(3)
+            ax[0].imshow(trial_info['neural_input'][:,b,:].T, aspect='auto', clim=[0,4])
+            ax[1].imshow(trial_info['desired_output'][:,b,:].T, aspect='auto', clim=[0,4])
+            ax[2].imshow(trial_info['train_mask'][:,b,np.newaxis].T, aspect='auto', clim=[0,4])
 
-        plt.show()
-        quit()"""
+            plt.show()
+        quit()
+        #"""
 
         return trial_info
 
@@ -211,7 +214,7 @@ class Stimulus:
                 trial_info['sample_RF'][t,i] = loc[i]
 
                 trial_info['neural_input'][stim_times[i], t, :] += self.motion_tuning[trial_info['sample'][t,i], trial_info['sample_RF'][t,i]]
-            
+
 
             # response properties
             trial_info['neural_input'][resp_times[0], t, :] += self.order_tuning[:, trial_info['test'][t]]
@@ -246,7 +249,7 @@ class Stimulus:
         pulse_dur = int(par['sample_time']//par['dt'])
         resp_dur = int(par['resp_cue_time']//par['dt'])
         mask_dur = int(par['mask_duration']//par['dt'])
-        resp_start = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['sample_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
+        resp_start = int((par['dead_time'] + par['fix_time'] + par['long_delay_time'])//par['dt'])
         delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
 
         directions = np.random.choice(par['num_motion_dirs'], size=[par['batch_train_size'], par['num_RFs']])
@@ -261,18 +264,16 @@ class Stimulus:
             new_directions[targets[b]] = np.random.choice(options)
 
             # Select response onset
+            catch = False
             if var_delay:
                 s = np.int32(np.random.exponential(scale=par['var_delay_scale']))
                 trial_resp_start = resp_start + s
-                if resp_start+s >= par['num_time_steps']-mask_dur:
+                print(resp_start, s)
+                if s >= int((2*par['long_delay_time'])//par['dt']):
+                    s = int((2*par['long_delay_time'])//par['dt'])
                     catch = True
-                    trial_resp_start = -1
-                else:
-                    catch = False
-
             else:
                 trial_resp_start = resp_start
-                catch = False
 
             # Stimulus and response
             stim1 = np.sum([self.motion_tuning[directions[b,rf],rf] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
@@ -289,8 +290,11 @@ class Stimulus:
             trial_info['desired_output'][trial_resp_start:,b,:] = resp
 
             # Building network mask
-            if not catch:
+            if catch:
+                trial_info['train_mask'][trial_resp_start-1:,b] = 0.
+            else:
                 trial_info['train_mask'][trial_resp_start+mask_dur:,b] *= par['response_multiplier']
+                trial_info['train_mask'][trial_resp_start+mask_dur+pulse_dur:,b] = 0.
             trial_info['train_mask'][trial_resp_start:trial_resp_start+mask_dur,b] = 0
             trial_info['train_mask'][-1,b] = 0
 
@@ -309,28 +313,26 @@ class Stimulus:
         pulse_dur = int(par['sample_time']//par['dt'])
         resp_dur = int(par['resp_cue_time']//par['dt'])
         mask_dur = int(par['mask_duration']//par['dt'])
-        resp_start = int((par['dead_time'] + par['fix_time'] + par['num_pulses']*par['sample_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
+        resp_start = int((par['dead_time'] + par['fix_time'] + par['long_delay_time'])//par['dt'])
         delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
 
         directions = np.random.choice(par['num_motion_dirs'], size=[par['batch_train_size'], par['num_RFs']])
         targets = np.random.choice(par['num_RFs'], size=[par['batch_train_size']])
 
         trial_info['train_mask'][:par['dead_time']//par['dt'],:] = 0
+        count = 0
         for b in range(par['batch_train_size']):
 
             # Select response onset
+            catch = False
             if var_delay:
                 s = np.int32(np.random.exponential(scale=par['var_delay_scale']))
                 trial_resp_start = resp_start + s
-                if resp_start+s >= par['num_time_steps']-mask_dur:
+                if s >= int((2*par['long_delay_time'])//par['dt']):
+                    s = int((2*par['long_delay_time'])//par['dt'])
                     catch = True
-                    trial_resp_start = -1
-                else:
-                    catch = False
-
             else:
                 trial_resp_start = resp_start
-                catch = False
 
             # Stimulus and response
             stim = np.sum([self.motion_tuning[directions[b,rf],rf] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
@@ -350,8 +352,11 @@ class Stimulus:
             trial_info['desired_output'][trial_resp_start:,b,:] = resp
 
             # Building network mask
-            if not catch:
+            if catch:
+                trial_info['train_mask'][trial_resp_start-1:,b] = 0.
+            else:
                 trial_info['train_mask'][trial_resp_start+mask_dur:,b] *= par['response_multiplier']
+                trial_info['train_mask'][trial_resp_start+mask_dur+pulse_dur:,b] = 0.
             trial_info['train_mask'][trial_resp_start:trial_resp_start+mask_dur,b] = 0
             trial_info['train_mask'][-1,b] = 0
 
@@ -475,4 +480,4 @@ class Stimulus:
 
 if __name__ == '__main__':
     s = Stimulus()
-    s.generate_trial('sequence', var_delay=True)
+    s.generate_trial('RF_detection', var_delay=True)

@@ -51,7 +51,7 @@ par = {
     'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
     'connection_prob'       : 1,         # Usually 1
-    'var_delay_scale'       : 75,        # Set for 25% catch trials for RF_cue
+    'var_delay_scale'       : 33,        # Set for 20% catch trials for RF_cue
 
     # Variance values
     'clip_max_grad_val'     : 1,
@@ -75,8 +75,8 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 10,
-    'num_iterations'        : 2,
+    'batch_train_size'      : 1024,
+    'num_iterations'        : 10000,
     'iters_between_outputs' : 50,
 
     # Task specs
