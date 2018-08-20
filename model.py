@@ -189,22 +189,8 @@ def main(gpu_id=None):
         print('\nStarting training...\n')
         for i in range(par['num_iterations']):
 
-            # Select task and adjust parameters as necessary
-            """task = "sequence"
-            if par['weekend'] == 0:
-                par['all_RF'] = False
-            elif par['weekend'] == 1:
-                par['all_RF'] = True
-            else:
-                if i % 2 == 0:
-                    par['all_RF'] = False
-                else:
-                    par['all_RF'] = True"""
-
-            task = 'RF_cue'
-
             # Generate a batch of stimulus for training
-            trial_info = stim.generate_trial(task, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], \
+            trial_info = stim.generate_trial(par['trial_type'], var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], \
                 var_num_pulses=par['var_num_pulses'], all_RF=par['all_RF'], test_mode=False)
 
             # Put together the feed dictionary
@@ -216,7 +202,10 @@ def main(gpu_id=None):
                 model.hidden_hist, model.syn_x_hist, model.syn_u_hist], feed_dict=feed_dict)
 
             # Calculate accuracy from the model's output
-            accuracy, pulse_accuracy = analysis.get_coord_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
+            if par['output_type'] == 'directional':
+                accuracy, pulse_accuracy = analysis.get_coord_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
+            elif par['output_type'] == 'one_hot':
+                accuracy, pulse_accuracy = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
 
             # Record the model's performance
             model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*par['batch_train_size'])
