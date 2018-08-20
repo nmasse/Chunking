@@ -52,17 +52,64 @@ except:
     gpu_id = None
 
 
-num_pulses = 2
+trial_type = 'sequence'
+num_pulses = [3,6]
 load_weights = False
 
-for v in range(3):
+# Running Task1 and Task2
+for pulse in num_pulses:
+    for v in range(2):
+        pulse = 1
+        print('Training network on sequence task, ', pulse, ' pulses, without cue, version ', v,'...')
+        save_fn = str(trial_type) + '_' + str(pulse) + '_var_delay_cue_off_v' + str(v) + '.pkl'
 
-    print('Training network on sequence task, ', num_pulses, ' pulses, without cue, version ', v,'...')
-    save_fn = 'sequence_' + str(num_pulses) + '_var_delay_cue_off_v' + str(v) + '.pkl'
-    #save_fn = task + '_' + str(num_pulses[n]) + '_cue_on_v' + str(v) + '.pkl'
+        updates = {'save_fn': save_fn, 'num_pulses': pulse, 'num_max_pulse': pulse, 'order_cue': False, 'num_RFs': pulse, 'trial_type': trial_type,\
+        'load_prev_weights': load_weights, 'var_num_pulses': False, 'var_delay': True, 'var_resp_delay':False, 'all_RF': v}
+        update_parameters(updates)
 
-    updates = {'save_fn': save_fn, 'num_pulses': num_pulses, 'num_max_pulse': num_pulses, 'order_cue': False, \
-        'load_prev_weights': load_weights, 'var_num_pulses': False, 'var_delay': True, 'var_resp_delay':False, 'weekend': v}
-    update_parameters(updates)
+        try_model(gpu_id)
+        print('\n\n\n')
 
-    try_model(gpu_id)
+# Running sequence_cue
+"""
+trial_type = 'sequence_cue'
+for pulse in num_pulses:
+    for v in range(1):
+        print('Training network on sequence_cue task, ', pulse, ' pulses, without cue, version ', v,'...')
+        save_fn = str(trial_type) + '_' + str(pulse) + '_var_delay_cue_off_v' + str(v) + '.pkl'
+
+        updates = {'save_fn': save_fn, 'num_pulses': pulse, 'num_max_pulse': pulse, 'order_cue': False, 'num_RFs': pulse, 'trial_type': trial_type,\
+        'load_prev_weights': load_weights, 'var_num_pulses': False, 'var_delay': True, 'var_resp_delay':False, 'all_RF': False}
+        update_parameters(updates)
+
+        try_model(gpu_id)"""
+
+# Running RF_detection
+"""
+trial_type = 'RF_detection'
+for pulse in num_pulses:
+    for v in range(1):
+
+        print('Training network on RF task, ', pulse, ' pulses, without cue, version ', v,'...')
+        save_fn = str(trial_type) + '_' + str(pulse) + '_var_delay_cue_off_v' + str(v) + '.pkl'
+
+        updates = {'save_fn': save_fn, 'num_pulses': pulse, 'num_max_pulse': pulse, 'order_cue': False, 'num_RFs': pulse, 'trial_type': trial_type,\
+        'load_prev_weights': load_weights, 'var_num_pulses': False, 'var_delay': True, 'var_resp_delay':False, 'all_RF': False}
+        update_parameters(updates)
+
+        try_model(gpu_id)"""
+
+# Running RF_cue
+"""
+trial_type = 'RF_cue'
+for pulse in num_pulses:
+    for v in range(1):
+
+        print('Training network on sequence task, ', pulse, ' pulses, without cue, version ', v,'...')
+        save_fn = str(trial_type) + '_' + str(pulse) + '_var_delay_cue_off_v' + str(v) + '.pkl'
+
+        updates = {'save_fn': save_fn, 'num_pulses': pulse, 'num_max_pulse': pulse, 'order_cue': False, 'num_RFs': pulse, 'trial_type': trial_type,\
+        'load_prev_weights': load_weights, 'var_num_pulses': False, 'var_delay': True, 'var_resp_delay':False, 'all_RF': False}
+        update_parameters(updates)
+
+        try_model(gpu_id)"""

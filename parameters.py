@@ -30,7 +30,7 @@ par = {
     'num_fix_tuned'         : 2,
     'num_rule_tuned'        : 8,
     'num_RFs'               : 6,
-    'n_hidden'              : 10,
+    'n_hidden'              : 100,
     'output_type'           : 'one_hot',
 
     # Chunking trial
@@ -76,7 +76,11 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
+<<<<<<< Updated upstream
     'num_iterations'        : 10000,
+=======
+    'num_iterations'        : 100000,
+>>>>>>> Stashed changes
     'iters_between_outputs' : 50,
 
     # Task specs
