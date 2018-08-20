@@ -14,19 +14,26 @@ class Stimulus:
     def generate_trial(self, task, var_delay=False, var_resp_delay=False, var_num_pulses=False, all_RF=False, test_mode = False):
 
         if task == "sequence":
-            return self.generate_sequence_trial(var_delay, var_resp_delay, all_RF)
-
+            trial_info = self.generate_sequence_trial(var_delay, var_resp_delay, all_RF)
         elif task == "RF_detection":
-            return self.generate_RF_detection_trial()
-
+            trial_info = self.generate_RF_detection_trial()
         elif task == "RF_cue":
-            return self.generate_RF_cue_trial(var_delay or var_resp_delay)
-
+            trial_info = self.generate_RF_cue_trial(var_delay or var_resp_delay)
         elif task == "var_chunking":
-            return self.generate_var_chunking_trial(par['num_pulses'], var_delay, var_resp_delay, var_num_pulses, test_mode)
-
+            trial_info = self.generate_var_chunking_trial(par['num_pulses'], var_delay, var_resp_delay, var_num_pulses, test_mode)
         else:
-            return None
+            trial_info = None
+
+
+        fig, ax = plt.subplots(3)
+        ax[0].imshow(trial_info['neural_input'][:,0,:], aspect='auto', clim=[0,4])
+        ax[1].imshow(trial_info['desired_output'][:,0,:], aspect='auto', clim=[0,4])
+        ax[2].imshow(trial_info['train_mask'][:,0,np.newaxis], aspect='auto', clim=[0,4])
+
+        plt.show()
+        quit()
+
+        return trial_info
 
 
     def generate_var_chunking_trial(self, num_pulses, analysis, var_delay=False, var_resp_delay=False, var_num_pulses=False, test_mode=False):
@@ -228,6 +235,7 @@ class Stimulus:
 
             else:
                 trial_resp_start = resp_start
+                catch = False
 
             # Stimulus and response
             stim1 = np.sum([self.motion_tuning[directions[b,rf],rf] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
@@ -240,7 +248,7 @@ class Stimulus:
             trial_info['neural_input'][:trial_resp_start,b,:] += np.transpose(self.fix_tuning)
 
             # Building network output
-            trial_info['desired_output'][:trial_resp_start,b,:] = 0 # Superfluous, but explicitly specifies fixation
+            trial_info['desired_output'][:trial_resp_start,b,:] = self.fix_output_tuning.T
             trial_info['desired_output'][trial_resp_start:,b,:] = resp
 
             # Building network mask
@@ -285,6 +293,7 @@ class Stimulus:
 
             else:
                 trial_resp_start = resp_start
+                catch = False
 
             # Stimulus and response
             stim = np.sum([self.motion_tuning[directions[b,rf],rf] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
@@ -300,7 +309,7 @@ class Stimulus:
             trial_info['neural_input'][:trial_resp_start,b,:] += np.transpose(self.fix_tuning)
 
             # Building network output
-            trial_info['desired_output'][:trial_resp_start,b,:] = 0 # Superfluous, but explicitly specifies fixation
+            trial_info['desired_output'][:trial_resp_start,b,:] = self.fix_output_tuning.T
             trial_info['desired_output'][trial_resp_start:,b,:] = resp
 
             # Building network mask
@@ -323,6 +332,7 @@ class Stimulus:
         motion_tuning     = np.zeros([par['num_motion_dirs'], par['num_RFs'], par['n_input']])
         fix_tuning        = np.zeros([par['n_input'], 1])
         rule_tuning       = np.zeros([par['n_input'], 1])
+        fix_output_tuning = np.zeros([par['n_output'], 1])
         dir_output_tuning = np.zeros([par['num_motion_dirs'], par['n_output']])
         rf_output_tuning  = np.zeros([par['num_RFs'], par['n_output']])
 
@@ -341,17 +351,28 @@ class Stimulus:
         for n in range(par['num_fix_tuned']):
             fix_tuning[par['total_motion_tuned']+n,0] = par['tuning_height']
 
+            if par['output_type'] == 'directional':
+                fix_output_tuning[:] = 0.
+            elif par['output_type'] == 'one_hot':
+                fix_output_tuning[0] = 1.
+
         # Tune rule neurons to the correct height
         for n in range(par['num_rule_tuned']):
             rule_tuning[par['total_motion_tuned']+par['num_fix_tuned']+n,0] = par['tuning_height']
 
         # Tune output neurons to the correct directions
         for d in range(par['num_motion_dirs']):
-            dir_output_tuning[d] = [np.cos(stim_dirs[d]), np.sin(stim_dirs[d])]
+            if par['output_type'] == 'directional':
+                dir_output_tuning[d] = [np.cos(stim_dirs[d]), np.sin(stim_dirs[d])]
+            elif par['output_type'] == 'one_hot':
+                dir_output_tuning[d, d+1] = 1.
 
         # Tune output neurons to the correct directions
         for rf in range(par['num_RFs']):
-            rf_output_tuning[rf] = [np.cos(rf_dirs[rf]), np.sin(rf_dirs[rf])]
+            if par['output_type'] == 'directional':
+                rf_output_tuning[rf] = [np.cos(rf_dirs[rf]), np.sin(rf_dirs[rf])]
+            elif par['output_type'] == 'one_hot':
+                rf_output_tuning[rf, rf+par['num_motion_dirs']+1] = 1.
 
         # Set tunings to class elements
         self.motion_tuning     = motion_tuning
@@ -359,6 +380,7 @@ class Stimulus:
         self.rule_tuning       = rule_tuning
         self.dir_output_tuning = dir_output_tuning
         self.rf_output_tuning  = rf_output_tuning
+        self.fix_output_tuning = fix_output_tuning
 
 
     def plot_neural_input(self, trial_info):
@@ -384,3 +406,7 @@ class Stimulus:
         ax.set_title('Motion input')
         plt.show()
         plt.savefig('stimulus.pdf', format='pdf')
+
+if __name__ == '__main__':
+    s = Stimulus()
+    s.generate_trial('sequence', var_delay=True)

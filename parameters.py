@@ -31,7 +31,7 @@ par = {
     'num_rule_tuned'        : 8,
     'num_RFs'               : 6,
     'n_hidden'              : 100,
-    'n_output'              : 2,
+    'output_type'           : 'one_hot',
 
     # Chunking trial
     'num_pulses'            : 6,
@@ -245,6 +245,11 @@ def update_dependencies():
     """
     Updates all parameter dependencies
     """
+
+    if par['output_type'] == 'directional':
+        par['n_output'] = 2
+    elif par['output_type'] == 'one_hot':
+        par['n_output'] = par['num_motion_dirs'] + par['num_RFs'] + 1
 
     # Number of input neurons
     par['total_motion_tuned'] = par['num_motion_tuned']*par['num_RFs']
