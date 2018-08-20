@@ -274,8 +274,10 @@ def update_dependencies():
 
     if par['output_type'] == 'directional':
         par['n_output'] = 2
+        par['loss_function'] = 'MSE'
     elif par['output_type'] == 'one_hot':
         par['n_output'] = par['num_motion_dirs'] + par['num_RFs'] + 1
+        par['loss_function'] = 'cross_entropy'
 
     # Number of input neurons
     par['total_motion_tuned'] = par['num_motion_tuned']*par['num_RFs']
@@ -346,14 +348,14 @@ def update_dependencies():
     ### Setting up assorted intial weights, biases, and other values ###
     ####################################################################
 
-    par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
+    par['h_init'] = 0.1*np.ones((par['batch_train_size'], par['n_hidden']), dtype=np.float32)
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
 
 
     # Initialize input weights
-    par['w_in0'] = initialize([par['n_hidden'], par['n_input']], par['connection_prob'])
+    par['w_in0'] = initialize([par['n_input'], par['n_hidden']], par['connection_prob'])
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
@@ -369,7 +371,7 @@ def update_dependencies():
         par['w_rnn0'] = 0.54*np.eye(par['n_hidden'])
         par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32)
 
-    par['b_rnn0'] = np.zeros((par['n_hidden'], 1), dtype=np.float32)
+    par['b_rnn0'] = np.zeros((1, par['n_hidden']), dtype=np.float32)
 
     # Effective synaptic weights are stronger when no short-term synaptic plasticity
     # is used, so the strength of the recurrent weights is reduced to compensate
@@ -379,9 +381,9 @@ def update_dependencies():
 
 
     # Initialize output weights and biases
-    par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
-    par['b_out0'] = np.zeros((par['n_output'], 1), dtype=np.float32)
-    par['w_out_mask'] = np.ones((par['n_output'], par['n_hidden']), dtype=np.float32)
+    par['w_out0'] =initialize([par['n_hidden'], par['n_output']], par['connection_prob'])
+    par['b_out0'] = np.zeros((1, par['n_output']), dtype=np.float32)
+    par['w_out_mask'] = np.ones((par['n_hidden'], par['n_output']), dtype=np.float32)
 
     if par['balance_EI']:
         par['w_rnn0'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=1., scale=1.)
@@ -435,6 +437,12 @@ def update_dependencies():
             par['U'][i,0] = 0.45
             par['syn_x_init'][i,:] = 1
             par['syn_u_init'][i,:] = par['U'][i,0]
+
+    par['syn_x_init'] = par['syn_x_init'].T
+    par['syn_u_init'] = par['syn_u_init'].T
+    par['alpha_stf'] = par['alpha_stf'].T
+    par['alpha_std'] = par['alpha_std'].T
+    par['U'] = par['U'].T
 
 
 
