@@ -25,13 +25,13 @@ class Stimulus:
             trial_info = None
 
 
-        fig, ax = plt.subplots(3)
+        """fig, ax = plt.subplots(3)
         ax[0].imshow(trial_info['neural_input'][:,0,:], aspect='auto', clim=[0,4])
         ax[1].imshow(trial_info['desired_output'][:,0,:], aspect='auto', clim=[0,4])
         ax[2].imshow(trial_info['train_mask'][:,0,np.newaxis], aspect='auto', clim=[0,4])
 
         plt.show()
-        quit()
+        quit()"""
 
         return trial_info
 
