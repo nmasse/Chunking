@@ -41,7 +41,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 20,
-    'learning_rate'         : 5e-3,
+    'learning_rate'         : 2e-3,
     'membrane_time_constant': 100,
 
     # Variance values
