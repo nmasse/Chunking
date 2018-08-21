@@ -37,7 +37,7 @@ class Stimulus:
             plt.show()
         quit()
         #"""
-        quit()
+        
         return trial_info
 
 
@@ -124,7 +124,7 @@ class Stimulus:
             num_pulses = par['num_pulses']
             loc = np.random.permutation(np.arange(par['num_pulses'])) if all_RF else np.array([np.random.choice(np.arange(par['num_pulses']))] * par['num_pulses'])
 
-            current_delay_times = np.random.permutation(delay_times) if var_delay else delay_times
+            current_delay_times = np.random.permutation(delay_times) if var_delay else delay_timesquit
             stim_times = [range(start + i*pulse_dur + np.sum(current_delay_times[:i]), start + (i+1)*pulse_dur + np.sum(current_delay_times[:i])) for i in range(num_pulses)]
 
 
