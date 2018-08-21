@@ -37,7 +37,7 @@ class Stimulus:
             plt.show()
         quit()
         #"""
-
+        quit()
         return trial_info
 
 
@@ -134,7 +134,7 @@ class Stimulus:
             trial_info['train_mask'][:par['dead_time']//par['dt'], t] = 0
             trial_info['neural_input'][:,t,par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = par['tuning_height'] #self.fix_tuning[:, 0]
 
-            trial_info['desired_output'][:, t, :] = self.fix_output_tuning.T
+            trial_info['desired_output'][:, t, :] = self.fix_output_tuning
 
             for i in range(num_pulses):
 
@@ -196,7 +196,7 @@ class Stimulus:
 
             trial_info['train_mask'][:par['dead_time']//par['dt'], t] = 0
             trial_info['neural_input'][:,t,par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = par['tuning_height'] #self.fix_tuning[:, 0]
-            trial_info['desired_output'][:,t,:] = self.fix_output_tuning.T
+            trial_info['desired_output'][:,t,:] = self.fix_output_tuning
             trial_info['test'][t] = np.random.randint(par['num_pulses'])
 
             for i in range(num_pulses):
@@ -281,10 +281,10 @@ class Stimulus:
             # Building neural input
             trial_info['neural_input'][start:start+pulse_dur,b,:] += stim1
             trial_info['neural_input'][trial_resp_start:,b,:] += stim2
-            trial_info['neural_input'][:trial_resp_start,b,:] += np.transpose(self.fix_tuning)
+            trial_info['neural_input'][:trial_resp_start,b,:] += self.fix_tuning
 
             # Building network output
-            trial_info['desired_output'][:trial_resp_start,b,:] = self.fix_output_tuning.T
+            trial_info['desired_output'][:trial_resp_start,b,:] = self.fix_output_tuning
             trial_info['desired_output'][trial_resp_start:,b,:] = resp
 
             # Building network mask
@@ -323,7 +323,6 @@ class Stimulus:
 
         trial_info['train_mask'][:dead,:] = 0           # Dead time
         trial_info['train_mask'][total_length:,:] = 0   # Post-task time
-        count = 0
         for b in range(par['batch_train_size']):
 
             # Select response onset
@@ -334,8 +333,6 @@ class Stimulus:
                 if s >= var_delay_max:
                     catch = True    # If catch, mask from end of var_delay_max onward
                     trial_resp_start = -1
-                    count += 1
-                    print(count/par['batch_train_size'])
             else:
                 trial_resp_start = resp_start
 
@@ -350,10 +347,10 @@ class Stimulus:
             # Building neural input
             trial_info['neural_input'][start:start+pulse_dur,b,:] += stim
             trial_info['neural_input'][trial_resp_start:,b,:] += cue
-            trial_info['neural_input'][:trial_resp_start,b,:] += np.transpose(self.fix_tuning)
+            trial_info['neural_input'][:trial_resp_start,b,:] += self.fix_tuning
 
             # Building network output
-            trial_info['desired_output'][:trial_resp_start,b,:] = self.fix_output_tuning.T
+            trial_info['desired_output'][:trial_resp_start,b,:] = self.fix_output_tuning
             trial_info['desired_output'][trial_resp_start:,b,:] = resp
 
             # Building network mask
@@ -378,9 +375,9 @@ class Stimulus:
         # Order tuning      --> order cue for sequence task
 
         motion_tuning     = np.zeros([par['num_motion_dirs'], par['num_RFs'], par['n_input']])
-        fix_tuning        = np.zeros([par['n_input'], 1])
-        rule_tuning       = np.zeros([par['n_input'], 1])
-        fix_output_tuning = np.zeros([par['n_output'], 1])
+        fix_tuning        = np.zeros([1,par['n_input']])
+        rule_tuning       = np.zeros([1,par['n_input']])
+        fix_output_tuning = np.zeros([1,par['n_output']])
         dir_output_tuning = np.zeros([par['num_motion_dirs'], par['n_output']])
         rf_output_tuning  = np.zeros([par['num_RFs'], par['n_output']])
         order_tuning      = np.zeros([par['n_input'], par['num_pulses']])
@@ -398,16 +395,16 @@ class Stimulus:
 
         # Tune fixation neurons to the correct height
         for n in range(par['num_fix_tuned']):
-            fix_tuning[par['total_motion_tuned']+n,0] = par['tuning_height']
+            fix_tuning[0,par['total_motion_tuned']+n] = par['tuning_height']
 
             if par['output_type'] == 'directional':
-                fix_output_tuning[:] = 0.
+                fix_output_tuning[0,:] = 0.
             elif par['output_type'] == 'one_hot':
-                fix_output_tuning[0] = 1.
+                fix_output_tuning[0,0] = 1.
 
         # Tune rule neurons to the correct height
         for n in range(par['num_rule_tuned']):
-            rule_tuning[par['total_motion_tuned']+par['num_fix_tuned']+n,0] = par['tuning_height']
+            rule_tuning[0,par['total_motion_tuned']+par['num_fix_tuned']+n] = par['tuning_height']
 
         # Tune output neurons to the correct directions
         for d in range(par['num_motion_dirs']):
