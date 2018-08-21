@@ -37,7 +37,7 @@ class Stimulus:
             plt.show()
         quit()
         #"""
-        quit()
+        
         return trial_info
 
 
