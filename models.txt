@@ -1,0 +1,22 @@
+<Models that are running>
+
+0: Task1 and Task2 with pulse 3, 4, 6, 8, 10 --> lower learning rate, 200 neurons
+
+1: sequence_cue task with pulse 6, 8, 10
+
+2: RF_detection; RF 3, 4, 6, 8, 10           --> lower learning rate, 200 neurons
+
+3: RF_cue; RF 3, 4, 6, 8, 10                 --> lower learning rate, 200 neurons
+
+
+
+<Models that finished>
+*Coord version
+     sequence_one_RF_2_pulses_cue_off --> 90% with tol = 0.2
+     RF_cue_1_pulse                   --> 30% with tol = 0.1
+
+*One-hot version
+     sequence_cue_3_var_delay_cue_off_v0.pkl --> 90%, but fixation was funky
+     sequence_3_var_delay_cue_off_v0.pkl     --> 90%, but fixation was funky
+     RF_cue_3_var_delay_cue_off_v0.pkl       --> 90% in ./perfect (older stim version)
+     RF_detection_3_var_delay_cue_off_v0.pkl --> 90% in ./perfect (older stim version)

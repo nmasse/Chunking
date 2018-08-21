@@ -21,6 +21,7 @@ par = {
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
+    'connection_prob'       : 0.25,
     'response_multiplier'   : 4,
     'tol'                   : 0.2,
 
@@ -297,8 +298,9 @@ def update_dependencies():
     par['U'] = par['U'].T
 
 
-def initialize(dims, shape=0.25, scale=1.0 ):
+def initialize(dims, shape=0.25, scale=1.0):
     w = np.random.gamma(shape, scale, size=dims)
+    w *= (par['connection_prob'] > np.random.rand(*dims))
     return np.float32(w)
 
 

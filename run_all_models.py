@@ -20,7 +20,7 @@ def try_model():
 
 trial_types = ['sequence', 'sequence_cue', 'RF_detection', 'RF_cue']
 trial_types = ['sequence']
-num_pulses = [6,8,10]
+num_pulses = [3,4,6,8,10]
 all_RFs = [True, False]
 
 for pulse in num_pulses:
@@ -32,9 +32,9 @@ for pulse in num_pulses:
 
             print('Training network on {} task with {} pulses (all_RF = {})'.format(trial_type, str(pulse), str(all_RF)))
             if all_RF:
-                save_fn = '{}_{}_var_delay_all_RF_200hidden.pkl'.format(trial_type, str(pulse))
+                save_fn = '{}_{}_all_RF.pkl'.format(trial_type, str(pulse))
             else:
-                save_fn = '{}_{}_var_delay_one_RF_200hidden.pkl'.format(trial_type, str(pulse))
+                save_fn = '{}_{}_one_RF.pkl'.format(trial_type, str(pulse))
 
             updates = {
                 'save_fn'       : save_fn,
