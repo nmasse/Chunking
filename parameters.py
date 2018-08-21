@@ -114,9 +114,9 @@ def update_parameters(updates):
 def load_previous_weights():
 
     x = pickle.load(open(par['weight_load_fn'],'rb'))
-    par['w_in0'][:, :n] = x['weights']['w_in']
-    par['w_rnn0'] = x['weights']['w_rnn']
-    par['w_out0'] = x['weights']['w_out']
+    par['w_in0']  = x['weights']['W_in']
+    par['w_rnn0'] = x['weights']['W_rnn']
+    par['w_out0'] = x['weights']['W_out']
     par['b_rnn0'] = x['weights']['b_rnn']
     par['b_out0'] = x['weights']['b_out']
     print('Weights from ', par['weight_load_fn'],' loaded.')
@@ -200,7 +200,7 @@ def update_dependencies():
     ### Setting up assorted intial weights, biases, and other values ###
     ####################################################################
 
-    par['h_init'] = 0.1*np.ones((par['batch_train_size'], par['n_hidden']), dtype=np.float32)
+    par['h_init'] = 0.1*np.ones((1, par['n_hidden']), dtype=np.float32)
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
