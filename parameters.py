@@ -27,7 +27,7 @@ par = {
     # Task parameters (non-timing)
     'trial_type'            : 'RF_cue',
     'var_delay'             : True,
-    'var_delay_scale'       : 33,        # Set for 20% catch trials for RF
+    'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
     'var_num_pulses'        : False,
     'all_RF'                : True,
     'num_pulses'            : 2,
@@ -43,8 +43,6 @@ par = {
     'dt'                    : 20,
     'learning_rate'         : 5e-3,
     'membrane_time_constant': 100,
-    'long_delay_time'       : 500,
-    'resp_cue_time'         : 200,
 
     # Variance values
     'clip_max_grad_val'     : 1,
@@ -73,14 +71,16 @@ par = {
     'iters_between_outputs' : 50,
 
     # Task specs
-    'dead_time'             : 100,
-    'fix_time'              : 200,
+    'dead_time'             : 100,  # Time at start of trial that is masked
+    'fix_time'              : 200,  # Amount of fixation time before stimulus is shown
     'sample_time'           : 200,  # Sample time for sequence tasks
     'sample_time_RF'        : 500,  # Sample time for RF-based tasks
-    'delay_time'            : 200,
-    'test_time'             : 500,
-    'mask_duration'         : 40,  # Duration of traing mask after test onset
-    'num_rules'             : 1,   # Legacy, used in analysis.py
+    'delay_time'            : 200,  # Short delay period (augmented for pulses)
+    'long_delay_time'       : 500,  # Long delay period
+    'var_delay_max'         : 500,  # Maximum delay caused by var delay
+    'resp_cue_time'         : 200,  # Duration of a requested response
+    'mask_duration'         : 40,   # Duration of training mask after test onset
+    'num_rules'             : 1,    # Legacy, used in analysis.py
 
     # Analysis
     'svm_normalize'         : True,
@@ -134,12 +134,19 @@ def update_dependencies():
         par['delay_times'][2::3] -= 100
 
     # Determine the number of time steps
-    par['num_time_steps'] = par['dead_time'] + par['fix_time'] \
-        + np.maximum(par['num_pulses']*par['sample_time'], par['sample_time']) \
+    time_steps_sequence = par['dead_time'] + par['fix_time'] \
+        + par['num_pulses']*par['sample_time'] \
         + (2*par['num_pulses']-1)*par['resp_cue_time'] \
         + par['long_delay_time'] \
         + np.sum(par['delay_times'])
-    par['num_time_steps'] = int(par['num_time_steps']//par['dt'])
+
+    time_steps_RFs = par['dead_time'] + par['fix_time'] \
+        + 2*par['sample_time_RF'] \
+        + par['long_delay_time'] \
+        + par['var_delay_max'] \
+        + par['dt']
+
+    par['num_time_steps'] = int(np.maximum(time_steps_sequence, time_steps_RFs)//par['dt'])
 
     # Number of input neurons
     par['num_max_pulse'] = par['num_pulses']

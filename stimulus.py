@@ -26,9 +26,9 @@ class Stimulus:
         else:
             trial_info = None
 
-
         """
-        for b in range(3):
+        for b in range(16):
+            print(b)
             fig, ax = plt.subplots(3)
             ax[0].imshow(trial_info['neural_input'][:,b,:].T, aspect='auto', clim=[0,4])
             ax[1].imshow(trial_info['desired_output'][:,b,:].T, aspect='auto', clim=[0,4])
@@ -229,6 +229,7 @@ class Stimulus:
 
         return trial_info
 
+
     def generate_RF_detection_trial(self, var_delay=True):
 
         trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
@@ -237,34 +238,40 @@ class Stimulus:
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
                       'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
 
-        start = int((par['dead_time'] + par['fix_time'])//par['dt'])
-        pulse_dur = int(par['sample_time_RF']//par['dt'])
-        resp_dur = int(par['resp_cue_time']//par['dt'])
-        mask_dur = int(par['mask_duration']//par['dt'])
-        resp_start = int((par['dead_time'] + par['fix_time'] + par['long_delay_time'])//par['dt'])
-        delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
+        dead            = int(par['dead_time']//par['dt'])
+        start           = int((par['dead_time'] + par['fix_time'])//par['dt'])
+        pulse_dur       = int(par['sample_time_RF']//par['dt'])
+        delay_dur       = int(par['long_delay_time']//par['dt'])
+        var_delay_max   = int(par['var_delay_max']//par['dt'])
+        mask_dur        = int(par['mask_duration']//par['dt'])
+        resp_start      = start + pulse_dur + delay_dur
+
+        end_of_var_delay = start + pulse_dur + delay_dur + var_delay_max
+        total_length = start + pulse_dur + delay_dur + var_delay_max + pulse_dur
+
 
         directions = np.random.choice(par['num_motion_dirs'], size=[par['batch_train_size'], par['num_RFs']])
         targets = np.random.choice(par['num_RFs'], size=[par['batch_train_size']])
 
-        trial_info['train_mask'][:par['dead_time']//par['dt'],:] = 0
+        trial_info['train_mask'][:dead,:] = 0           # Dead time
+        trial_info['train_mask'][total_length:,:] = 0   # Post-task time
         for b in range(par['batch_train_size']):
-
-            # Make second direction set
-            new_directions = np.copy(directions[b,:])
-            options = list(set(range(par['num_motion_dirs']))-set([directions[b,targets[b]]]))
-            new_directions[targets[b]] = np.random.choice(options)
 
             # Select response onset
             catch = False
             if var_delay:
                 s = np.int32(np.random.exponential(scale=par['var_delay_scale']))
                 trial_resp_start = resp_start + s
-                if s >= int((2*par['long_delay_time'])//par['dt']):
-                    s = int((2*par['long_delay_time'])//par['dt'])
-                    catch = True
+                if s >= var_delay_max:
+                    catch = True    # If catch, mask from end of var_delay_max onward
+                    trial_resp_start = -1
             else:
                 trial_resp_start = resp_start
+
+            # Make second direction set
+            new_directions = np.copy(directions[b,:])
+            options = list(set(range(par['num_motion_dirs']))-set([directions[b,targets[b]]]))
+            new_directions[targets[b]] = np.random.choice(options)
 
             # Stimulus and response
             stim1 = np.sum([self.motion_tuning[directions[b,rf],rf]/par['num_RFs'] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
@@ -282,7 +289,7 @@ class Stimulus:
 
             # Building network mask
             if catch:
-                trial_info['train_mask'][trial_resp_start-1:,b] = 0.
+                trial_info['train_mask'][end_of_var_delay:,b] = 0.
             else:
                 trial_info['train_mask'][trial_resp_start+mask_dur:,b] *= par['response_multiplier']
                 trial_info['train_mask'][trial_resp_start+mask_dur+pulse_dur:,b] = 0.
@@ -300,17 +307,22 @@ class Stimulus:
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
                       'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
 
-        start = int((par['dead_time'] + par['fix_time'])//par['dt'])
-        pulse_dur = int(par['sample_time_RF']//par['dt'])
-        resp_dur = int(par['resp_cue_time']//par['dt'])
-        mask_dur = int(par['mask_duration']//par['dt'])
-        resp_start = int((par['dead_time'] + par['fix_time'] + par['long_delay_time'])//par['dt'])
-        delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
+        dead            = int(par['dead_time']//par['dt'])
+        start           = int((par['dead_time'] + par['fix_time'])//par['dt'])
+        pulse_dur       = int(par['sample_time_RF']//par['dt'])
+        delay_dur       = int(par['long_delay_time']//par['dt'])
+        var_delay_max   = int(par['var_delay_max']//par['dt'])
+        mask_dur        = int(par['mask_duration']//par['dt'])
+        resp_start      = start + pulse_dur + delay_dur
+
+        end_of_var_delay = start + pulse_dur + delay_dur + var_delay_max
+        total_length = start + pulse_dur + delay_dur + var_delay_max + pulse_dur
 
         directions = np.random.choice(par['num_motion_dirs'], size=[par['batch_train_size'], par['num_RFs']])
         targets = np.random.choice(par['num_RFs'], size=[par['batch_train_size']])
 
-        trial_info['train_mask'][:par['dead_time']//par['dt'],:] = 0
+        trial_info['train_mask'][:dead,:] = 0           # Dead time
+        trial_info['train_mask'][total_length:,:] = 0   # Post-task time
         count = 0
         for b in range(par['batch_train_size']):
 
@@ -319,9 +331,11 @@ class Stimulus:
             if var_delay:
                 s = np.int32(np.random.exponential(scale=par['var_delay_scale']))
                 trial_resp_start = resp_start + s
-                if s >= int((2*par['long_delay_time'])//par['dt']):
-                    s = int((2*par['long_delay_time'])//par['dt'])
-                    catch = True
+                if s >= var_delay_max:
+                    catch = True    # If catch, mask from end of var_delay_max onward
+                    trial_resp_start = -1
+                    count += 1
+                    print(count/par['batch_train_size'])
             else:
                 trial_resp_start = resp_start
 
@@ -344,7 +358,7 @@ class Stimulus:
 
             # Building network mask
             if catch:
-                trial_info['train_mask'][trial_resp_start-1:,b] = 0.
+                trial_info['train_mask'][end_of_var_delay:,b] = 0.
             else:
                 trial_info['train_mask'][trial_resp_start+mask_dur:,b] *= par['response_multiplier']
                 trial_info['train_mask'][trial_resp_start+mask_dur+pulse_dur:,b] = 0.
