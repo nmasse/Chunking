@@ -12,31 +12,76 @@ import copy
 import matplotlib.pyplot as plt
 from itertools import product
 
-def analyze_model_from_file(filename, savefile = None, analysis = False, test_mode_pulse=False, test_mode_delay=False):
 
-    tuning = True
-    decoding = True
-    simulation = True
-    cut_weight_analysis = True
-    currents = True
+def load_and_replace_parameters(filename, savefile=None):
 
-    results = pickle.load(open(filename, 'rb'))
+    data = pickle.load(open(filename, 'rb'))
     if savefile is None:
-        results['parameters']['save_fn'] = 'test.pkl'
+        data['parameters']['save_fn'] = 'test.pkl'
     else:
-        results['parameters']['save_fn'] = savefile
-    update_parameters(results['parameters'])
-    update_parameters({'response_multiplier' : 1., 'load_prev_weights': False})
+        data['parameters']['save_fn'] = savefile
+
+    data['parameters']['weight_load_fn'] = filename
+    data['parameters']['response_multiplier'] = 1.
+    data['parameters']['load_prev_weights'] = True
+
+    data['weights']['h_init'] = data['weights']['h_init'][0:1,:]
+    data['parameters']['dt'] = 200
+    data['parameters']['batch_train_size'] = 16
+
+    update_parameters(data['parameters'])
+    data['parameters'] = par
+    return data
+
+
+def load_tensorflow_model():
+
+    import tensorflow as tf
+    import model
+
+    tf.reset_default_graph()
+
+    # Define all placeholders
+    x = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size'], par['n_input']], 'stim')
+    y = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size'], par['n_output']], 'out')
+    m = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size']], 'mask')
+
+    sess = tf.Session()
+    mod = model.Model(x, y, m)
+    load_model_weights(sess)
+
+    return sess, mod, x, y, m
+
+
+def load_model_weights(sess):
+    sess.run(tf.global_variables_initializer())
+
+
+def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode_pulse=False, test_mode_delay=False):
+
+    results = load_and_replace_parameters(filename, savefile)
+    sess, model, x, y, m = load_tensorflow_model()
 
     stim = stimulus.Stimulus()
 
-    trial_info = stim.generate_trial(analysis = False, var_delay = False, var_num_pulses = False, test_mode = False)
-    input_data = np.squeeze(np.split(trial_info['neural_input'], results['parameters']['num_time_steps'], axis=1))
-    y_hat, h, syn_x, syn_u = run_model(input_data, results['parameters']['h_init'], \
-        results['parameters']['syn_x_init'], results['parameters']['syn_u_init'], results['weights'])
-    trial_time = np.arange(0,h.shape[1]*par['dt'], par['dt'])
+    # Generate a batch of stimulus for training
+    trial_info = stim.generate_trial(par['trial_type'], var_delay=par['var_delay'], \
+        var_num_pulses=par['var_num_pulses'], all_RF=par['all_RF'], test_mode=False)
 
+    # Put together the feed dictionary
+    feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}
 
+    # Run the model
+    y_hat, h, syn_x, syn_u = sess.run([model.y_hat, model.hidden_hist, model.syn_x_hist, model.syn_u_hist], feed_dict=feed_dict)
+
+    # Convert to arrays
+    y_hat = np.stack(y_hat, axis=0)
+    h     = np.stack(h,     axis=0)
+    syn_x = np.stack(syn_x, axis=0)
+    syn_u = np.stack(syn_u, axis=0)
+    trial_time = np.arange(0,h.shape[0]*par['dt'], par['dt'])
+
+    currents, tuning, simulation, decoding, cut_weight_analysis = False, False, True, False, False
     """
     Calculate currents
     """
@@ -53,7 +98,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
     """
     if tuning:
         print('calculate tuning...')
-        sample = np.reshape(np.array(trial_info['sample']),(par['batch_train_size'], par['num_pulses']))
+        sample = trial_info['sample']
         tuning_results = calculate_tuning(h, syn_x, syn_u, sample)
         for key, val in tuning_results.items():
             results[key] = val
@@ -63,7 +108,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
     """
     Calculate the neuronal and synaptic contributions towards solving the task
     """
-    print('weights ',results['weights']['w_in'].shape, results['weights']['w_rnn'].shape)
+    print('weights ',results['weights']['W_in'].shape, results['weights']['W_rnn'].shape)
     if simulation:
         print('simulating network...')
         simulation_results = simulate_network(trial_info, h, syn_x, syn_u, trial_info['neural_input'], results['weights'])
@@ -277,7 +322,7 @@ def svm_wraper_simple(h, syn_x, syn_u, trial_info, num_reps = 3, num_reps_stabil
 
     par['decode_stability'] = False
     train_pct = 0.5
-    _, num_time_steps, num_trials = h.shape
+    num_time_steps, num_trials, _ = h.shape
     lin_clf = svm.SVC(C=1, kernel='linear', decision_function_shape='ovr', shrinking=False, tol=1e-3)
 
     score = np.zeros((3, par['num_pulses'], num_reps, num_time_steps), dtype = np.float32)
@@ -301,17 +346,17 @@ def svm_wraper_simple(h, syn_x, syn_u, trial_info, num_reps = 3, num_reps_stabil
                 elif data_type == 1:
                     z = np.array(syn_x*syn_u)
                 elif data_type == 2:
-                    z = np.array( np.concatenate((h, syn_x*syn_u), axis=0))
+                    z = np.array( np.concatenate((h, syn_x*syn_u), axis=2))
 
                 for t in range(num_time_steps):
-                    lin_clf.fit(z[:,t,ind_train].T, labels[ind_train])
-                    predicted_sample = lin_clf.predict(z[:,t,ind_test].T)
+                    lin_clf.fit(z[t,ind_train,:].T, labels[ind_train])
+                    predicted_sample = lin_clf.predict(z[t,ind_test,:].T)
                     score[data_type, p, rep, t] = np.mean( labels[ind_test]==predicted_sample)
 
                     if rep < num_reps_stability and par['decode_stability']:
                         print('Should be see this.')
                         for t1 in range(num_time_steps):
-                            predicted_sample = lin_clf.predict(z[:,t1,ind_test].T)
+                            predicted_sample = lin_clf.predict(z[t1,ind_test,:].T)
                             score_dynamic[data_type, p, rep, t, t1] = np.mean(labels[ind_test]==predicted_sample)
 
     results = {'neuronal_decoding': score[0,:,:,:], 'synaptic_decoding': score[1,:,:,:], 'combined_decoding': score[2,:,:,:]}
@@ -509,7 +554,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
     """
     Simulation will start from the start of the test period until the end of trial
     """
-    _, trial_length, batch_train_size = h.shape
+    trial_length, batch_train_size, _ = h.shape
     mean_pulse_id = np.mean(trial_info['pulse_id'], axis = 1) # trial_info['pulse_id'] should be identical across all trials
     pulse_onsets = [np.min(np.where(mean_pulse_id==i)[0]) for i in range(par['num_pulses'])]
     test_length = par['resp_cue_time']//par['dt']
@@ -519,18 +564,20 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
         'accuracy_neural_shuffled'      : np.zeros((par['num_pulses'], par['n_hidden'], num_reps)),
         'accuracy_syn_shuffled'         : np.zeros((par['num_pulses'], par['n_hidden'], num_reps))}
 
+    update_parameters({'num_time_steps':test_length})
+    sess, model, x, y, m = load_tensorflow_model()
 
     for p in range(par['num_pulses']):
 
         test_onset = pulse_onsets[p]
         print(pulse_onsets, test_onset,test_length)
 
-        x = np.split(trial_info['neural_input'][:,test_onset:test_onset+test_length,:],test_length,axis=1)
+        x_input = np.split(trial_info['neural_input'][test_onset:test_onset+test_length,:,:],test_length,axis=0)
         #print('XXX')
         #print(trial_info['neural_input'].shape)
         #print(len(x))
         #print(x[0].shape)
-        y = trial_info['desired_output'][:,test_onset:test_onset+test_length,:]
+        y_target = trial_info['desired_output'][test_onset:test_onset+test_length,:,:]
         train_mask = trial_info['train_mask'][test_onset:test_onset+test_length, :]
         pulse_id = trial_info['pulse_id'][test_onset:test_onset+test_length, :]
 
@@ -541,13 +588,19 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
             """
             Calculating behavioral accuracy without shuffling
             """
-            hidden_init = np.array(h[:,test_onset-1,:])
-            syn_x_init = np.array(syn_x[:,test_onset-1,:])
-            syn_u_init = np.array(syn_u[:,test_onset-1,:])
+            hidden_init = np.array(h[test_onset-1,:,:])
+            syn_x_init = np.array(syn_x[test_onset-1,:,:])
+            syn_u_init = np.array(syn_u[test_onset-1,:,:])
+
+            updates = {'h_init':hidden_init, 'syn_x_init':syn_x_init, 'syn_u_init':syn_u_init}
+            update_parameters(updates)
+            init_model_weights(sess)
+            feed_dict = {x:x_input, y:y_target, m:train_mask}
+
             y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
             #print(np.sum(train_mask))
 
-            simulation_results['accuracy_no_shuffle'][p,:,n], _ = get_perf(y, y_hat, train_mask, pulse_id)
+            simulation_results['accuracy_no_shuffle'][p,:,n], _ = get_perf(y_target, y_hat, train_mask, pulse_id)
 
             ind_shuffle = np.random.permutation(batch_train_size)
 
@@ -557,25 +610,25 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
                 Keep the synaptic values fixed, permute the neural activity
                 """
 
-                hidden_init = np.array(h[:,test_onset-1,:])
-                syn_x_init = np.array(syn_x[:,test_onset-1,:])
-                syn_u_init = np.array(syn_u[:,test_onset-1,:])
+                hidden_init = np.array(h[test_onset-1,:,:])
+                syn_x_init = np.array(syn_x[test_onset-1,:,:])
+                syn_u_init = np.array(syn_u[test_onset-1,:,:])
                 hidden_init[m,:] = hidden_init[m, ind_shuffle]
 
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-                simulation_results['accuracy_neural_shuffled'][p,m,n], _ = get_perf(y, y_hat, train_mask, pulse_id)
-                acc, _  = get_perf(y, y_hat, train_mask, pulse_id)
+                simulation_results['accuracy_neural_shuffled'][p,m,n], _ = get_perf(y_target, y_hat, train_mask, pulse_id)
+                acc, _  = get_perf(y_target, y_hat, train_mask, pulse_id)
 
                 """
                 Keep the hidden values fixed, permute synaptic values
                 """
-                hidden_init = np.array(h[:,test_onset-1,:])
-                syn_x_init = np.array(syn_x[:,test_onset-1,:])
-                syn_u_init = np.array(syn_u[:,test_onset-1,:])
+                hidden_init = np.array(h[test_onset-1,:,:])
+                syn_x_init = np.array(syn_x[test_onset-1,:,:])
+                syn_u_init = np.array(syn_u[test_onset-1,:,:])
                 syn_x_init[m,:] = syn_x_init[m,ind_shuffle]
                 syn_u_init[m,:] = syn_u_init[m,ind_shuffle]
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-                simulation_results['accuracy_syn_shuffled'][p,m,n], _ = get_perf(y, y_hat, train_mask, pulse_id)
+                simulation_results['accuracy_syn_shuffled'][p,m,n], _ = get_perf(y_target, y_hat, train_mask, pulse_id)
 
 
     return simulation_results
@@ -619,7 +672,7 @@ def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
 
 def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, num_reps = 1, num_top_neurons = 1):
 
-    trial_length = h.shape[1]
+    trial_length = h.shape[0]
 
     cutting_results = {
         'cut_neurons'             : np.zeros((par['num_pulses'], num_top_neurons),dtype=np.float32),
@@ -637,27 +690,27 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, num_reps 
     end_delay = pulse_onset - 1
     print('eod ',end_delay)
 
-    x = np.split(trial_info['neural_input'][:,1:,:],trial_length-1,axis=1)
-    x_delay = np.split(trial_info['neural_input'][:,end_delay:,:],trial_length-end_delay,axis=1)
+    x = np.split(trial_info['neural_input'][1:,:,:],trial_length-1,axis=0)
+    x_delay = np.split(trial_info['neural_input'][end_delay:,:,:],trial_length-end_delay,axis=0)
 
 
     for p in range(par['num_pulses']):
         print(p, "out of ", par['num_pulses'], " pulses")
 
-        h_init = np.array(h[:,0,:])
-        syn_x_init = np.array(syn_x[:,0,:])
-        syn_u_init = np.array(syn_u[:,0,:])
+        h_init = np.array(h[0,:,:])
+        syn_x_init = np.array(syn_x[0,:,:])
+        syn_u_init = np.array(syn_u[0,:,:])
 
-        h_init_delay = np.array(h[:,end_delay-1,:])
-        syn_x_init_delay = np.array(syn_x[:,end_delay-1,:])
-        syn_u_init_delay = np.array(syn_u[:,end_delay-1,:])
+        h_init_delay = np.array(h[end_delay-1,:,:])
+        syn_x_init_delay = np.array(syn_x[end_delay-1,:,:])
+        syn_u_init_delay = np.array(syn_u[end_delay-1,:,:])
 
         """
         Calculating behavioral accuracy without shuffling
         """
         y_hat, _, _, _ = run_model(x, h_init, syn_x_init, syn_u_init, network_weights)
 
-        _,pulse_acc =  get_perf(trial_info['desired_output'][:,1:,:], y_hat, \
+        _,pulse_acc =  get_perf(trial_info['desired_output'][1:,:,:], y_hat, \
             trial_info['train_mask'][1:,:], trial_info['pulse_id'][1:,:])
         cutting_results['accuracy_before_cut'][p,:] = pulse_acc
 
@@ -673,15 +726,15 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, num_reps 
 
 
         for i,j in product(top_neurons,top_neurons):
-            current_weights['w_rnn'][i, j] = 0
+            current_weights['W_rnn'][i, j] = 0
 
 
-        h_init = np.array(h[:,0,:])
-        syn_x_init = np.array(syn_x[:,0,:])
-        syn_u_init = np.array(syn_u[:,0,:])
+        h_init = np.array(h[0,:,:])
+        syn_x_init = np.array(syn_x[0,:,:])
+        syn_u_init = np.array(syn_u[0,:,:])
 
         y_hat_cut, h_cut, syn_x_cut, syn_u_cut = run_model(x, h_init, syn_x_init, syn_u_init, current_weights)
-        _,pulse_acc_start =  get_perf(trial_info['desired_output'][:,1:,:], y_hat_cut, \
+        _,pulse_acc_start =  get_perf(trial_info['desired_output'][1:,:,:], y_hat_cut, \
             trial_info['train_mask'][1:,:], trial_info['pulse_id'][1:,:])
         cutting_results['accuracy_after_cut_start'][p,:] = pulse_acc_start
 
@@ -695,7 +748,7 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, num_reps 
 
 
         y_hat_cut, _, _, _ = run_model(x_delay, h_init_delay, syn_x_init_delay, syn_u_init_delay, current_weights)
-        _, pulse_acc_delay = get_perf(trial_info['desired_output'][:, end_delay:,:], y_hat_cut, trial_info['train_mask'][end_delay:,:], \
+        _, pulse_acc_delay = get_perf(trial_info['desired_output'][end_delay:,:,:], y_hat_cut, trial_info['train_mask'][end_delay:,:], \
             trial_info['pulse_id'][end_delay:,:])
         cutting_results['accuracy_after_cut_delay'][p,:] = pulse_acc_delay
 
@@ -709,7 +762,7 @@ def calculate_tuning(h, syn_x, syn_u, sample):
     """
     Calculates neuronal and synaptic sample motion direction tuning
     """
-    num_time_steps = h.shape[1]
+    num_time_steps = h.shape[0]
     num_pulses = sample.shape[1]
 
     print('pulses, time ',num_pulses,num_time_steps)
@@ -741,24 +794,24 @@ def calculate_tuning(h, syn_x, syn_u, sample):
             for t in range(num_time_steps):
 
                 # Neuronal sample tuning
-                w = np.linalg.lstsq(sample_dir[:,:,i], h[n,t,:])
-                w = np.reshape(w[0],(3,1))
+                w = np.linalg.lstsq(sample_dir[:,:,i], h[t,:,n])
+                w = w[0][...,np.newaxis]
                 h_hat =  np.dot(sample_dir[:,:,i], w).T
-                pred_err = h[n,t,:] - h_hat
+                pred_err = h[t,:,n] - h_hat
                 mse = np.mean(pred_err**2) # var (h-h_hat)
-                response_var = np.var(h[n,t,:]) # var(h)
+                response_var = np.var(h[t,:,n]) # var(h)
 
                 if response_var > epsilon:
                     tuning_results['neuronal_pev'][n,i,t] = 1 - mse/(response_var + epsilon)
                     tuning_results['neuronal_pref_dir'][n,i,t] = np.arctan2(w[2,0],w[1,0])
 
                 # Synaptic sample tuning
-                w = np.linalg.lstsq(sample_dir[:,:,i], syn_efficacy[n,t,:])
-                w = np.reshape(w[0],(3,1))
+                w = np.linalg.lstsq(sample_dir[:,:,i], syn_efficacy[t,:,n])
+                w = w[0][...,np.newaxis]
                 syn_hat = np.dot(sample_dir[:,:,i], w).T
-                pred_err = syn_efficacy[n,t,:] - syn_hat
+                pred_err = syn_efficacy[t,:,n] - syn_hat
                 mse = np.mean(pred_err**2)
-                response_var = np.var(syn_efficacy[n,t,:])
+                response_var = np.var(syn_efficacy[t,:,n])
 
                 if response_var > epsilon:
                     tuning_results['synaptic_pev'][n,i,t] = 1 - mse/(response_var + epsilon)
@@ -883,7 +936,15 @@ def get_perf(y, y_hat, mask, pulse_id):
     y_hat is the actual output
     """
 
-    #y_hat = np.stack(y_hat)
+    """y_hat = np.stack(y_hat)
+
+    fig, ax = plt.subplots(3)
+    ax[0].imshow(y[:,0,:], aspect='auto')
+    ax[1].imshow(y_hat[:,0,:], aspect='auto')
+    ax[2].imshow(mask[:,0:1], aspect='auto')
+
+    plt.show()
+    quit()"""
 
     #print("Entering get_perf...")
     #print(np.sum(mask))

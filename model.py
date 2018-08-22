@@ -190,7 +190,7 @@ def main(gpu_id=None):
         for i in range(par['num_iterations']):
 
             # Generate a batch of stimulus for training
-            trial_info = stim.generate_trial(par['trial_type'], var_delay=par['var_delay'], \
+            trial_info = stim.generate_trial(par['trial_type'][i%len(par['trial_type'])], var_delay=par['var_delay'], \
                 var_num_pulses=par['var_num_pulses'], all_RF=par['all_RF'], test_mode=False)
 
             # Put together the feed dictionary
@@ -211,10 +211,10 @@ def main(gpu_id=None):
             model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*par['batch_train_size'])
 
             # Save and show the model's performance
-            if i%par['iters_between_outputs'] == 0:
+            if i%par['iters_between_outputs'] in list(range(len(par['trial_type']))):
                 print_results(i, perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy)
 
-            if i%200 == 0:
+            if i%200 in list(range(len(par['trial_type']))):
                 weights = sess.run(model.var_dict)
                 results = {
                     'model_performance': model_performance,
