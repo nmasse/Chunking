@@ -597,8 +597,8 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
             init_model_weights(sess)
             feed_dict = {x:x_input, y:y_target, m:train_mask}
 
-            y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-            #print(np.sum(train_mask))
+            y_hat = sess.run(model.y_hat, feed_dict=feed_dict)
+            y_hat = np.stack(y_hat, axis=0)
 
             simulation_results['accuracy_no_shuffle'][p,:,n], _ = get_perf(y_target, y_hat, train_mask, pulse_id)
 
