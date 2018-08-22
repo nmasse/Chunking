@@ -167,6 +167,39 @@ class Model:
         self.train_op = opt.compute_gradients(self.loss)
 
 
+def shuffle_trials(stim):
+    trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
+                  'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+                  'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
+                  'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
+                  'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
+                  'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8),
+                  'test'            : np.zeros((par['batch_train_size']),dtype=np.int32)}
+
+    train_size = par['batch_train_size']
+    par['batch_train_size'] //= len(par['trial_type'])
+    leftover = train_size - par['batch_train_size']*len(par['trial_type'])
+
+    all_ind = np.arange(train_size)
+    for t_ind, t in enumerate(par['trial_type']):
+        if t_ind == (len(par['trial_type'])-1):
+            par['batch_train_size'] += leftover
+        dict = stim.generate_trial(t, var_delay=par['var_delay'], \
+            var_num_pulses=par['var_num_pulses'], all_RF=par['all_RF'], test_mode=False)
+        ind = np.random.choice(all_ind, par['batch_train_size'], replace=False)
+        all_ind = np.setdiff1d(all_ind,ind)
+
+        trial_info['desired_output'][:,ind,:] = dict['desired_output']
+        trial_info['train_mask'][:,ind] = dict['train_mask']
+        trial_info['sample'][ind,:] = dict['sample']
+        trial_info['sample_RF'][ind,:] = dict['sample_RF']
+        trial_info['neural_input'][:,ind,:] = dict['neural_input']
+        trial_info['pulse_id'][:,ind] = dict['pulse_id']
+        trial_info['test'][ind] = dict['test']
+
+    par['batch_train_size'] = train_size
+    return trial_info
+
 def main(gpu_id=None):
     """ Run supervised learning training """
 
@@ -201,8 +234,7 @@ def main(gpu_id=None):
         for i in range(par['num_iterations']):
 
             # Generate a batch of stimulus for training
-            trial_info = stim.generate_trial(par['trial_type'][i%len(par['trial_type'])], var_delay=par['var_delay'], \
-                var_num_pulses=par['var_num_pulses'], all_RF=par['all_RF'], test_mode=False)
+            trial_info = shuffle_trials(stim)
 
             # Put together the feed dictionary
             feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}
@@ -222,8 +254,8 @@ def main(gpu_id=None):
             model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*par['batch_train_size'])
 
             # Save and show the model's performance
-            if i%par['iters_between_outputs'] in list(range(len(par['trial_type']))):
-                print_results(i, perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy)
+            if i%par['iters_between_outputs'] == 0: #in list(range(len(par['trial_type']))):
+                print_results(i, par['trial_type'], perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy)
 
             if i%200 in list(range(len(par['trial_type']))):
                 weights = sess.run(model.var_dict)
@@ -232,7 +264,7 @@ def main(gpu_id=None):
                     'parameters': par,
                     'weights': weights}
                 pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
-                if accuracy > 0.9:
+                if i>=5 and all(model_performance['accuracy'][-5:] > 0.9):
                     break
 
         # If required, save the model, analyze it, and save the results
@@ -264,9 +296,10 @@ def append_model_performance(model_performance, accuracy, pulse_accuracy, loss, 
     return model_performance
 
 
-def print_results(iter_num, perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy):
+def print_results(iter_num, trial_type, perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy):
 
-    print('Iter. {:4d}'.format(iter_num) + ' | Accuracy {:6.4f}'.format(accuracy) +
+    print('Iter. {:4d}'.format(iter_num) + ' | ' + '_'.join(trial_type).ljust(20) +
+      ' | Accuracy {:6.4f}'.format(accuracy) +
       ' | Perf loss {:6.4f}'.format(perf_loss) + ' | Spike loss {:6.4f}'.format(spike_loss) +
       ' | Mean activity {:6.4f}'.format(np.mean(state_hist)))
     print('Pulse accuracy ', np.round(pulse_accuracy,4))
