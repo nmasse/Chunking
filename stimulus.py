@@ -37,7 +37,7 @@ class Stimulus:
             plt.show()
         quit()
         #"""
-        
+
         return trial_info
 
 
@@ -105,7 +105,8 @@ class Stimulus:
                       'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
                       'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
-                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
+                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8),
+                      'test'            : np.zeros((par['batch_train_size']),dtype=np.int32)}
 
         num_pulses = par['num_pulses']
         start = int((par['dead_time'] + par['fix_time'])//par['dt'])
@@ -235,8 +236,10 @@ class Stimulus:
         trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
                       'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
+                      'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
-                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
+                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8),
+                      'test'            : np.zeros((par['batch_train_size']),dtype=np.int32)}
 
         dead            = int(par['dead_time']//par['dt'])
         start           = int((par['dead_time'] + par['fix_time'])//par['dt'])
@@ -304,8 +307,10 @@ class Stimulus:
         trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
                       'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
+                      'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
-                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
+                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8),
+                      'test'            : np.zeros((par['batch_train_size']),dtype=np.int32)}
 
         dead            = int(par['dead_time']//par['dt'])
         start           = int((par['dead_time'] + par['fix_time'])//par['dt'])

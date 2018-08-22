@@ -19,9 +19,9 @@ def try_model():
 
 
 trial_types = ['sequence', 'sequence_cue', 'RF_detection', 'RF_cue']
-trial_types = ['sequence']
-num_pulses = [3,4,6,8,10]
-all_RFs = [True, False]
+trial_types = [['RF_cue', 'sequence_cue']]
+num_pulses = [4,6,8,10]
+all_RFs = [True]
 
 for pulse in num_pulses:
     for trial_type in trial_types:
@@ -30,11 +30,11 @@ for pulse in num_pulses:
             if not all_RF and 'sequence' != trial_type:
                 continue
 
-            print('Training network on {} task with {} pulses (all_RF = {})'.format(trial_type, str(pulse), str(all_RF)))
+            print('Training network on {} task(s) with {} pulses (all_RF = {})'.format(trial_type, str(pulse), str(all_RF)))
             if all_RF:
-                save_fn = '{}_{}_all_RF.pkl'.format(trial_type, str(pulse))
+                save_fn = '{}_{}_all_RF_100_neuron.pkl'.format('_'.join(trial_type), str(pulse))
             else:
-                save_fn = '{}_{}_one_RF.pkl'.format(trial_type, str(pulse))
+                save_fn = '{}_{}_one_RF_100_neuron.pkl'.format('_'.join(trial_type), str(pulse))
 
             updates = {
                 'save_fn'       : save_fn,
@@ -42,8 +42,13 @@ for pulse in num_pulses:
                 'num_RFs'       : pulse,
                 'trial_type'    : trial_type,
                 'all_RF'        : all_RF,
-                'n_hidden'      : 200,
+                'n_hidden'      : 100,
             }
+
+            if 'sequence_cue' in trial_type:
+                updates['resp_cue_time'] = 500
+            else:
+                updates['resp_cue_time'] = 200
 
             update_parameters(updates)
 

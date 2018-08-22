@@ -26,7 +26,7 @@ par = {
     'tol'                   : 0.2,
 
     # Task parameters (non-timing)
-    'trial_type'            : 'RF_cue',
+    'trial_type'            : ['RF_cue'],
     'var_delay'             : True,
     'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
     'var_num_pulses'        : False,
@@ -120,7 +120,7 @@ def load_previous_weights():
     par['w_out0'] = x['weights']['W_out']
     par['b_rnn0'] = x['weights']['b_rnn']
     par['b_out0'] = x['weights']['b_out']
-    print('Weights from ', par['weight_load_fn'],' loaded.')
+    print('Weights from {} loaded.'.format(par['weight_load_fn']))
 
 
 def update_dependencies():
@@ -201,7 +201,7 @@ def update_dependencies():
     ### Setting up assorted intial weights, biases, and other values ###
     ####################################################################
 
-    par['h_init'] = 0.1*np.ones((1, par['n_hidden']), dtype=np.float32)
+    par['h_init'] = 0.1*np.ones((par['batch_train_size'], par['n_hidden']), dtype=np.float32)
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]

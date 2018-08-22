@@ -1,12 +1,10 @@
 import numpy as np
-from parameters import *
-import model
 import sys
 from analysis import *
 
 task = "chunking"
 
-file_list = ['./savedir/sequence_cue_6_var_delay_all_RF.pkl']
+file_list = ['./savedir/sequence_4_all_RF_low_conn.pkl']
 
 for file in file_list:
     print('Analyzing network...')
