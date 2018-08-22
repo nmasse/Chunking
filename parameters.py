@@ -26,7 +26,7 @@ par = {
     'tol'                   : 0.2,
 
     # Task parameters (non-timing)
-    'trial_type'            : 'RF_cue',
+    'trial_type'            : ['RF_cue'],
     'var_delay'             : True,
     'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
     'var_num_pulses'        : False,

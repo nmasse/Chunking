@@ -936,7 +936,15 @@ def get_perf(y, y_hat, mask, pulse_id):
     y_hat is the actual output
     """
 
-    #y_hat = np.stack(y_hat)
+    """y_hat = np.stack(y_hat)
+
+    fig, ax = plt.subplots(3)
+    ax[0].imshow(y[:,0,:], aspect='auto')
+    ax[1].imshow(y_hat[:,0,:], aspect='auto')
+    ax[2].imshow(mask[:,0:1], aspect='auto')
+
+    plt.show()
+    quit()"""
 
     #print("Entering get_perf...")
     #print(np.sum(mask))
