@@ -86,7 +86,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     syn_u = np.stack(syn_u, axis=0)
     trial_time = np.arange(0,h.shape[0]*par['dt'], par['dt'])
 
-    currents, tuning, simulation, decoding, cut_weight_analysis = False, False, True, False, False
+    currents, tuning, simulation, decoding, cut_weight_analysis = False, False, False, False, True
     """
     Calculate currents
     """
@@ -552,10 +552,6 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
 
 
     return lesion_results
-
-
-def simulate_network_testing(filename):
-    pass
 
 
 def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights, filename, num_reps = 1):
