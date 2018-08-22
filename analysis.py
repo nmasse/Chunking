@@ -599,8 +599,6 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
             syn_x_init = np.array(syn_x[test_onset-1,:,:])
             syn_u_init = np.array(syn_u[test_onset-1,:,:])
 
-            print('--->', hidden_init.shape, syn_x_init.shape, syn_u_init.shape)
-
             sess.run([model.load_h_init, model.load_syn_x_init, model.load_syn_u_init], \
                 feed_dict={hi:hidden_init, sx:syn_x_init, su:syn_u_init})
             y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
@@ -635,8 +633,6 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
                 syn_u_init = np.array(syn_u[test_onset-1,:,:])
                 syn_x_init[:,m] = syn_x_init[ind_shuffle,m]
                 syn_u_init[:,m] = syn_u_init[ind_shuffle,m]
-
-                print(m, hidden_init.shape, syn_x_init.shape, syn_u_init.shape)
 
                 sess.run([model.load_h_init, model.load_syn_x_init, model.load_syn_u_init], \
                     feed_dict={hi:hidden_init, sx:syn_x_init, su:syn_u_init})
