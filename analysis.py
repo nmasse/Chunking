@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from itertools import product
 
 
-def load_and_replace_parameters(filename, savefile=None):
+def load_and_replace_parameters(filename, savefile=None, parameter_updates={}):
 
     data = pickle.load(open(filename, 'rb'))
     if savefile is None:
@@ -25,11 +25,16 @@ def load_and_replace_parameters(filename, savefile=None):
     data['parameters']['response_multiplier'] = 1.
     data['parameters']['load_prev_weights'] = True
 
-    data['weights']['h_init'] = data['weights']['h_init'][0:1,:]
-    data['parameters']['dt'] = 200
+    data['weights']['h_init'] = data['weights']['h_init']
+    data['parameters']['dt'] = 100
     data['parameters']['batch_train_size'] = 16
 
+
     update_parameters(data['parameters'])
+
+    for k in parameter_updates.keys():
+        par[k] = parameter_updates[k]
+
     data['parameters'] = par
     return data
 
@@ -39,18 +44,17 @@ def load_tensorflow_model():
     import tensorflow as tf
     import model
 
+    # Reset graph and define all placeholders
     tf.reset_default_graph()
+    x, y, m, l, ci, cj, h, sx, su = model.get_placeholders()
 
-    # Define all placeholders
-    x = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size'], par['n_input']], 'stim')
-    y = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size'], par['n_output']], 'out')
-    m = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size']], 'mask')
-
+    # Make session, load model, and initialize weights
     sess = tf.Session()
-    mod = model.Model(x, y, m)
+    mod = model.Model(x, y, m, l, ci, cj, h, sx, su)
     load_model_weights(sess)
 
-    return sess, mod, x, y, m
+    # Return session, model, and placeholders
+    return sess, mod, x, y, m, l, ci, cj, h, sx, su
 
 
 def load_model_weights(sess):
@@ -60,7 +64,7 @@ def load_model_weights(sess):
 def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode_pulse=False, test_mode_delay=False):
 
     results = load_and_replace_parameters(filename, savefile)
-    sess, model, x, y, m = load_tensorflow_model()
+    sess, model, x, y, m, *_ = load_tensorflow_model()
 
     stim = stimulus.Stimulus()
 
@@ -73,6 +77,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
 
     # Run the model
     y_hat, h, syn_x, syn_u = sess.run([model.y_hat, model.hidden_hist, model.syn_x_hist, model.syn_u_hist], feed_dict=feed_dict)
+    sess.close()
 
     # Convert to arrays
     y_hat = np.stack(y_hat, axis=0)
@@ -111,7 +116,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     print('weights ',results['weights']['W_in'].shape, results['weights']['W_rnn'].shape)
     if simulation:
         print('simulating network...')
-        simulation_results = simulate_network(trial_info, h, syn_x, syn_u, trial_info['neural_input'], results['weights'])
+        simulation_results = simulate_network(trial_info, h, syn_x, syn_u, trial_info['neural_input'], results['weights'], filename)
         for key, val in simulation_results.items():
             results[key] = val
         pickle.dump(results, open(savefile, 'wb'))
@@ -549,7 +554,16 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
     return lesion_results
 
 
-def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights, num_reps = 1):
+def simulate_network_testing(filename):
+    pass
+
+
+def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights, filename, num_reps = 1):
+
+    test_length = int(par['resp_cue_time']//par['dt'])
+    updates = {'num_time_steps' : test_length}
+    results = load_and_replace_parameters(filename, parameter_updates=updates)
+    sess, model, x, y, ma, l, ci, cj, hi, sx, su = load_tensorflow_model()
 
     """
     Simulation will start from the start of the test period until the end of trial
@@ -564,19 +578,12 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
         'accuracy_neural_shuffled'      : np.zeros((par['num_pulses'], par['n_hidden'], num_reps)),
         'accuracy_syn_shuffled'         : np.zeros((par['num_pulses'], par['n_hidden'], num_reps))}
 
-    update_parameters({'num_time_steps':test_length})
-    sess, model, x, y, m = load_tensorflow_model()
-
     for p in range(par['num_pulses']):
 
         test_onset = pulse_onsets[p]
         print(pulse_onsets, test_onset,test_length)
 
-        x_input = np.split(trial_info['neural_input'][test_onset:test_onset+test_length,:,:],test_length,axis=0)
-        #print('XXX')
-        #print(trial_info['neural_input'].shape)
-        #print(len(x))
-        #print(x[0].shape)
+        x_input = trial_info['neural_input'][test_onset:test_onset+test_length,:,:]
         y_target = trial_info['desired_output'][test_onset:test_onset+test_length,:,:]
         train_mask = trial_info['train_mask'][test_onset:test_onset+test_length, :]
         pulse_id = trial_info['pulse_id'][test_onset:test_onset+test_length, :]
@@ -592,13 +599,11 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
             syn_x_init = np.array(syn_x[test_onset-1,:,:])
             syn_u_init = np.array(syn_u[test_onset-1,:,:])
 
-            updates = {'h_init':hidden_init, 'syn_x_init':syn_x_init, 'syn_u_init':syn_u_init}
-            update_parameters(updates)
-            init_model_weights(sess)
-            feed_dict = {x:x_input, y:y_target, m:train_mask}
+            print('--->', hidden_init.shape, syn_x_init.shape, syn_u_init.shape)
 
-            y_hat = sess.run(model.y_hat, feed_dict=feed_dict)
-            y_hat = np.stack(y_hat, axis=0)
+            sess.run([model.load_h_init, model.load_syn_x_init, model.load_syn_u_init], \
+                feed_dict={hi:hidden_init, sx:syn_x_init, su:syn_u_init})
+            y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
 
             simulation_results['accuracy_no_shuffle'][p,:,n], _ = get_perf(y_target, y_hat, train_mask, pulse_id)
 
@@ -613,9 +618,12 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
                 hidden_init = np.array(h[test_onset-1,:,:])
                 syn_x_init = np.array(syn_x[test_onset-1,:,:])
                 syn_u_init = np.array(syn_u[test_onset-1,:,:])
-                hidden_init[m,:] = hidden_init[m, ind_shuffle]
+                hidden_init[:,m] = hidden_init[ind_shuffle,m]
 
-                y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
+                sess.run([model.load_h_init, model.load_syn_x_init, model.load_syn_u_init], \
+                    feed_dict={hi:hidden_init, sx:syn_x_init, su:syn_u_init})
+                y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
+
                 simulation_results['accuracy_neural_shuffled'][p,m,n], _ = get_perf(y_target, y_hat, train_mask, pulse_id)
                 acc, _  = get_perf(y_target, y_hat, train_mask, pulse_id)
 
@@ -625,11 +633,16 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
                 hidden_init = np.array(h[test_onset-1,:,:])
                 syn_x_init = np.array(syn_x[test_onset-1,:,:])
                 syn_u_init = np.array(syn_u[test_onset-1,:,:])
-                syn_x_init[m,:] = syn_x_init[m,ind_shuffle]
-                syn_u_init[m,:] = syn_u_init[m,ind_shuffle]
-                y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
-                simulation_results['accuracy_syn_shuffled'][p,m,n], _ = get_perf(y_target, y_hat, train_mask, pulse_id)
+                syn_x_init[:,m] = syn_x_init[ind_shuffle,m]
+                syn_u_init[:,m] = syn_u_init[ind_shuffle,m]
 
+                print(m, hidden_init.shape, syn_x_init.shape, syn_u_init.shape)
+
+                sess.run([model.load_h_init, model.load_syn_x_init, model.load_syn_u_init], \
+                    feed_dict={hi:hidden_init, sx:syn_x_init, su:syn_u_init})
+                y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
+
+                simulation_results['accuracy_syn_shuffled'][p,m,n], _ = get_perf(y_target, y_hat, train_mask, pulse_id)
 
     return simulation_results
 
