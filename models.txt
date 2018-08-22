@@ -1,12 +1,37 @@
 <Models that are running>
+*lower learning rate, low connection, 500 ms resp time for sequence cue
 
-0: Task1 and Task2 with pulse 3, 4, 6, 8, 10 --> lower learning rate, 200 neurons
+-- 200 hidden
+0. sequence cue, pulse 4, 6, 8, 10
 
-1: sequence_cue task with pulse 6, 8, 10
+1. sequence cue + RF cue, pulse 4, 6, 8, 10
 
-2: RF_detection; RF 3, 4, 6, 8, 10           --> lower learning rate, 200 neurons
+-- 100 hidden
+2. sequence cue, pulse 4, 6, 8, 10
 
-3: RF_cue; RF 3, 4, 6, 8, 10                 --> lower learning rate, 200 neurons
+3. sequence cue + RF cue, pulse 4, 6, 8, 10 
+
+
+
+
+
+
+
+
+
+
+
+
+----- old -----
+*lower learning rate, 200 neurons, low_connection
+
+0: sequence task with pulse 4, 6, 8, 10 
+
+1: sequence_cue task with pulse 4, 6, 8, 10
+
+2: RF_detection; RF 4, 6, 8, 10
+
+3: RF_cue; RF 4, 6, 8, 10
 
 
 
