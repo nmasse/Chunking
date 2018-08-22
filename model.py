@@ -23,7 +23,7 @@ class Model:
 
     """ Biological RNN model for supervised learning """
 
-    def __init__(self, input_data, target_data, mask):
+    def __init__(self, input_data, target_data, mask, *args):
 
         # Print feedback on network data shape
         print('Stimulus shape:'.ljust(18), input_data.shape)
@@ -34,6 +34,9 @@ class Model:
         self.input_data  = tf.unstack(input_data, axis=0)
         self.target_data = tf.unstack(target_data, axis=0)
         self.mask        = tf.unstack(mask, axis=0)
+
+        self.lesioned_neuron, self.cut_weight_i, self.cut_weight_j, self.h_init_replace, \
+            self.syn_x_init_replace, self.syn_u_init_replace = args
 
         # Declare all Tensorflow variables
         self.declare_variables()
@@ -51,7 +54,9 @@ class Model:
         self.var_dict = {}
 
         with tf.variable_scope('init'):
-            self.var_dict['h_init'] = tf.get_variable('hidden', initializer=par['h_init'], trainable=True)
+            self.var_dict['h_init']     = tf.get_variable('hidden', initializer=par['h_init'], trainable=True)
+            self.var_dict['syn_x_init'] = tf.get_variable('syn_x_init', initializer=par['syn_x_init'], trainable=False)
+            self.var_dict['syn_u_init'] = tf.get_variable('syn_u_init', initializer=par['syn_u_init'], trainable=False)
 
         with tf.variable_scope('rnn'):
             self.var_dict['W_in']  = tf.get_variable('W_in', initializer=par['w_in0'])
@@ -64,6 +69,14 @@ class Model:
 
         self.W_rnn_eff = (tf.constant(par['EI_matrix']) @ tf.nn.relu(self.var_dict['W_rnn'])) \
             if par['EI'] else self.var_dict['W_rnn']
+
+        # Analysis-based variable manipulation commands
+        self.lesion = self.var_dict['W_rnn'][:,self.lesioned_neuron].assign(tf.zeros_like(self.var_dict['W_rnn'][:,self.lesioned_neuron]))
+        self.cutting = self.var_dict['W_rnn'][self.cut_weight_i, self.cut_weight_j].assign(0.)
+        self.load_h_init = self.var_dict['h_init'].assign(self.h_init_replace)
+        self.load_syn_x_init = self.var_dict['syn_x_init'].assign(self.syn_x_init_replace)
+        self.load_syn_u_init = self.var_dict['syn_u_init'].assign(self.syn_u_init_replace)
+
 
 
     def rnn_cell_loop(self):
@@ -78,8 +91,8 @@ class Model:
 
         # Load starting network state
         h = self.var_dict['h_init']
-        syn_x = tf.constant(par['syn_x_init'])
-        syn_u = tf.constant(par['syn_u_init'])
+        syn_x = self.var_dict['syn_x_init']
+        syn_u = self.var_dict['syn_u_init']
 
         # Loop through the neural inputs, indexed in time
         for rnn_input in self.input_data:
@@ -103,8 +116,8 @@ class Model:
 
         # Apply synaptic short-term facilitation and depression, if required
         if par['synapse_config'] == 'std_stf':
-            syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
-            syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
+            syn_x = syn_x + par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
+            syn_u = syn_u + par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
             syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
             syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
             h_post = syn_u*syn_x*h
@@ -165,9 +178,7 @@ def main(gpu_id=None):
     tf.reset_default_graph()
 
     # Define all placeholders
-    x = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size'], par['n_input']], 'stim')
-    y = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size'], par['n_output']], 'out')
-    m = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size']], 'mask')
+    x, y, m, l, ci, cj, h, sx, su = get_placeholders()
 
     # Set up stimulus and model performance recording
     stim = stimulus.Stimulus()
@@ -179,7 +190,7 @@ def main(gpu_id=None):
         # Select CPU or GPU
         device = '/cpu:0' if gpu_id is None else '/gpu:0'
         with tf.device(device):
-            model = Model(x, y, m)
+            model = Model(x, y, m, l, ci, cj, h, sx, su)
 
         # Initialize variables and start the timer
         sess.run(tf.global_variables_initializer())
@@ -259,6 +270,21 @@ def print_results(iter_num, perf_loss, spike_loss, state_hist, accuracy, pulse_a
       ' | Perf loss {:6.4f}'.format(perf_loss) + ' | Spike loss {:6.4f}'.format(spike_loss) +
       ' | Mean activity {:6.4f}'.format(np.mean(state_hist)))
     print('Pulse accuracy ', np.round(pulse_accuracy,4))
+
+
+def get_placeholders():
+    x  = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size'], par['n_input']], 'stim')
+    y  = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size'], par['n_output']], 'out')
+    m  = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size']], 'mask')
+
+    l  = tf.placeholder(tf.int32, shape=[], name='lesion')
+    ci = tf.placeholder(tf.int32, shape=[], name='cut_i')
+    cj = tf.placeholder(tf.int32, shape=[], name='cut_j')
+    h  = tf.placeholder(tf.float32, shape=par['h_init'].shape, name='h_init')
+    sx = tf.placeholder(tf.float32, shape=par['syn_x_init'].shape, name='syn_x_init')
+    su = tf.placeholder(tf.float32, shape=par['syn_u_init'].shape, name='syn_u_init')
+
+    return x, y, m, l, ci, cj, h, sx, su
 
 
 if __name__ == '__main__':
