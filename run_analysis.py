@@ -1,6 +1,4 @@
 import numpy as np
-from parameters import *
-import model
 import sys
 from analysis import *
 
