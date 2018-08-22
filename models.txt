@@ -4,11 +4,13 @@
 -- 200 hidden
 0. sequence cue, pulse 4, 6, 8, 10
 
-1. sequence cue + RF cue, pulse 4, 6, 8, 10
+-- 100 hidden
+1. sequence_all + sequence cue, pulse 4, 6, 8, 10
 
 -- 100 hidden
 2. sequence cue, pulse 4, 6, 8, 10
 
+-- 100 hidden
 3. sequence cue + RF cue, pulse 4, 6, 8, 10 
 
 
