@@ -26,12 +26,12 @@ def load_and_replace_parameters(filename, savefile=None):
     data['parameters']['load_prev_weights'] = True
 
     data['weights']['h_init'] = data['weights']['h_init'][0:1,:]
-    data['parameters']['dt'] = 200
-    data['parameters']['batch_train_size'] = 16
+    #data['parameters']['dt'] = 200
+    #data['parameters']['batch_train_size'] = 16
 
     update_parameters(data['parameters'])
     data['parameters'] = par
-    return data
+    return data, data['parameters']['save_fn']
 
 
 def load_tensorflow_model():
@@ -59,7 +59,7 @@ def load_model_weights(sess):
 
 def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode_pulse=False, test_mode_delay=False):
 
-    results = load_and_replace_parameters(filename, savefile)
+    results, savefile = load_and_replace_parameters(filename, savefile)
     sess, model, x, y, m = load_tensorflow_model()
 
     stim = stimulus.Stimulus()
@@ -81,7 +81,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     syn_u = np.stack(syn_u, axis=0)
     trial_time = np.arange(0,h.shape[0]*par['dt'], par['dt'])
 
-    currents, tuning, simulation, decoding, cut_weight_analysis = False, False, True, False, False
+    currents, tuning, simulation, decoding, cut_weight_analysis = False, False, False, True, False
     """
     Calculate currents
     """
@@ -349,8 +349,8 @@ def svm_wraper_simple(h, syn_x, syn_u, trial_info, num_reps = 3, num_reps_stabil
                     z = np.array( np.concatenate((h, syn_x*syn_u), axis=2))
 
                 for t in range(num_time_steps):
-                    lin_clf.fit(z[t,ind_train,:].T, labels[ind_train])
-                    predicted_sample = lin_clf.predict(z[t,ind_test,:].T)
+                    lin_clf.fit(z[t,ind_train,:], np.array(labels[ind_train]))
+                    predicted_sample = lin_clf.predict(z[t,ind_test,:])
                     score[data_type, p, rep, t] = np.mean( labels[ind_test]==predicted_sample)
 
                     if rep < num_reps_stability and par['decode_stability']:
@@ -371,17 +371,13 @@ def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time, ana
     """
     train_pct = 0.75
     trials_per_cond = 25
-    _, num_time_steps, num_trials = h.shape
+    num_time_steps, num_trials, _ = h.shape
     num_rules = len(np.unique(rule))
-    if par['trial_type']=='chunking':
-        if analysis:
-            num_stim = 1
-        elif test_mode_pulse:
-            num_stim = pulse
-        else:
-            num_stim = par['num_pulses']
+
+    if sequence in par['trial_type']:
+        num_stim = par['num_pulses']
     else:
-        num_stim = par['num_receptive_fields']
+        num_stim = par['num_RFs']
 
     #num_stim = par['num_pulses'] if par['trial_type']=='chunking' else par['num_receptive_fields']
 
@@ -390,14 +386,11 @@ def svm_wraper(lin_clf, h, syn_eff, combo, stim, rule, num_reps, trial_time, ana
     score_combo = np.zeros((num_rules, num_stim, num_reps, num_time_steps), dtype = np.float32)
 
     for r in range(num_rules):
-        ind_rule = np.where(rule==r)[0]
+        ind_rule = np.where(rule==r)[1]
 
         for n in range(num_stim):
-            if par['trial_type'] == 'dualDMS' or par['trial_type'] == 'chunking':
-                if analysis:
-                    current_stim = stim[:,stim_num]
-                else:
-                    current_stim = stim[:,n]
+            if 'sequence' or 'RF' in par['trial_type']:
+                current_stim = stim[:,n]
             else:
                 current_stim = np.array(stim)
 
@@ -870,9 +863,9 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
     if par['EI']:
         # ensure excitatory neurons only have postive outgoing weights,
         # and inhibitory neurons have negative outgoing weights
-        W_rnn_effective = np.dot(np.maximum(0,weights['w_rnn']), par['EI_matrix'])
+        W_rnn_effective = np.dot(np.maximum(0,weights['W_rnn']), par['EI_matrix'])
     else:
-        W_rnn_effective = weights['w_rnn']
+        W_rnn_effective = weights['W_rnn']
 
 
     """
@@ -917,9 +910,9 @@ def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
     """
 
     h = np.maximum(0, h*(1-par['alpha_neuron'])
-                   + par['alpha_neuron']*(np.dot(np.maximum(0,weights['w_in']), np.maximum(0, rnn_input))
+                   + par['alpha_neuron']*(np.dot(np.maximum(0,weights['W_in']), np.transpose(np.maximum(0, rnn_input)))
                    + np.dot(W_rnn_effective, h_post) + weights['b_rnn'])
-                   + np.random.normal(0, par['noise_rnn'],size=(par['n_hidden'], h.shape[1])))
+                   + np.random.normal(0, par['noise_rnn'],size=(h.shape[1],par['n_hidden'])))
 
     h *= suppress_activity
 
