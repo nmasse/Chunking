@@ -1,13 +1,13 @@
 import numpy as np
-import sys
+import sys, os
 from analysis import *
 
 task = "chunking"
 
-file_list = ['./savedir/sequence_2_all_RF.pkl','./savedir/sequence_2_one_RF.pkl','./savedir/sequence_cue_2_all_RF.pkl']
-file_list = ['./savedir/sequence_cue_4_all_RF_100_neuron.pkl']
+path = './savedir/one_hot_perfect/'
+file_list = ['sequence_cue_4_all_RF.pkl']#os.listdir(path)
 
 for f in file_list:
     print('Analyzing network...')
-    save_fn = f[-4] + '_test.pkl'
-    analyze_model_from_file(f, savefile=save_fn)
+    save_fn = './savedir/one_hot_perfect/analysis_' + f
+    analyze_model_from_file(path + f, savefile=save_fn)

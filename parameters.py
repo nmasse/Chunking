@@ -79,7 +79,7 @@ par = {
     'delay_time'            : 200,  # Short delay period (augmented for pulses)
     'long_delay_time'       : 500,  # Long delay period
     'var_delay_max'         : 500,  # Maximum delay caused by var delay
-    'resp_cue_time'         : 200,  # Duration of a requested response
+    'resp_cue_time'         : 500,  # Duration of a requested response
     'mask_duration'         : 40,   # Duration of training mask after test onset
     'num_rules'             : 1,    # Legacy, used in analysis.py
 

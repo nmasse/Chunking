@@ -196,7 +196,7 @@ class Stimulus:
             stim_times = [range(start + i*pulse_dur + np.sum(current_delay_times[:i]), start + (i+1)*pulse_dur + np.sum(current_delay_times[:i])) for i in range(num_pulses)]
 
 
-            resp_times = [range(resp_start,resp_start+pulse_dur)]
+            resp_times = [range(resp_start,resp_start+resp_dur)]
             mask_times = [range(resp_start,resp_start+mask_dur)]
 
             trial_info['train_mask'][:par['dead_time']//par['dt'], t] = 0
