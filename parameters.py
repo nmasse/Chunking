@@ -151,10 +151,15 @@ def update_dependencies():
 
     # Number of input neurons
     par['num_max_pulse'] = par['num_pulses']
-    par['num_rule_tuned'] = par['num_max_pulse']
+    par['num_cue_tuned'] = par['num_max_pulse']
     par['total_motion_tuned'] = par['num_motion_tuned']*par['num_RFs']
 
-    par['n_input'] = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_rule_tuned']
+    if len(par['trial_type']) > 1:
+        par['num_rule_tuned'] = len(par['trial_type'])
+    else:
+        par['num_rule_tuned'] = 0
+
+    par['n_input'] = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_cue_tuned'] + par['num_rule_tuned']
 
     # Adjust output size and loss function based on output type
     if par['output_type'] == 'directional':

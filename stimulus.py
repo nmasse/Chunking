@@ -26,6 +26,10 @@ class Stimulus:
         else:
             trial_info = None
 
+        # Add a rule signal if desired
+        if len(par['trial_type']) > 1:
+            trial_info['neural_input'] += self.rule_tuning[par['trial_type'].index(task)]
+
         """
         for b in range(16):
             print(b)
@@ -210,7 +214,7 @@ class Stimulus:
 
 
             # response properties
-            trial_info['neural_input'][resp_times[0], t, :] += self.order_tuning[:, trial_info['test'][t]]
+            trial_info['neural_input'][resp_times[0], t, :] += self.cue_tuning[:, trial_info['test'][t]]
 
             trial_info['desired_output'][resp_times[0], t, :] = self.dir_output_tuning[trial_info['sample'][t,trial_info['test'][t]]]
 
@@ -390,11 +394,11 @@ class Stimulus:
 
         motion_tuning     = np.zeros([par['num_motion_dirs'], par['num_RFs'], par['n_input']])
         fix_tuning        = np.zeros([1,par['n_input']])
-        rule_tuning       = np.zeros([1,par['n_input']])
+        rule_tuning       = np.zeros([par['num_rule_tuned'],par['n_input']])
         fix_output_tuning = np.zeros([1,par['n_output']])
         dir_output_tuning = np.zeros([par['num_motion_dirs'], par['n_output']])
         rf_output_tuning  = np.zeros([par['num_RFs'], par['n_output']])
-        order_tuning      = np.zeros([par['n_input'], par['num_pulses']])
+        cue_tuning        = np.zeros([par['n_input'], par['num_pulses']])
 
         # Generate lists of preferred and possible stimulus directions
         pref_dirs = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_motion_tuned']))
@@ -418,7 +422,7 @@ class Stimulus:
 
         # Tune rule neurons to the correct height
         for n in range(par['num_rule_tuned']):
-            rule_tuning[0,par['total_motion_tuned']+par['num_fix_tuned']+n] = par['tuning_height']
+            rule_tuning[n,par['total_motion_tuned']+par['num_fix_tuned']+par['num_cue_tuned']+n] = par['tuning_height']
 
         # Tune output neurons to the correct directions
         for d in range(par['num_motion_dirs']):
@@ -435,10 +439,10 @@ class Stimulus:
                 rf_output_tuning[rf, rf+par['num_motion_dirs']+1] = 1.
 
         # Tune order neurons
-        for n in range(par['num_rule_tuned']):
+        for n in range(par['num_cue_tuned']):
             for i in range(par['num_pulses']):
                 if n%par['num_pulses'] == i:
-                    order_tuning[par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']+n,i] = par['tuning_height']
+                    cue_tuning[par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']+n,i] = par['tuning_height']
 
         # Set tunings to class elements
         self.motion_tuning     = motion_tuning
@@ -447,7 +451,7 @@ class Stimulus:
         self.dir_output_tuning = dir_output_tuning
         self.rf_output_tuning  = rf_output_tuning
         self.fix_output_tuning = fix_output_tuning
-        self.order_tuning      = order_tuning
+        self.cue_tuning        = cue_tuning
 
 
     def plot_neural_input(self, trial_info):
