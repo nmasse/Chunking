@@ -89,6 +89,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     trial_time = np.arange(0,h.shape[0]*par['dt'], par['dt'])
 
     results['mean_h'] = np.mean(h,axis=1)
+    pickle.dump(results, open(savefile, 'wb'))
 
     currents, tuning, simulation, decoding, cut_weight_analysis = False, True, False, False, False
 
@@ -148,7 +149,6 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
         for key, val in cut_results.items():
             results[key] = val
         pickle.dump(results, open(savefile, 'wb'))
-
 
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
