@@ -26,8 +26,8 @@ def load_and_replace_parameters(filename, savefile=None, parameter_updates={}):
     data['parameters']['load_prev_weights'] = True
 
     data['weights']['h_init'] = data['weights']['h_init']
-    # data['parameters']['dt'] = 100
-    # data['parameters']['batch_train_size'] = 16
+    data['parameters']['dt'] = 100
+    data['parameters']['batch_train_size'] = 16
 
 
     update_parameters(data['parameters'])
@@ -91,7 +91,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     results['mean_h'] = np.mean(h,axis=1)
     pickle.dump(results, open(savefile, 'wb'))
 
-    currents, tuning, simulation, decoding, cut_weight_analysis = False, True, False, False, False
+    currents, tuning, simulation, decoding, cut_weight_analysis = False, False, False, False, True
 
     """
     Calculate currents
@@ -695,16 +695,17 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, filename,
 
     # Determine where fixation ends, so as to start the model from there.
     mean_fixation = np.mean(trial_info['desired_output'][:,:,0], axis=1)
-    end_delay = np.where(mean_fixation == 0.)[0][0] - 1
-    print('eod ',end_delay)
+    cut_start = np.where(mean_fixation == 0.)[0][0] - 1
+    print('Cut weight trials start at time step {}.'.format(cut_start))
 
     x = np.split(trial_info['neural_input'][1:,:,:],trial_length-1,axis=0)
-    x_delay = np.split(trial_info['neural_input'][end_delay:,:,:],trial_length-end_delay,axis=0)
+    x_delay = np.split(trial_info['neural_input'][cut_start:,:,:],trial_length-cut_start,axis=0)
 
-    results = load_and_replace_parameters(filename)
+    updates = {'num_time_steps' : cut_start}
+    results = load_and_replace_parameters(filename, parameter_updates=updates)
     sess, model, x, y, ma, l, ci, cj, hi, sx, su = load_tensorflow_model()
 
-
+    quit()
     for p in range(par['num_pulses']):
         print(p, "out of ", par['num_pulses'], " pulses")
 
@@ -712,9 +713,9 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, filename,
         syn_x_init = np.array(syn_x[0,:,:])
         syn_u_init = np.array(syn_u[0,:,:])
 
-        h_init_delay = np.array(h[end_delay-1,:,:])
-        syn_x_init_delay = np.array(syn_x[end_delay-1,:,:])
-        syn_u_init_delay = np.array(syn_u[end_delay-1,:,:])
+        h_init_delay = np.array(h[cut_start-1,:,:])
+        syn_x_init_delay = np.array(syn_x[cut_start-1,:,:])
+        syn_u_init_delay = np.array(syn_u[cut_start-1,:,:])
 
         """
         Calculating behavioral accuracy without shuffling
@@ -731,7 +732,7 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, filename,
         """
         Cutting top neurons from synaptic_pev result
         """
-        ind = np.argsort(results['synaptic_pev'][:, p, end_delay])
+        ind = np.argsort(results['synaptic_pev'][:, p, cut_start])
         top_neurons = ind[-num_top_neurons:]
         cutting_results['cut_neurons'][p,:] = top_neurons
 
@@ -767,8 +768,8 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, filename,
         y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
 
         #y_hat_cut, _, _, _ = run_model(x_delay, h_init_delay, syn_x_init_delay, syn_u_init_delay, current_weights)
-        _, pulse_acc_delay = get_perf(trial_info['desired_output'][end_delay:,:,:], y_hat_cut, trial_info['train_mask'][end_delay:,:], \
-            trial_info['pulse_id'][end_delay:,:])
+        _, pulse_acc_delay = get_perf(trial_info['desired_output'][cut_start:,:,:], y_hat_cut, trial_info['train_mask'][cut_start:,:], \
+            trial_info['pulse_id'][cut_start:,:])
         cutting_results['accuracy_after_cut_delay'][p,:] = pulse_acc_delay
 
 
