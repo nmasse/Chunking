@@ -248,7 +248,7 @@ class Stimulus:
         dead            = int(par['dead_time']//par['dt'])
         start           = int((par['dead_time'] + par['fix_time'])//par['dt'])
         pulse_dur       = int(par['sample_time_RF']//par['dt'])
-        delay_dur       = int(par['long_delay_time']//par['dt'])
+        delay_dur       = int(par['RF_long_delay_time']//par['dt'])
         var_delay_max   = int(par['var_delay_max']//par['dt'])
         mask_dur        = int(par['mask_duration']//par['dt'])
         resp_start      = start + pulse_dur + delay_dur
@@ -325,7 +325,7 @@ class Stimulus:
         dead            = int(par['dead_time']//par['dt'])
         start           = int((par['dead_time'] + par['fix_time'])//par['dt'])
         pulse_dur       = int(par['sample_time_RF']//par['dt'])
-        delay_dur       = int(par['long_delay_time']//par['dt'])
+        delay_dur       = int(par['RF_long_delay_time']//par['dt'])
         var_delay_max   = int(par['var_delay_max']//par['dt'])
         mask_dur        = int(par['mask_duration']//par['dt'])
         resp_start      = start + pulse_dur + delay_dur

@@ -78,6 +78,7 @@ par = {
     'sample_time_RF'        : 500,  # Sample time for RF-based tasks
     'delay_time'            : 200,  # Short delay period (augmented for pulses)
     'long_delay_time'       : 500,  # Long delay period
+    'RF_long_delay_time'    : 1000, # Long delay period for RF tasks
     'var_delay_max'         : 500,  # Maximum delay caused by var delay
     'resp_cue_time'         : 500,  # Duration of a requested response
     'mask_duration'         : 40,   # Duration of training mask after test onset
@@ -143,7 +144,7 @@ def update_dependencies():
 
     time_steps_RFs = par['dead_time'] + par['fix_time'] \
         + 2*par['sample_time_RF'] \
-        + par['long_delay_time'] \
+        + par['RF_long_delay_time'] \
         + par['var_delay_max'] \
         + par['dt']
 
