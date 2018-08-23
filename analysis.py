@@ -17,7 +17,7 @@ def load_and_replace_parameters(filename, savefile=None, parameter_updates={}):
 
     data = pickle.load(open(filename, 'rb'))
     if savefile is None:
-        data['parameters']['save_fn'] = 'test.pkl'
+        data['parameters']['save_fn'] = filename + '_test.pkl'
     else:
         data['parameters']['save_fn'] = savefile
 
@@ -26,8 +26,8 @@ def load_and_replace_parameters(filename, savefile=None, parameter_updates={}):
     data['parameters']['load_prev_weights'] = True
 
     data['weights']['h_init'] = data['weights']['h_init']
-    data['parameters']['dt'] = 100
-    data['parameters']['batch_train_size'] = 16
+    # data['parameters']['dt'] = 100
+    # data['parameters']['batch_train_size'] = 16
 
 
     update_parameters(data['parameters'])
@@ -69,7 +69,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     stim = stimulus.Stimulus()
 
     # Generate a batch of stimulus for training
-    trial_info = stim.generate_trial(par['trial_type'], var_delay=par['var_delay'], \
+    trial_info = stim.generate_trial(par['trial_type'][0], var_delay=par['var_delay'], \
         var_num_pulses=par['var_num_pulses'], all_RF=par['all_RF'], test_mode=False)
 
     # Put together the feed dictionary
@@ -86,7 +86,9 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     syn_u = np.stack(syn_u, axis=0)
     trial_time = np.arange(0,h.shape[0]*par['dt'], par['dt'])
 
-    currents, tuning, simulation, decoding, cut_weight_analysis = False, False, False, True, False
+    results['mean_h'] = np.mean(h,axis=1)
+
+    currents, tuning, simulation, decoding, cut_weight_analysis = False, True, False, False, False
     """
     Calculate currents
     """
@@ -128,8 +130,11 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     if decoding:
         print('decoding activity...')
         decoding_results =  svm_wraper_simple(h, syn_x, syn_u, trial_info, num_reps = 3, num_reps_stability = 0)
+        print('done done done????')
         for key, val in decoding_results.items():
+            print(key)
             results[key] = val
+        print(savefile)
         pickle.dump(results, open(savefile, 'wb') )
 
 
@@ -234,6 +239,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
             decode_sample_vs_test = par['decode_sample_vs_test'], analysis=analysis, test_mode_pulse=test_mode_pulse, pulse=pulse, test_mode_delay=test_mode_delay, stim_num=stim_num)
         for key, val in decoding_results.items():
             results[key] = val
+        print('save: ', save_fn)
         pickle.dump(results, open(save_fn, 'wb') )
 
     #pickle.dump(results, open(save_fn, 'wb') ) -> saving after each analysis instead
@@ -364,6 +370,7 @@ def svm_wraper_simple(h, syn_x, syn_u, trial_info, num_reps = 3, num_reps_stabil
                             predicted_sample = lin_clf.predict(z[t1,ind_test,:].T)
                             score_dynamic[data_type, p, rep, t, t1] = np.mean(labels[ind_test]==predicted_sample)
 
+    print('decoding done')
     results = {'neuronal_decoding': score[0,:,:,:], 'synaptic_decoding': score[1,:,:,:], 'combined_decoding': score[2,:,:,:]}
     return results
 
