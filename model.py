@@ -231,6 +231,11 @@ def main(gpu_id=None):
 
         # Begin training loop
         print('\nStarting training...\n')
+        acc_count = int(0)
+        accuracy_threshold = np.array([0.6, 0.7, 0.8, 0.9, 0.95])
+        save_fn = par['save_dir'] + par['save_fn']
+        save_fn_ind = save_fn[1:].find('.') - 1
+
         for i in range(par['num_iterations']):
 
             # Generate a batch of stimulus for training
@@ -257,14 +262,29 @@ def main(gpu_id=None):
             if i%par['iters_between_outputs'] == 0: #in list(range(len(par['trial_type']))):
                 print_results(i, par['trial_type'], perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy)
 
-            if i%200 in list(range(len(par['trial_type']))):
-                weights = sess.run(model.var_dict)
+            # if i%200 in list(range(len(par['trial_type']))):
+            #     weights = sess.run(model.var_dict)
+            #     results = {
+            #         'model_performance': model_performance,
+            #         'parameters': par,
+            #         'weights': weights}
+            #     pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
+            #     if i>=5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
+            #         break
+
+            if i>5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
+
+                weights = eval_weights()
                 results = {
                     'model_performance': model_performance,
                     'parameters': par,
                     'weights': weights}
-                pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
-                if i>=5 and all(model_performance['accuracy'][-5:] > 0.9):
+                acc_str = str(int(accuracy_threshold[acc_count]*100))
+                sf = save_fn[:-6] + 'acc' + acc_str + '_' + save_fn[-6:]
+                print(sf)
+                pickle.dump(results, open(sf, 'wb') )
+                acc_count += 1
+                if acc_count >= len(accuracy_threshold):
                     break
 
         # If required, save the model, analyze it, and save the results
