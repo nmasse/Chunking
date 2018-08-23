@@ -70,7 +70,8 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     stim = stimulus.Stimulus()
 
     # Generate a batch of stimulus for training
-    trial_info = stim.generate_trial(par['trial_type'], var_delay=par['var_delay'], \
+    task = par['trial_type'][0]
+    trial_info = stim.generate_trial(task, var_delay=par['var_delay'], \
         var_num_pulses=par['var_num_pulses'], all_RF=par['all_RF'], test_mode=False)
 
     # Put together the feed dictionary
@@ -138,7 +139,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
 
     if cut_weight_analysis:
         print('Removing weights...')
-        cut_results = cut_weights(results, trial_info, h, syn_x, syn_u, results['weights'], num_reps = 1, num_top_neurons = 4)
+        cut_results = cut_weights(results, trial_info, h, syn_x, syn_u, results['weights'], filename, num_reps = 1, num_top_neurons = 4)
         for key, val in cut_results.items():
             results[key] = val
         pickle.dump(results, open(savefile, 'wb'))
@@ -671,14 +672,7 @@ def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
     return current_results
 
 
-def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, num_reps = 1, num_top_neurons = 1):
-
-    test_length = int(par['resp_cue_time']//par['dt'])
-    updates = {'num_time_steps' : test_length}
-    results = load_and_replace_parameters(filename, parameter_updates=updates)
-    sess, model, x, y, ma, l, ci, cj, hi, sx, su = load_tensorflow_model()
-
-    # Inits here should be default
+def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, filename, num_reps = 1, num_top_neurons = 1):
 
     trial_length = h.shape[0]
 
@@ -692,14 +686,16 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, num_reps 
         'neuronal_pref_dir_after_cut'     : np.zeros((par['n_hidden'],  par['num_pulses'], trial_length), dtype=np.float32),
         'synaptic_pref_dir_after_cut'     : np.zeros((par['n_hidden'],  par['num_pulses'], trial_length), dtype=np.float32)}
 
-        # determine when the first pulse occured
-    mean_pulse_id = np.mean(trial_info['pulse_id'], axis = 1) # trial_info['pulse_id'] should be identical across all trials
-    pulse_onset = np.min(np.where(mean_pulse_id==0)[0])
-    end_delay = pulse_onset - 1
+    # Determine where fixation ends, so as to start the model from there.
+    mean_fixation = np.mean(trial_info['desired_output'][:,:,0], axis=1)
+    end_delay = np.where(mean_fixation == 0.)[0][0] - 1
     print('eod ',end_delay)
 
     x = np.split(trial_info['neural_input'][1:,:,:],trial_length-1,axis=0)
     x_delay = np.split(trial_info['neural_input'][end_delay:,:,:],trial_length-end_delay,axis=0)
+
+    results = load_and_replace_parameters(filename)
+    sess, model, x, y, ma, l, ci, cj, hi, sx, su = load_tensorflow_model()
 
 
     for p in range(par['num_pulses']):
@@ -716,12 +712,10 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, num_reps 
         """
         Calculating behavioral accuracy without shuffling
         """
-
-        #sess.run([model.load_h_init, model.load_syn_x_init, model.load_syn_u_init], \
-        #    feed_dict={hi:hidden_init, sx:syn_x_init, su:syn_u_init})
+    
         y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
 
-        #y_hat, _, _, _ = run_model(x, h_init, syn_x_init, syn_u_init, network_weights)
+        quit('First run!')
 
         _,pulse_acc =  get_perf(trial_info['desired_output'][1:,:,:], y_hat, \
             trial_info['train_mask'][1:,:], trial_info['pulse_id'][1:,:])
