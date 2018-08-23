@@ -63,6 +63,7 @@ def load_model_weights(sess):
 
 def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode_pulse=False, test_mode_delay=False):
 
+    print(' --- Loading and running model for analysis.')
     results, savefile = load_and_replace_parameters(filename, savefile)
     sess, model, x, y, m, *_ = load_tensorflow_model()
 
@@ -78,6 +79,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     # Run the model
     y_hat, h, syn_x, syn_u = sess.run([model.y_hat, model.hidden_hist, model.syn_x_hist, model.syn_u_hist], feed_dict=feed_dict)
     sess.close()
+    print(' --- Base model run complete.  Starting analysis.\n')
 
     # Convert to arrays
     y_hat = np.stack(y_hat, axis=0)
@@ -89,6 +91,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     results['mean_h'] = np.mean(h,axis=1)
 
     currents, tuning, simulation, decoding, cut_weight_analysis = False, True, False, False, False
+
     """
     Calculate currents
     """
@@ -554,10 +557,6 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
     return lesion_results
 
 
-def simulate_network_testing(filename):
-    pass
-
-
 def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights, filename, num_reps = 1):
 
     test_length = int(par['resp_cue_time']//par['dt'])
@@ -599,8 +598,6 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
             syn_x_init = np.array(syn_x[test_onset-1,:,:])
             syn_u_init = np.array(syn_u[test_onset-1,:,:])
 
-            print('--->', hidden_init.shape, syn_x_init.shape, syn_u_init.shape)
-
             sess.run([model.load_h_init, model.load_syn_x_init, model.load_syn_u_init], \
                 feed_dict={hi:hidden_init, sx:syn_x_init, su:syn_u_init})
             y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
@@ -636,8 +633,6 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
                 syn_x_init[:,m] = syn_x_init[ind_shuffle,m]
                 syn_u_init[:,m] = syn_u_init[ind_shuffle,m]
 
-                print(m, hidden_init.shape, syn_x_init.shape, syn_u_init.shape)
-
                 sess.run([model.load_h_init, model.load_syn_x_init, model.load_syn_u_init], \
                     feed_dict={hi:hidden_init, sx:syn_x_init, su:syn_u_init})
                 y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
@@ -645,6 +640,7 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
                 simulation_results['accuracy_syn_shuffled'][p,m,n], _ = get_perf(y_target, y_hat, train_mask, pulse_id)
 
     return simulation_results
+
 
 def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
 
@@ -685,6 +681,13 @@ def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
 
 def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, num_reps = 1, num_top_neurons = 1):
 
+    test_length = int(par['resp_cue_time']//par['dt'])
+    updates = {'num_time_steps' : test_length}
+    results = load_and_replace_parameters(filename, parameter_updates=updates)
+    sess, model, x, y, ma, l, ci, cj, hi, sx, su = load_tensorflow_model()
+
+    # Inits here should be default
+
     trial_length = h.shape[0]
 
     cutting_results = {
@@ -721,7 +724,12 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, num_reps 
         """
         Calculating behavioral accuracy without shuffling
         """
-        y_hat, _, _, _ = run_model(x, h_init, syn_x_init, syn_u_init, network_weights)
+
+        #sess.run([model.load_h_init, model.load_syn_x_init, model.load_syn_u_init], \
+        #    feed_dict={hi:hidden_init, sx:syn_x_init, su:syn_u_init})
+        y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
+
+        #y_hat, _, _, _ = run_model(x, h_init, syn_x_init, syn_u_init, network_weights)
 
         _,pulse_acc =  get_perf(trial_info['desired_output'][1:,:,:], y_hat, \
             trial_info['train_mask'][1:,:], trial_info['pulse_id'][1:,:])
@@ -760,7 +768,12 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, num_reps 
         cutting_results['neuronal_pref_dir_after_cut'][:, p, 1:] = np.squeeze(tuning_results_cut['neuronal_pref_dir'])
 
 
-        y_hat_cut, _, _, _ = run_model(x_delay, h_init_delay, syn_x_init_delay, syn_u_init_delay, current_weights)
+        # Apply cutting instead of inits
+        #sess.run([model.load_h_init, model.load_syn_x_init, model.load_syn_u_init], \
+        #    feed_dict={hi:hidden_init, sx:syn_x_init, su:syn_u_init})
+        y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
+
+        #y_hat_cut, _, _, _ = run_model(x_delay, h_init_delay, syn_x_init_delay, syn_u_init_delay, current_weights)
         _, pulse_acc_delay = get_perf(trial_info['desired_output'][end_delay:,:,:], y_hat_cut, trial_info['train_mask'][end_delay:,:], \
             trial_info['pulse_id'][end_delay:,:])
         cutting_results['accuracy_after_cut_delay'][p,:] = pulse_acc_delay
