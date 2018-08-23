@@ -698,14 +698,10 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, filename,
     cut_start = np.where(mean_fixation == 0.)[0][0] - 1
     print('Cut weight trials start at time step {}.'.format(cut_start))
 
-    x = np.split(trial_info['neural_input'][1:,:,:],trial_length-1,axis=0)
-    x_delay = np.split(trial_info['neural_input'][cut_start:,:,:],trial_length-cut_start,axis=0)
-
-    updates = {'num_time_steps' : cut_start}
+    updates = {'num_time_steps' : trial_length - cut_start}
     results = load_and_replace_parameters(filename, parameter_updates=updates)
     sess, model, x, y, ma, l, ci, cj, hi, sx, su = load_tensorflow_model()
 
-    quit()
     for p in range(par['num_pulses']):
         print(p, "out of ", par['num_pulses'], " pulses")
 
@@ -721,9 +717,13 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, filename,
         Calculating behavioral accuracy without shuffling
         """
 
-        y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
+        x_input    = trial_info['neural_input'][cut_start:,:,:]
+        y_target   = trial_info['desired_output'][cut_start:,:,:]
+        train_mask = trial_info['train_mask'][cut_start:,:]
 
-        quit('First run!')
+        sess.run([model.load_h_init, model.load_syn_x_init, model.load_syn_u_init], \
+            feed_dict={hi:h_init_delay, sx:syn_x_init_delay, su:syn_u_init_delay})
+        y_hat = np.stack(sess.run(model.y_hat, feed_dict={x:x_input, y:y_target, ma:train_mask}), axis=0)
 
         _,pulse_acc =  get_perf(trial_info['desired_output'][1:,:,:], y_hat, \
             trial_info['train_mask'][1:,:], trial_info['pulse_id'][1:,:])
