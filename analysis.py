@@ -64,7 +64,7 @@ def load_model_weights(sess):
 def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode_pulse=False, test_mode_delay=False):
 
     print(' --- Loading and running model for analysis.')
-    results = load_and_replace_parameters(filename, savefile)
+    results, savefile = load_and_replace_parameters(filename, savefile)
     sess, model, x, y, m, *_ = load_tensorflow_model()
 
     stim = stimulus.Stimulus()
@@ -115,7 +115,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     """
     Calculate the neuronal and synaptic contributions towards solving the task
     """
-    print('weights ',results['weights']['W_in'].shape, results['weights']['W_rnn'].shape)
+    #print('weights ',results['weights']['W_in'].shape, results['weights']['W_rnn'].shape)
     if simulation:
         print('simulating network...')
         simulation_results = simulate_network(trial_info, h, syn_x, syn_u, trial_info['neural_input'], results['weights'], filename)
