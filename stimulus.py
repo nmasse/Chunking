@@ -358,13 +358,9 @@ class Stimulus:
             stim = np.sum([self.motion_tuning[directions[b,rf],rf]/par['num_RFs'] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
             resp = self.dir_output_tuning[directions[b,targets[b]]]
 
-            # Designated cue
-            cue  = np.zeros([1,par['n_input']])
-            cue[:,targets[b]*par['num_motion_tuned']:(targets[b]+1)*par['num_motion_tuned']] = par['tuning_height']/8
-
             # Building neural input
             trial_info['neural_input'][start:start+pulse_dur,b,:] += stim
-            trial_info['neural_input'][trial_resp_start:,b,:] += cue
+            trial_info['neural_input'][trial_resp_start:,b,:] += self.cue_tuning[:, targets[b]]
             trial_info['neural_input'][:trial_resp_start,b,:] += self.fix_tuning
 
             # Building network output
