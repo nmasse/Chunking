@@ -256,6 +256,10 @@ class Stimulus:
         directions = np.random.choice(par['num_motion_dirs'], size=[par['batch_train_size'], par['num_RFs']])
         targets = np.random.choice(par['num_RFs'], size=[par['batch_train_size']])
 
+        trial_info['sample'] = directions   # Direction in each RF
+        trial_info['test']   = targets      # RF to be changed
+
+
         trial_info['train_mask'][:dead,:] = 0           # Dead time
         trial_info['train_mask'][total_length:,:] = 0   # Post-task time
         for b in range(par['batch_train_size']):
@@ -275,6 +279,8 @@ class Stimulus:
             new_directions = np.copy(directions[b,:])
             options = list(set(range(par['num_motion_dirs']))-set([directions[b,targets[b]]]))
             new_directions[targets[b]] = np.random.choice(options)
+
+            trial_info['sample_RF'][b,:] = new_directions   # Changed direction in context
 
             # Stimulus and response
             stim1 = np.sum([self.motion_tuning[directions[b,rf],rf]/par['num_RFs'] for rf in range(par['num_RFs'])], axis=0)[np.newaxis,:]
@@ -325,6 +331,9 @@ class Stimulus:
 
         directions = np.random.choice(par['num_motion_dirs'], size=[par['batch_train_size'], par['num_RFs']])
         targets = np.random.choice(par['num_RFs'], size=[par['batch_train_size']])
+
+        trial_info['sample'] = directions   # Direction in each RF
+        trial_info['test']   = targets      # RF to be cued/recalled
 
         trial_info['train_mask'][:dead,:] = 0           # Dead time
         trial_info['train_mask'][total_length:,:] = 0   # Post-task time
