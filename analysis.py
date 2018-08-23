@@ -91,7 +91,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     results['mean_h'] = np.mean(h,axis=1)
     pickle.dump(results, open(savefile, 'wb'))
 
-    currents, tuning, simulation, decoding, cut_weight_analysis = False, False, False, False, True
+    currents, tuning, simulation, decoding, cut_weight_analysis = True, False, False, False, False
 
     """
     Calculate currents
@@ -501,7 +501,7 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
         for n1 in range(3):
             for n2 in range(par['n_hidden']):
 
-                if network_weights['w_out'][n1,n2] <= 0:
+                if network_weights['W_out'][n1,n2] <= 0:
                     continue
 
                 # create new dict of weights
@@ -512,7 +512,7 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
                 # lesion weights
                 q = np.ones((3,par['n_hidden']), dtype=np.float32)
                 q[n1,n2] = 0
-                weights_new['w_out'] *= q
+                weights_new['W_out'] *= q
 
                 # simulate network
                 y_hat, _, _, _ = run_model(x_test, hidden_init_test, syn_x_init_test, syn_u_init_test, weights_new)
@@ -522,7 +522,7 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
         for n1 in range(par['n_hidden']):
             for n2 in range(par['n_hidden']):
 
-                if network_weights['w_rnn'][n1,n2] <= 0:
+                if network_weights['W_rnn'][n1,n2] <= 0:
                     continue
 
                 weights_new = {}
@@ -532,7 +532,7 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
                 # lesion weights
                 q = np.ones((par['n_hidden'],par['n_hidden']), dtype=np.float32)
                 q[n1,n2] = 0
-                weights_new['w_rnn'] *= q
+                weights_new['W_rnn'] *= q
 
                 # simulate network
                 y_hat, hidden_state_hist, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, weights_new)
@@ -644,37 +644,43 @@ def simulate_network(trial_info, h, syn_x, syn_u, network_input, network_weights
 
 def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
 
-    trial_length = h.shape[1]
+    trial_length = h.shape[0]
     current_results = {
-        'exc_current'            :  np.zeros((par['n_hidden'], trial_length, 2),dtype=np.float32),
-        'inh_current'            :  np.zeros((par['n_hidden'], trial_length, 2),dtype=np.float32),
-        'motion_current'         :  np.zeros((par['n_hidden'], trial_length),dtype=np.float32),
-        'fix_current'            :  np.zeros((par['n_hidden'], trial_length),dtype=np.float32),
-        'order_current'          :  np.zeros((par['n_hidden'], trial_length),dtype=np.float32),
-        'rnn_current'            :  np.zeros((par['n_hidden'], par['n_hidden'], trial_length, 2),dtype=np.float32)}
+        'exc_current'            :  np.zeros((trial_length, par['n_hidden'], 2),dtype=np.float32),
+        'inh_current'            :  np.zeros((trial_length, par['n_hidden'], 2),dtype=np.float32),
+        'motion_current'         :  np.zeros((trial_length, par['n_hidden']),dtype=np.float32),
+        'fix_current'            :  np.zeros((trial_length, par['n_hidden']),dtype=np.float32),
+        'cue_current'            :  np.zeros((trial_length, par['n_hidden']),dtype=np.float32),
+        'rnn_current'            :  np.zeros((trial_length, par['n_hidden'], par['n_hidden'], 2),dtype=np.float32)}
 
-    mean_activity = np.mean(h, axis = 2)
-    mean_effective_activity = np.mean(h*syn_x*syn_u, axis = 2)
-    input_activity = np.mean(network_input, axis = 2)
+    mean_activity     = np.mean(h, axis=1)
+    mean_eff_activity = np.mean(h*syn_x*syn_u, axis=1)
+    input_activity    = np.mean(network_input, axis=1)
 
-    motion_rng = range(par['num_motion_tuned'])
-    fix_rng = range(par['num_motion_tuned'], par['num_motion_tuned']+par['num_fix_tuned'])
-    order_rng = range(par['num_motion_tuned']+par['num_fix_tuned'], par['num_motion_tuned']+par['num_fix_tuned']+par['num_rule_tuned'])
+    mot  = par['total_motion_tuned']
+    fix  = par['total_motion_tuned'] + par['num_fix_tuned']
+    cue  = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_cue_tuned']
+    rule = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_cue_tuned'] + par['num_rule_tuned']
 
-    current_results['exc_current'][:, :, 0] = np.matmul(network_weights['w_rnn'][:,:80],  mean_activity[:80, :])
-    current_results['exc_current'][:, :, 1] = np.matmul(network_weights['w_rnn'][:,:80],  mean_effective_activity[:80, :])
-    current_results['inh_current'][:, :, 0] = np.matmul(network_weights['w_rnn'][:,80:],  mean_activity[80:, :])
-    current_results['inh_current'][:, :, 1] = np.matmul(network_weights['w_rnn'][:,80:],  mean_effective_activity[80:, :])
+    motion_rng  = range(mot)
+    fix_rng     = range(mot, fix)
+    cue_rng     = range(fix, cue)
+    rule_rng    = range(cue, rule)
 
+    ei_index = par['num_exc_units']
 
-    current_results['motion_current'] = np.matmul(network_weights['w_in'][:,motion_rng],  input_activity[motion_rng, :])
-    current_results['fix_current'] = np.matmul(network_weights['w_in'][:,fix_rng],  input_activity[fix_rng, :])
-    current_results['order_current'] = np.matmul(network_weights['w_in'][:,order_rng],  input_activity[order_rng, :])
+    current_results['exc_current'][:, :, 0] = mean_activity[:,:ei_index] @ network_weights['W_rnn'][:ei_index,:]
+    current_results['exc_current'][:, :, 1] = mean_eff_activity[:,:ei_index] @ network_weights['W_rnn'][:ei_index,:]
+    current_results['inh_current'][:, :, 0] = mean_activity[:,ei_index:] @ network_weights['W_rnn'][ei_index:,:]
+    current_results['inh_current'][:, :, 1] = mean_eff_activity[:,ei_index:] @ network_weights['W_rnn'][ei_index:,:]
+
+    current_results['motion_current'] = input_activity[:,motion_rng] @ network_weights['W_in'][motion_rng,:]
+    current_results['fix_current']    = input_activity[:,fix_rng] @ network_weights['W_in'][fix_rng,:]
+    current_results['cue_current']    = input_activity[:,cue_rng] @ network_weights['W_in'][cue_rng,:]
 
     for t in range(trial_length):
-        current_results['rnn_current'][:, :, t, 0] = np.matmul(network_weights['w_rnn'],  mean_activity[:, t])
-        current_results['rnn_current'][:, :, t, 1] = np.matmul(network_weights['w_rnn'],  mean_effective_activity[:, t])
-
+        current_results['rnn_current'][:, :, t, 0] = mean_activity[t,:] @ network_weights['W_rnn']
+        current_results['rnn_current'][:, :, t, 1] = mean_eff_activity[t,:] @ network_weights['W_rnn']
 
     return current_results
 
@@ -776,6 +782,7 @@ def cut_weights(results, trial_info, h, syn_x, syn_u, network_weights, filename,
 
     return cutting_results
 
+
 def calculate_tuning(h, syn_x, syn_u, sample):
 
     epsilon = 1e-9
@@ -839,6 +846,7 @@ def calculate_tuning(h, syn_x, syn_u, sample):
 
     return tuning_results
 
+
 def run_model(x, hidden_init, syn_x_init, syn_u_init, weights, suppress_activity = None):
 
     """
@@ -884,6 +892,7 @@ def rnn_cell_loop(x_unstacked, h, syn_x, syn_u, weights, suppress_activity):
         syn_u_hist.append(syn_u)
 
     return hidden_state_hist, syn_x_hist, syn_u_hist
+
 
 def rnn_cell(rnn_input, h, syn_x, syn_u, weights, suppress_activity):
 
@@ -980,6 +989,7 @@ def get_perf(y, y_hat, mask, pulse_id):
         pulse_accuracy[i] = np.sum(np.float32(y_max == y_hat)*current_mask)/np.sum(current_mask)
 
     return accuracy, pulse_accuracy
+
 
 def get_coord_perf(target, output, mask, pulse_id):
 
