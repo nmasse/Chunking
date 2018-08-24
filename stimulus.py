@@ -14,9 +14,9 @@ class Stimulus:
     def generate_trial(self, task, var_delay=False, var_num_pulses=False, all_RF=False, test_mode = False):
 
         if task == "sequence":
-            trial_info = self.generate_sequence_trial(var_delay, all_RF)
+            trial_info = self.generate_sequence_trial(var_delay, var_num_pulses, all_RF)
         elif task == "sequence_cue":
-            trial_info = self.generate_sequence_cue_trial(var_delay)
+            trial_info = self.generate_sequence_cue_trial(var_delay, var_num_pulses)
         elif task == "RF_detection":
             trial_info = self.generate_RF_detection_trial(var_delay)
         elif task == "RF_cue":
@@ -43,7 +43,7 @@ class Stimulus:
         return trial_info
 
 
-    def generate_sequence_trial(self, var_delay=False, all_RF=False, test_mode=False):
+    def generate_sequence_trial(self, var_delay=False, var_num_pulses=False, all_RF=False, test_mode=False):
         trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
                       'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
@@ -83,7 +83,7 @@ class Stimulus:
             resp_count = 0
             for i in range(num_pulses):
 
-                if np.random.rand() < par['pulse_prob']:
+                if not var_num_pulses or np.random.rand() < par['pulse_prob']:
 
                     # stimulus properties
                     trial_info['sample'][t,i] = np.random.randint(par['num_motion_dirs'])
@@ -111,7 +111,7 @@ class Stimulus:
         return trial_info
 
 
-    def generate_sequence_cue_trial(self, var_delay=False, all_RF=False, test_mode=False):
+    def generate_sequence_cue_trial(self, var_delay=False, var_num_pulses=False, all_RF=False, test_mode=False):
         trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
                       'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
@@ -152,7 +152,7 @@ class Stimulus:
             pulse_list = []
             for i in range(num_pulses):
 
-                if np.random.rand() < par['pulse_prob']:
+                if not var_num_pulses or np.random.rand() < par['pulse_prob']:
 
                     # stimulus properties
                     trial_info['sample'][t,i] = np.random.randint(par['num_motion_dirs'])

@@ -20,7 +20,7 @@ def plot_pev_cross_time(x, num_pulses, cue, pev_type):
 def plot_pev_after_stim(x, num_pulses, cue, pev_type,time_lapse):
     nrows = num_pulses//2 if num_pulses%2==0 else num_pulses
     ncols = 2 if num_pulses%2==0 else 1
-    
+
     plt.figure()
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(12,12))
     i = 0
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     for num_pulses in num_pulses:
         for cue in cue_list:
             for i in range(len(pev_type)):
-                    x = pickle.load(open('./savedir/analysis_sequence_cue_4_all_RF.pkl','rb'))
+                    x = pickle.load(open('./savedir/RF_cue_analysis_RF_cue_sequence_cue_sequence_4_all_RF_long_delacc90_ay.pkl','rb'))
                     #x = pickle.load(open('./savedir/analysis_'+str(num_pulses)+"_"+cue+".pkl", 'rb'))
                     update_parameters(x['parameters'])
                     plot_pev_cross_time(x, num_pulses, cue, pev_type[i])

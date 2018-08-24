@@ -69,21 +69,20 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     sess, model, x, y, m, *_ = load_tensorflow_model()
 
     stim = stimulus.Stimulus()
-    results['task_acc'] = {}
 
     # Generate a batch of stimulus for training
-    for task in par['trial_type']:
-        print(task)
-        trial_info = stim.generate_trial(task, var_delay=False, \
-            var_num_pulses=False, all_RF=par['all_RF'], test_mode=True)
+    for task in par['trial_type'][1:]:
+        results[task] = {}
+
+        print('\n' + '-'*60 + '\nTask: {}\n'.format(task) + '-'*60)
+
+        trial_info = stim.generate_trial(task, var_delay=False, var_num_pulses=False, all_RF=par['all_RF'])
 
         # Put together the feed dictionary
         feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}
 
         # Run the model
         y_hat, h, syn_x, syn_u = sess.run([model.y_hat, model.hidden_hist, model.syn_x_hist, model.syn_u_hist], feed_dict=feed_dict)
-        #sess.close()
-        #print(' --- Base model run complete.  Starting analysis.\n')
 
         # Convert to arrays
         y_hat = np.stack(y_hat, axis=0)
@@ -92,76 +91,76 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
         syn_u = np.stack(syn_u, axis=0)
         trial_time = np.arange(0,h.shape[0]*par['dt'], par['dt'])
 
-        results['mean_h'] = np.mean(h,axis=1)
+        results[task]['mean_h'] = np.mean(h,axis=1)
         accuracy, pulse_accuracy = get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
 
-        results['task_acc'][task] = accuracy
+        results[task]['task_acc'] = accuracy
         pickle.dump(results, open(savefile, 'wb'))
 
 
         print(accuracy)
         print(pulse_accuracy)
-    quit()
-
-    currents, tuning, simulation, decoding, cut_weight_analysis = False, True, False, True, False
-
-    """
-    Calculate currents
-    """
-    if currents:
-        print('calculate current...')
-        current_results = calculate_currents(h, syn_x, syn_u, trial_info['neural_input'], results['weights'])
-        for key, val in current_results.items():
-            results[key] = val
-            #x[key] = val # added just to be able to run cut_weights in one analysis run
-        pickle.dump(results, open(savefile, 'wb'))
-
-    """
-    Calculate neuronal and synaptic sample motion tuning
-    """
-    if tuning:
-        print('calculate tuning...')
-        sample = trial_info['sample']
-        tuning_results = calculate_tuning(h, syn_x, syn_u, sample)
-        for key, val in tuning_results.items():
-            results[key] = val
-            #x[key] = val # added just to be able to run cut_weights in one analysis run
-        pickle.dump(results, open(savefile, 'wb'))
-
-    """
-    Calculate the neuronal and synaptic contributions towards solving the task
-    """
-    #print('weights ',results['weights']['W_in'].shape, results['weights']['W_rnn'].shape)
-    if simulation:
-        print('simulating network...')
-        simulation_results = simulate_network(trial_info, h, syn_x, syn_u, trial_info['neural_input'], results['weights'], filename)
-        for key, val in simulation_results.items():
-            results[key] = val
-        pickle.dump(results, open(savefile, 'wb'))
-
-    """
-    Decode the sample direction from neuronal activity and synaptic efficacies
-    using support vector machines
-    """
-    if decoding:
-        print('decoding activity...')
-        decoding_results =  svm_wraper_simple(h, syn_x, syn_u, trial_info, num_reps = 3, num_reps_stability = 0)
-        print('done done done????')
-        for key, val in decoding_results.items():
-            print(key)
-            results[key] = val
-        print(savefile)
-        pickle.dump(results, open(savefile, 'wb') )
 
 
+        currents, tuning, simulation, decoding, cut_weight_analysis = False, True, False, True, False
 
-    if cut_weight_analysis:
-        print('Removing weights...')
-        cut_results = cut_weights(results, trial_info, h, syn_x, syn_u, results['weights'], filename, num_reps = 1, num_top_neurons = 4)
-        for key, val in cut_results.items():
-            results[key] = val
-        pickle.dump(results, open(savefile, 'wb'))
+        """
+        Calculate currents
+        """
+        if currents:
+            print('calculate current...')
+            current_results = calculate_currents(h, syn_x, syn_u, trial_info['neural_input'], results['weights'])
+            for key, val in current_results.items():
+                results[task][key] = val
+                #x[key] = val # added just to be able to run cut_weights in one analysis run
+            pickle.dump(results, open(savefile, 'wb'))
 
+        """
+        Calculate neuronal and synaptic sample motion tuning
+        """
+        if tuning:
+            print('calculate tuning...')
+            sample = trial_info['sample']
+            tuning_results = calculate_tuning(h, syn_x, syn_u, sample)
+            for key, val in tuning_results.items():
+                results[task][key] = val
+                #x[key] = val # added just to be able to run cut_weights in one analysis run
+            pickle.dump(results, open(savefile, 'wb'))
+
+        """
+        Calculate the neuronal and synaptic contributions towards solving the task
+        """
+        #print('weights ',results['weights']['W_in'].shape, results['weights']['W_rnn'].shape)
+        if simulation:
+            print('simulating network...')
+            simulation_results = simulate_network(trial_info, h, syn_x, syn_u, trial_info['neural_input'], results['weights'], filename)
+            for key, val in simulation_results.items():
+                results[task][key] = val
+            pickle.dump(results, open(savefile, 'wb'))
+
+        """
+        Decode the sample direction from neuronal activity and synaptic efficacies
+        using support vector machines
+        """
+        if decoding:
+            print('decoding activity...')
+            decoding_results =  svm_wraper_simple(h, syn_x, syn_u, trial_info, num_reps = 3, num_reps_stability = 0)
+            print('done done done????')
+            for key, val in decoding_results.items():
+                print(key)
+                results[task][key] = val
+            print(savefile)
+            pickle.dump(results, open(savefile, 'wb') )
+
+
+
+        if cut_weight_analysis:
+            print('Removing weights...')
+            cut_results = cut_weights(results, trial_info, h, syn_x, syn_u, results['weights'], filename, num_reps = 1, num_top_neurons = 4)
+            for key, val in cut_results.items():
+                results[task][key] = val
+            pickle.dump(results, open(savefile, 'wb'))
+    sess.close()
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
         cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):
