@@ -274,13 +274,13 @@ def main(gpu_id=None):
 
             if i>5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
 
-                weights = eval_weights()
+                weights = sess.run(model.var_dict)
                 results = {
                     'model_performance': model_performance,
                     'parameters': par,
                     'weights': weights}
                 acc_str = str(int(accuracy_threshold[acc_count]*100))
-                sf = save_fn[:-6] + 'acc' + acc_str + '_' + save_fn[-6:]
+                sf = save_fn[:-4] + 'acc' + acc_str + '_' + save_fn[-4:]
                 print(sf)
                 pickle.dump(results, open(sf, 'wb') )
                 acc_count += 1

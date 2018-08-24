@@ -165,7 +165,7 @@ class Stimulus:
             # in case there's left over time (true for var pulse conditions)
             trial_info['train_mask'][np.max(resp_times[-1]):, t] = 0
 
-        if True:
+        if False:
             self.plot_stim(trial_info)
 
         return trial_info
