@@ -27,7 +27,7 @@ class Stimulus:
             trial_info = None
 
         # Add a rule signal if desired
-        if len(par['trial_type']) > 1:
+        if len(par['trial_type']) > 1 and par['num_rule_tuned'] > 0:
             trial_info['neural_input'] += self.rule_tuning[par['trial_type'].index(task)]
 
         """
