@@ -21,8 +21,6 @@ class Stimulus:
             trial_info = self.generate_RF_detection_trial(var_delay)
         elif task == "RF_cue":
             trial_info = self.generate_RF_cue_trial(var_delay)
-        elif task == "var_chunking":
-            trial_info = self.generate_var_chunking_trial(par['num_pulses'], var_delay, var_num_pulses, test_mode)
         else:
             trial_info = None
 
@@ -44,64 +42,6 @@ class Stimulus:
 
         return trial_info
 
-
-    def generate_var_chunking_trial(self, num_pulses, analysis, var_delay=False, var_num_pulses=False, test_mode=False):
-        """
-        Generate trials to investigate chunking
-        """
-
-        trial_info = {'desired_output'  :  np.zeros((par['n_output'], par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
-                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
-                      'sample'          :  -np.ones((par['batch_train_size'], par['num_max_pulse']),dtype=np.int32),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], par['num_time_steps'], par['batch_train_size'])),
-                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
-
-        start = int((par['dead_time'] + par['fix_time'])//par['dt'])
-        pulse_dur = int(par['sample_time']//par['dt'])
-        resp_dur = int(par['resp_cue_time']//par['dt'])
-        mask_dur = int(par['mask_duration']//par['dt'])
-        resp_start = int((par['dead_time'] + par['fix_time'] + num_pulses*par['sample_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
-        delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
-
-        for t in range(par['batch_train_size']):
-
-            """
-            Generate trial paramaters
-            """
-            num_pulses = np.random.choice(range(1,par['num_pulses']+1)) if (var_num_pulses and not test_mode) else par['num_pulses']
-
-            current_delay_times = np.random.permutation(delay_times) if var_delay else delay_times
-            stim_times = [range(start + i*pulse_dur + np.sum(current_delay_times[:i]), start + (i+1)*pulse_dur + np.sum(current_delay_times[:i])) for i in range(num_pulses)]
-
-
-            resp_times = [range(resp_start + 2*i*pulse_dur,resp_start + (2*i+1)*pulse_dur) for i in range(num_pulses)]
-            mask_times = [range(resp_start + 2*i*pulse_dur,resp_start + 2*i*pulse_dur + mask_dur) for i in range(num_pulses)]
-
-            trial_info['train_mask'][:par['dead_time']//par['dt'], t] = 0
-            trial_info['desired_output'][0, :, t] = 1
-
-            for i in range(num_pulses):
-
-                # stimulus properties
-                trial_info['sample'][t,i] = np.random.randint(par['num_motion_dirs'])
-                trial_info['neural_input'][:, stim_times[i], t] += np.reshape(self.motion_tuning[:, trial_info['sample'][t,i]],(-1,1))
-
-                # response properties
-                trial_info['pulse_id'][resp_times[i], t] = i
-                trial_info['desired_output'][0, resp_times[i], t] = 0
-                trial_info['desired_output'][trial_info['sample'][t,i] + 1, resp_times[i], t] = 1
-                trial_info['train_mask'][resp_times[i], t] *= par['response_multiplier']
-                trial_info['train_mask'][mask_times[i], t] = 0
-                if par['num_fix_tuned'] > 0:
-                    trial_info['neural_input'][:, resp_times[i], t] += np.reshape(self.fix_tuning[:, 0],(-1,1))
-
-            # in case there's left over time (true for var pulse conditions)
-            trial_info['train_mask'][np.max(resp_times[-1]):, t] = 0
-
-        if False:
-            self.plot_stim(trial_info)
-
-        return trial_info
 
     def generate_sequence_trial(self, var_delay=False, all_RF=False, test_mode=False):
         trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
