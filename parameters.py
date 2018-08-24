@@ -31,7 +31,8 @@ par = {
     'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
     'var_num_pulses'        : False,
     'all_RF'                : True,
-    'num_pulses'            : 2,
+    'num_pulses'            : 4,
+    'pulse_prob'            : 0.8,
 
     # Network shape
     'num_motion_tuned'      : 24,
@@ -128,6 +129,10 @@ def update_dependencies():
     """
     Updates all parameter dependencies
     """
+
+    # Backwards compatibility
+    if 'pulse_prob' not in par.keys():
+        par['pulse_prob'] = 1.
 
     # Set up a variety of delay times for the appropriate task types
     par['delay_times'] = par['delay_time']*np.ones((par['num_pulses']), dtype = np.int16)

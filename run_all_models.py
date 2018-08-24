@@ -21,7 +21,7 @@ def try_model():
 trial_types = ['sequence', 'sequence_cue', 'RF_detection', 'RF_cue']
 trial_types = [['RF_cue', 'sequence_cue']]
 num_pulses = [4,6,8,10]
-all_RFs = [True]
+all_RFs = [False]
 
 for pulse in num_pulses:
     for trial_type in trial_types:

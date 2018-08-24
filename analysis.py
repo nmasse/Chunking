@@ -26,8 +26,8 @@ def load_and_replace_parameters(filename, savefile=None, parameter_updates={}):
     data['parameters']['load_prev_weights'] = True
 
     data['weights']['h_init'] = data['weights']['h_init']
-    data['parameters']['dt'] = 100
-    data['parameters']['batch_train_size'] = 16
+    #data['parameters']['dt'] = 100
+    #data['parameters']['batch_train_size'] = 16
 
 
     update_parameters(data['parameters'])
@@ -35,6 +35,7 @@ def load_and_replace_parameters(filename, savefile=None, parameter_updates={}):
     for k in parameter_updates.keys():
         par[k] = parameter_updates[k]
 
+    #par['resp_cue_time'] = 200
     data['parameters'] = par
     return data, data['parameters']['save_fn']
 
@@ -68,30 +69,41 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     sess, model, x, y, m, *_ = load_tensorflow_model()
 
     stim = stimulus.Stimulus()
+    results['task_acc'] = {}
 
     # Generate a batch of stimulus for training
-    trial_info = stim.generate_trial(par['trial_type'][0], var_delay=par['var_delay'], \
-        var_num_pulses=par['var_num_pulses'], all_RF=par['all_RF'], test_mode=False)
+    for task in par['trial_type']:
+        print(task)
+        trial_info = stim.generate_trial(task, var_delay=False, \
+            var_num_pulses=False, all_RF=par['all_RF'], test_mode=True)
 
-    # Put together the feed dictionary
-    feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}
+        # Put together the feed dictionary
+        feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}
 
-    # Run the model
-    y_hat, h, syn_x, syn_u = sess.run([model.y_hat, model.hidden_hist, model.syn_x_hist, model.syn_u_hist], feed_dict=feed_dict)
-    sess.close()
-    print(' --- Base model run complete.  Starting analysis.\n')
+        # Run the model
+        y_hat, h, syn_x, syn_u = sess.run([model.y_hat, model.hidden_hist, model.syn_x_hist, model.syn_u_hist], feed_dict=feed_dict)
+        #sess.close()
+        #print(' --- Base model run complete.  Starting analysis.\n')
 
-    # Convert to arrays
-    y_hat = np.stack(y_hat, axis=0)
-    h     = np.stack(h,     axis=0)
-    syn_x = np.stack(syn_x, axis=0)
-    syn_u = np.stack(syn_u, axis=0)
-    trial_time = np.arange(0,h.shape[0]*par['dt'], par['dt'])
+        # Convert to arrays
+        y_hat = np.stack(y_hat, axis=0)
+        h     = np.stack(h,     axis=0)
+        syn_x = np.stack(syn_x, axis=0)
+        syn_u = np.stack(syn_u, axis=0)
+        trial_time = np.arange(0,h.shape[0]*par['dt'], par['dt'])
 
-    results['mean_h'] = np.mean(h,axis=1)
-    pickle.dump(results, open(savefile, 'wb'))
+        results['mean_h'] = np.mean(h,axis=1)
+        accuracy, pulse_accuracy = get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
 
-    currents, tuning, simulation, decoding, cut_weight_analysis = True, False, False, False, False
+        results['task_acc'][task] = accuracy
+        pickle.dump(results, open(savefile, 'wb'))
+
+
+        print(accuracy)
+        print(pulse_accuracy)
+    quit()
+
+    currents, tuning, simulation, decoding, cut_weight_analysis = False, True, False, True, False
 
     """
     Calculate currents
