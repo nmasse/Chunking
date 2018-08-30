@@ -21,7 +21,7 @@ par = {
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
-    'connection_prob'       : 0.25,
+    'connection_prob'       : 0.1,
     'response_multiplier'   : 4,
     'tol'                   : 0.2,
 
@@ -45,7 +45,7 @@ par = {
     'dt'                    : 20,
     'learning_rate'         : 1e-3,
     'membrane_time_constant': 100,
-    'ltm_time_constant'     : 1000,
+    'ltm_time_constant'     : 2000,
     'ltm_neuron_time_constant' : 20,
 
     # Variance values
@@ -60,8 +60,8 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 0.0, #1e-9,
-    'LTM_activity_cost'     : 0.1,
+    'spike_cost'            : 1e-3,
+    'LTM_activity_cost'     : 0.01,
     'wiring_cost'           : 0.,
 
     # Synaptic plasticity specs
@@ -250,13 +250,13 @@ def update_dependencies():
             par[rnn+'0'] = par[rnn+'0']/(spectral_radius(par[rnn+'0']))
 
     par['b_rnn0'] = np.zeros((1, par['n_hidden']), dtype=np.float32)
-    par['b_rnn_LTM0'] = np.float32(np.random.uniform(-3,-1, [1,par['n_hidden']]))
+    par['b_rnn_LTM0'] = np.float32(np.random.uniform(-1,-0.1, [1,par['n_hidden']]))
 
-    par['w_to_LTM0'] = np.float32(np.random.uniform(-0.01, 0.01, [par['n_hidden'], par['n_hidden']]))
-    par['w_to_LTM0'] *= (par['connection_prob'] > np.random.rand(*par['w_to_LTM0'].shape))
+    par['w_to_LTM0'] = initialize([par['n_hidden'], par['n_hidden']])
+    #par['w_to_LTM0'] *= (par['connection_prob'] > np.random.rand(*par['w_to_LTM0'].shape))
 
-    par['w_fr_LTM0'] = np.float32(np.random.uniform(-0.01, 0.01, [par['n_hidden'], par['n_hidden']]))
-    par['w_fr_LTM0'] *= (par['connection_prob'] > np.random.rand(*par['w_fr_LTM0'].shape))
+    par['w_fr_LTM0'] = initialize([par['n_hidden'], par['n_hidden']])
+    #par['w_fr_LTM0'] *= (par['connection_prob'] > np.random.rand(*par['w_fr_LTM0'].shape))
 
     par['w_dyn_init0'] = np.zeros([par['batch_train_size'], par['n_hidden'], par['n_hidden']], dtype=np.float32)
     par['RNN_self_conn_block'] = 1 - np.eye(par['n_hidden'], dtype=np.float32)

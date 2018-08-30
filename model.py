@@ -6,6 +6,7 @@ import numpy as np
 import pickle
 import os, sys, time
 import matplotlib.pyplot as plt
+import matplotlib.colors
 plt.switch_backend('agg')
 
 # Model modules
@@ -38,7 +39,7 @@ class Model:
         self.mask        = tf.unstack(mask, axis=0)
 
         self.lesioned_neuron, self.cut_weight_i, self.cut_weight_j, self.h_init_replace, \
-            self.syn_x_init_replace, self.syn_u_init_replace = args
+            self.syn_x_init_replace, self.syn_u_init_replace, self.moving_average = args
 
         # Declare all Tensorflow variables
         self.declare_variables()
@@ -69,7 +70,7 @@ class Model:
         with tf.variable_scope('LTM'):
             self.var_dict['W_to_LTM']  = tf.get_variable('W_to', initializer=par['w_to_LTM0']/100)
             self.var_dict['W_fr_LTM']  = tf.get_variable('W_fr', initializer=par['w_fr_LTM0']/100)
-            self.var_dict['W_rnn_LTM'] = tf.get_variable('W_rnn', initializer=par['w_rnn_LTM0']/100)
+            self.var_dict['W_rnn_LTM'] = tf.get_variable('W_rnn', initializer=par['w_rnn_LTM0']/100, trainable=False)
             self.var_dict['b_rnn_LTM'] = tf.get_variable('b_rnn', initializer=par['b_rnn_LTM0'])
             self.var_dict['W_dyn_init'] = tf.get_variable('W_dyn_init', initializer=par['w_dyn_init0'], trainable=False)
 
@@ -138,22 +139,35 @@ class Model:
 
     def ltm_cell(self, m, h, m_prev, ltm_dyn):
 
-        W_ltm = self.var_dict['W_rnn_LTM'][tf.newaxis,...] + ltm_dyn
+        #W_ltm = self.var_dict['W_rnn_LTM'][tf.newaxis,...] + ltm_dyn
+        W_ltm = self.var_dict['W_rnn_LTM'][tf.newaxis,...]*(1 + tf.maximum(-0.5, tf.minimum(0.5,ltm_dyn)))
         W_LTM_eff = tf.einsum('ij,bjk->bik', self.EI, tf.nn.relu(W_ltm))
         W_LTM_eff = W_LTM_eff * tf.constant(par['RNN_self_conn_block'][np.newaxis,...])
 
         m0 = tf.einsum('bi,bij->bj', m, W_LTM_eff)
         m1 = h @ self.var_dict['W_to_LTM']
         m2 = self.var_dict['b_rnn_LTM']
-        m_next = tf.nn.sigmoid((1-par['ltm_neuron'])*m + par['ltm_neuron']*(m0 + m1 + m2) \
+        m_next = tf.nn.relu((1-par['ltm_neuron'])*m + par['ltm_neuron']*(m0 + m1 + m2) \
             + tf.random_normal(m.shape, 0, par['noise_rnn']/2, dtype=tf.float32))
-        #m_next = tf.nn.relu(m0 + m1 + m2)
 
-        a = par['alpha_ltm']/10
-        quantity = m[:,:,tf.newaxis] - tf.einsum('bj,bij->bij', m_next, ltm_dyn)
-        #quantity = m[:,:,tf.newaxis] - tf.einsum('bi,bij->bij', m_next, ltm_dyn)
+        #a = par['alpha_ltm']/10
+        #quantity = m[:,:,tf.newaxis] - tf.einsum('bj,bij->bij', m_next, ltm_dyn)
+        #ltm_dyn_next = ltm_dyn + a * tf.einsum('bj,bij->bij', m_next, quantity)
 
-        ltm_dyn_next = ltm_dyn + a * tf.einsum('bj,bij->bij', m_next, quantity)
+
+        #quantity = tf.einsum('bi,bj->bij', (par['EI_list'][np.newaxis,:] * (m-self.moving_average))**3, m_next-self.moving_average)
+        #quantity = tf.cast(self.var_dict['W_rnn_LTM'][tf.newaxis,...] > 0 , tf.float32)*quantity
+        #ltm_dyn_next = (1-par['alpha_ltm'])*ltm_dyn + par['alpha_ltm']*quantity
+
+        #pre = par['EI_list'][np.newaxis,:] * (m - self.moving_average)
+        #pre = pre * tf.nn.softmax(10*pre, axis=1)
+        #post = m_next - self.moving_average
+
+        pre = par['EI_list'][np.newaxis,:] * m
+        post = m_next - m
+
+        quantity = tf.einsum('bi,bj->bij', pre, post)
+        ltm_dyn_next = (1-par['alpha_ltm'])*ltm_dyn + par['alpha_ltm']*quantity #*tf.nn.softmax(10*quantity, axis=1)
 
         self.ltm_dyn_post = ltm_dyn_next
         self.m = m
@@ -269,7 +283,7 @@ def main(gpu_id=None):
     tf.reset_default_graph()
 
     # Define all placeholders
-    x, y, m, l, ci, cj, h, sx, su = get_placeholders()
+    x, y, m, l, ci, cj, h, sx, su, mav = get_placeholders()
 
     # Set up stimulus and model performance recording
     stim = stimulus.Stimulus()
@@ -281,7 +295,7 @@ def main(gpu_id=None):
         # Select CPU or GPU
         device = '/cpu:0' if gpu_id is None else '/gpu:0'
         with tf.device(device):
-            model = Model(x, y, m, l, ci, cj, h, sx, su)
+            model = Model(x, y, m, l, ci, cj, h, sx, su, mav)
 
         # Initialize variables and start the timer
         sess.run(tf.global_variables_initializer())
@@ -294,18 +308,22 @@ def main(gpu_id=None):
         save_fn = par['save_dir'] + par['save_fn']
         save_fn_ind = save_fn[1:].find('.') - 1
 
+        LTM_avg = 0.1*np.ones([1,par['n_hidden']])
+
         for i in range(par['num_iterations']):
 
             # Generate a batch of stimulus for training
             trial_info = shuffle_trials(stim)
 
             # Put together the feed dictionary
-            feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}
+            feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask'], mav:LTM_avg}
 
             # Run the model
-            _, loss, perf_loss, spike_loss, y_hat, state_hist, syn_x_hist, syn_u_hist, LTM_loss = \
+            _, loss, perf_loss, spike_loss, y_hat, state_hist, syn_x_hist, syn_u_hist, LTM_hist, LTM_loss = \
                 sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, \
-                model.hidden_hist, model.syn_x_hist, model.syn_u_hist, model.LTM_activity_loss], feed_dict=feed_dict)
+                model.hidden_hist, model.syn_x_hist, model.syn_u_hist, model.LTM_hist, model.LTM_activity_loss], feed_dict=feed_dict)
+
+            LTM_avg = np.mean(np.mean(np.stack(LTM_hist, axis=0), axis=0), axis=0)[np.newaxis,:]
 
             # Calculate accuracy from the model's output
             if par['output_type'] == 'directional':
@@ -321,12 +339,12 @@ def main(gpu_id=None):
                 print_results(i, par['trial_type'], perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy)
                 print('LTM Loss:', LTM_loss)
 
-                ltm, rnn, ltm_dyn_hist, ltm_dyn_post, mem, mem_hist, syn_x, syn_u, var_dict = \
+                ltm, rnn, ltm_dyn_hist, ltm_dyn_post, mem, mem_hist, var_dict = \
                     sess.run([model.W_ltm_eff, model.W_rnn_eff, model.ltm_dyn_hist, \
-                    model.ltm_dyn_post, model.m, model.LTM_hist, model.var_dict, model.syn_x_hist, \
-                    model.syn_u_hist], feed_dict=feed_dict)
+                    model.ltm_dyn_post, model.m, model.LTM_hist, model.var_dict], feed_dict=feed_dict)
 
                 print('LTM Diagnostics:')
+                custom_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('', ['white', 'fuchsia', 'lime', 'white'])
 
                 #"""
                 if True or i > 1000:
@@ -341,25 +359,30 @@ def main(gpu_id=None):
                         plt.clf()
                         plt.close()
 
-                    fig, ax = plt.subplots(1,2)
-                    ax[0].imshow(ltm[0,:,:])
+                    fig, ax = plt.subplots(1,2, figsize=[16,8])
+                    im1 = ax[0].imshow(ltm[0,:,:], aspect='auto')
                     ax[0].set_title('LTM')
-                    ax[1].imshow(rnn)
+                    im2 = ax[1].imshow(rnn, aspect='auto')
                     ax[1].set_title('RNN')
+                    fig.colorbar(im1, ax=ax[0])
+                    fig.colorbar(im2, ax=ax[1])
                     plt.savefig('./plots/iter{}_ltm_rnn.png'.format(i))
                     plt.clf()
                     plt.close()
                 #"""
 
-                print('t=-1 W_ltm_eff: {:7.5f} +/- {:7.5f}'.format(np.mean(ltm[0,:,:]), np.std(ltm[0,:,:])))
-                print('t=-1 W_ltm_dyn: {:7.5f} +/- {:7.5f}'.format(np.mean(ltm_dyn_hist[-1][0,:,:]), np.std(ltm_dyn_hist[-1][0,:,:])))
-                print('t=-1 LTM State: {:7.5f} +/- {:7.5f}'.format(np.mean(mem[0,:]), np.std(mem[0,:])))
+                print('  W_to_LTM:  {:7.5f} +/- {:7.5f}'.format(np.mean(var_dict['W_to_LTM']), np.std(var_dict['W_to_LTM'])))
+                print('  W_fr_LTM:  {:7.5f} +/- {:7.5f}'.format(np.mean(var_dict['W_fr_LTM']), np.std(var_dict['W_fr_LTM'])))
+                print('  W_ltm_eff: {:7.5f} +/- {:7.5f}'.format(np.mean(ltm), np.std(ltm)))
+                print('  W_ltm_dyn: {:7.5f} +/- {:7.5f}'.format(np.mean(ltm_dyn_hist[-1]), np.std(ltm_dyn_hist[-1])))
+                print('  LTM State: {:7.5f} +/- {:7.5f}'.format(np.mean(mem), np.std(mem)))
 
-                plt.imshow(np.mean(np.stack(mem_hist, axis=0), axis=1).T,aspect='auto')
-                plt.colorbar()
-                plt.title('Memory State Across Time')
-                plt.xlabel('Time')
-                plt.ylabel('Neuron')
+                fig, ax = plt.subplots(1, figsize=[14,10])
+                im = ax.imshow(np.mean(np.stack(mem_hist, axis=0), axis=1).T,aspect='auto')
+                fig.colorbar(im, ax=ax)
+                ax.set_title('Memory State Across Time')
+                ax.set_xlabel('Time')
+                ax.set_ylabel('Neuron')
                 plt.savefig('./plots/iter{}_mem.png'.format(i))
                 plt.clf()
                 plt.close()
@@ -389,7 +412,7 @@ def main(gpu_id=None):
 
                     fig, ax = plt.subplots(2, figsize=[14,10])
                     im0 = ax[0].imshow(neuronal_pev[:,p,:], aspect='auto')
-                    im1 = ax[1].imshow(neuronal_dir[:,p,:], aspect='auto')
+                    im1 = ax[1].imshow(neuronal_dir[:,p,:], aspect='auto', cmap=custom_cmap, clim=[-3,3])
 
                     ax[0].set_title('Neuronal PEV')
                     ax[1].set_title('Neuronal Preferred Direction')
@@ -475,6 +498,8 @@ def get_placeholders():
     y  = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size'], par['n_output']], 'out')
     m  = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size']], 'mask')
 
+    mav = tf.placeholder(tf.float32, [1,par['n_hidden']], 'mem_avg')
+
     l  = tf.placeholder(tf.int32, shape=[], name='lesion')
     ci = tf.placeholder(tf.int32, shape=[], name='cut_i')
     cj = tf.placeholder(tf.int32, shape=[], name='cut_j')
@@ -482,7 +507,7 @@ def get_placeholders():
     sx = tf.placeholder(tf.float32, shape=par['syn_x_init'].shape, name='syn_x_init')
     su = tf.placeholder(tf.float32, shape=par['syn_u_init'].shape, name='syn_u_init')
 
-    return x, y, m, l, ci, cj, h, sx, su
+    return x, y, m, l, ci, cj, h, sx, su, mav
 
 
 if __name__ == '__main__':
