@@ -75,7 +75,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
         results[task] = {}
 
         print('\n' + '-'*60 + '\nTask: {}\n'.format(task) + '-'*60)
-
+        par['all_RF'] = True
         trial_info = stim.generate_trial(task, var_delay=False, var_num_pulses=False, all_RF=par['all_RF'])
 
         # Put together the feed dictionary
@@ -161,6 +161,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
                 results[task][key] = val
             pickle.dump(results, open(savefile, 'wb'))
     sess.close()
+
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
         cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):

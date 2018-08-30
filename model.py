@@ -5,6 +5,8 @@ import tensorflow as tf
 import numpy as np
 import pickle
 import os, sys, time
+import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 
 # Model modules
 from parameters import *
@@ -55,6 +57,7 @@ class Model:
 
         with tf.variable_scope('init'):
             self.var_dict['h_init']     = tf.get_variable('hidden', initializer=par['h_init'], trainable=True)
+            self.var_dict['m_init']     = tf.get_variable('memory', initializer=par['h_init']/100, trainable=True)
             self.var_dict['syn_x_init'] = tf.get_variable('syn_x_init', initializer=par['syn_x_init'], trainable=False)
             self.var_dict['syn_u_init'] = tf.get_variable('syn_u_init', initializer=par['syn_u_init'], trainable=False)
 
@@ -63,9 +66,18 @@ class Model:
             self.var_dict['W_rnn'] = tf.get_variable('W_rnn', initializer=par['w_rnn0'])
             self.var_dict['b_rnn'] = tf.get_variable('b_rnn', initializer=par['b_rnn0'])
 
+        with tf.variable_scope('LTM'):
+            self.var_dict['W_to_LTM']  = tf.get_variable('W_to', initializer=par['w_to_LTM0']/100)
+            self.var_dict['W_fr_LTM']  = tf.get_variable('W_fr', initializer=par['w_fr_LTM0']/100)
+            self.var_dict['W_rnn_LTM'] = tf.get_variable('W_rnn', initializer=par['w_rnn_LTM0']/100)
+            self.var_dict['b_rnn_LTM'] = tf.get_variable('b_rnn', initializer=par['b_rnn_LTM0'])
+            self.var_dict['W_dyn_init'] = tf.get_variable('W_dyn_init', initializer=par['w_dyn_init0'], trainable=False)
+
         with tf.variable_scope('out'):
             self.var_dict['W_out'] = tf.get_variable('W_out', initializer=par['w_out0'])
             self.var_dict['b_out'] = tf.get_variable('b_out', initializer=par['b_out0'])
+
+        self.EI = tf.constant(par['EI_matrix'])
 
         self.W_rnn_eff = (tf.constant(par['EI_matrix']) @ tf.nn.relu(self.var_dict['W_rnn'])) \
             if par['EI'] else self.var_dict['W_rnn']
@@ -76,6 +88,8 @@ class Model:
         self.load_h_init = self.var_dict['h_init'].assign(self.h_init_replace)
         self.load_syn_x_init = self.var_dict['syn_x_init'].assign(self.syn_x_init_replace)
         self.load_syn_u_init = self.var_dict['syn_u_init'].assign(self.syn_u_init_replace)
+
+        #self.alpha = tf.get_variable('LTM_alpha', initializer=1e-9)
 
 
 
@@ -88,29 +102,68 @@ class Model:
         self.hidden_hist = []
         self.syn_x_hist = []
         self.syn_u_hist = []
+        self.ltm_dyn_hist = []
+        self.LTM_hist = []
 
         # Load starting network state
         h = self.var_dict['h_init']
+        m = self.var_dict['m_init']
         syn_x = self.var_dict['syn_x_init']
         syn_u = self.var_dict['syn_u_init']
+        ltm_dyn = self.var_dict['W_dyn_init']
 
         # Loop through the neural inputs, indexed in time
         for rnn_input in self.input_data:
 
             # Compute the state of the hidden layer
-            h, syn_x, syn_u = self.recurrent_cell(h, syn_x, syn_u, rnn_input)
+            if len(self.LTM_hist) < 2:
+                prev = tf.zeros_like(m)
+            else:
+                prev = self.LTM_hist[-2]
+            m_next, ltm_dyn = self.ltm_cell(m, h, prev, ltm_dyn)
+            h, syn_x, syn_u = self.recurrent_cell(h, m, syn_x, syn_u, rnn_input)
+            m = m_next
 
             # Record network state
             self.hidden_hist.append(h)
             self.syn_x_hist.append(syn_x)
             self.syn_u_hist.append(syn_u)
+            self.ltm_dyn_hist.append(ltm_dyn)
+            self.LTM_hist.append(m)
 
             # Compute output state
             y = h @ tf.nn.relu(self.var_dict['W_out']) + self.var_dict['b_out']
             self.y_hat.append(y)
 
 
-    def recurrent_cell(self, h, syn_x, syn_u, rnn_input):
+    def ltm_cell(self, m, h, m_prev, ltm_dyn):
+
+        W_ltm = self.var_dict['W_rnn_LTM'][tf.newaxis,...] + ltm_dyn
+        W_LTM_eff = tf.einsum('ij,bjk->bik', self.EI, tf.nn.relu(W_ltm))
+        W_LTM_eff = W_LTM_eff * tf.constant(par['RNN_self_conn_block'][np.newaxis,...])
+
+        m0 = tf.einsum('bi,bij->bj', m, W_LTM_eff)
+        m1 = h @ self.var_dict['W_to_LTM']
+        m2 = self.var_dict['b_rnn_LTM']
+        m_next = tf.nn.sigmoid((1-par['ltm_neuron'])*m + par['ltm_neuron']*(m0 + m1 + m2) \
+            + tf.random_normal(m.shape, 0, par['noise_rnn']/2, dtype=tf.float32))
+        #m_next = tf.nn.relu(m0 + m1 + m2)
+
+        a = par['alpha_ltm']/10
+        quantity = m[:,:,tf.newaxis] - tf.einsum('bj,bij->bij', m_next, ltm_dyn)
+        #quantity = m[:,:,tf.newaxis] - tf.einsum('bi,bij->bij', m_next, ltm_dyn)
+
+        ltm_dyn_next = ltm_dyn + a * tf.einsum('bj,bij->bij', m_next, quantity)
+
+        self.ltm_dyn_post = ltm_dyn_next
+        self.m = m
+        self.W_ltm = W_ltm
+        self.W_ltm_eff = W_LTM_eff
+
+        return m_next, ltm_dyn_next
+
+
+    def recurrent_cell(self, h, m, syn_x, syn_u, rnn_input):
         """ Using the standard biologically-inspired recurrent,
             cell compute the new hidden state """
 
@@ -125,11 +178,12 @@ class Model:
             h_post = h
 
         # Calculate new hidden state
-        h = tf.nn.relu((1-par['alpha_neuron'])*h + par['alpha_neuron'] \
-            * (rnn_input @ self.var_dict['W_in'] + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
+        h_next = tf.nn.relu((1-par['alpha_neuron'])*h + par['alpha_neuron'] \
+            * (rnn_input @ self.var_dict['W_in'] + h_post @ self.W_rnn_eff \
+            + m @ self.var_dict['W_fr_LTM'] + self.var_dict['b_rnn']) \
             + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
 
-        return h, syn_x, syn_u
+        return h_next, syn_x, syn_u
 
 
     def optimize(self):
@@ -154,6 +208,9 @@ class Model:
         self.spike_loss = tf.reduce_mean(tf.stack([par['spike_cost']*tf.reduce_mean(tf.square(h), axis=0) \
             for h in self.hidden_hist]))
 
+        self.LTM_activity_loss = tf.reduce_mean(tf.stack([par['LTM_activity_cost']*tf.reduce_mean(tf.square(m), axis=0) \
+            for m in self.LTM_hist]))
+
         # Calculate L1 loss on weight strengths
         self.wiring_loss  = tf.reduce_sum(tf.nn.relu(self.var_dict['W_in'])) \
                           + tf.reduce_sum(tf.nn.relu(self.var_dict['W_rnn'])) \
@@ -161,7 +218,7 @@ class Model:
         self.wiring_loss *= par['wiring_cost']
 
         # Collect total loss
-        self.loss = self.perf_loss + self.spike_loss + self.wiring_loss
+        self.loss = self.perf_loss + self.spike_loss + self.wiring_loss + self.LTM_activity_loss
 
         # Compute and apply network gradients
         self.train_op = opt.compute_gradients(self.loss)
@@ -199,6 +256,7 @@ def shuffle_trials(stim):
 
     par['batch_train_size'] = train_size
     return trial_info
+
 
 def main(gpu_id=None):
     """ Run supervised learning training """
@@ -245,9 +303,9 @@ def main(gpu_id=None):
             feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}
 
             # Run the model
-            _, loss, perf_loss, spike_loss, y_hat, state_hist, syn_x_hist, syn_u_hist = \
+            _, loss, perf_loss, spike_loss, y_hat, state_hist, syn_x_hist, syn_u_hist, LTM_loss = \
                 sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, \
-                model.hidden_hist, model.syn_x_hist, model.syn_u_hist], feed_dict=feed_dict)
+                model.hidden_hist, model.syn_x_hist, model.syn_u_hist, model.LTM_activity_loss], feed_dict=feed_dict)
 
             # Calculate accuracy from the model's output
             if par['output_type'] == 'directional':
@@ -261,18 +319,105 @@ def main(gpu_id=None):
             # Save and show the model's performance
             if i%par['iters_between_outputs'] == 0: #in list(range(len(par['trial_type']))):
                 print_results(i, par['trial_type'], perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy)
+                print('LTM Loss:', LTM_loss)
 
-            # if i%200 in list(range(len(par['trial_type']))):
-            #     weights = sess.run(model.var_dict)
-            #     results = {
-            #         'model_performance': model_performance,
-            #         'parameters': par,
-            #         'weights': weights}
-            #     pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
+                ltm, rnn, ltm_dyn_hist, ltm_dyn_post, mem, mem_hist, syn_x, syn_u, var_dict = \
+                    sess.run([model.W_ltm_eff, model.W_rnn_eff, model.ltm_dyn_hist, \
+                    model.ltm_dyn_post, model.m, model.LTM_hist, model.var_dict, model.syn_x_hist, \
+                    model.syn_u_hist], feed_dict=feed_dict)
+
+                print('LTM Diagnostics:')
+
+                #"""
+                if True or i > 1000:
+                    print('Plotting...')
+
+                    for t, l in enumerate(ltm_dyn_hist):
+                        break
+                        plt.imshow(l[0])
+                        plt.title('LTM Dynamic Weights State, Time Step {}'.format(t))
+                        plt.colorbar()
+                        plt.savefig('./plots/iter{}_dyn_ltm_t{}.png'.format(i, t))
+                        plt.clf()
+                        plt.close()
+
+                    fig, ax = plt.subplots(1,2)
+                    ax[0].imshow(ltm[0,:,:])
+                    ax[0].set_title('LTM')
+                    ax[1].imshow(rnn)
+                    ax[1].set_title('RNN')
+                    plt.savefig('./plots/iter{}_ltm_rnn.png'.format(i))
+                    plt.clf()
+                    plt.close()
+                #"""
+
+                print('t=-1 W_ltm_eff: {:7.5f} +/- {:7.5f}'.format(np.mean(ltm[0,:,:]), np.std(ltm[0,:,:])))
+                print('t=-1 W_ltm_dyn: {:7.5f} +/- {:7.5f}'.format(np.mean(ltm_dyn_hist[-1][0,:,:]), np.std(ltm_dyn_hist[-1][0,:,:])))
+                print('t=-1 LTM State: {:7.5f} +/- {:7.5f}'.format(np.mean(mem[0,:]), np.std(mem[0,:])))
+
+                plt.imshow(np.mean(np.stack(mem_hist, axis=0), axis=1).T,aspect='auto')
+                plt.colorbar()
+                plt.title('Memory State Across Time')
+                plt.xlabel('Time')
+                plt.ylabel('Neuron')
+                plt.savefig('./plots/iter{}_mem.png'.format(i))
+                plt.clf()
+                plt.close()
+
+                print('Calculating PEV...')
+                neuronal_pev = np.zeros([par['n_hidden'], par['num_pulses'], par['num_time_steps']], dtype=np.float32)
+                neuronal_dir = np.zeros([par['n_hidden'], par['num_pulses'], par['num_time_steps']], dtype=np.float32)
+                syn_efficacy = np.stack(syn_x_hist, axis=0) * np.stack(syn_u_hist, axis=0)
+                sample_dir = np.ones([par['batch_train_size'], 3, par['num_pulses']])
+                epsilon = 1e-9
+                for p in range(par['num_pulses']):
+                    sample_dir[:,1,p] = np.cos(2*np.pi*trial_info['sample'][:,p]/par['num_motion_dirs'])
+                    sample_dir[:,2,p] = np.sin(2*np.pi*trial_info['sample'][:,p]/par['num_motion_dirs'])
+
+                    for n in range(par['n_hidden']):
+                        for t, mem_t in enumerate(mem_hist):
+
+                            w            = np.linalg.lstsq(sample_dir[:,:,p], mem_t[:,n])[0][...,np.newaxis]
+                            m_hat        = np.dot(sample_dir[:,:,p], w).T
+                            pred_err     = mem_t[:,n] - m_hat
+                            mse          = np.mean(pred_err**2)
+                            response_var = np.var(mem_t[:,n])
+
+                            if response_var > epsilon:
+                                neuronal_pev[n,p,t] = 1 - mse/(response_var + epsilon)
+                                neuronal_dir[n,p,t] = np.arctan2(w[2,0],w[1,0])
+
+                    fig, ax = plt.subplots(2, figsize=[14,10])
+                    im0 = ax[0].imshow(neuronal_pev[:,p,:], aspect='auto')
+                    im1 = ax[1].imshow(neuronal_dir[:,p,:], aspect='auto')
+
+                    ax[0].set_title('Neuronal PEV')
+                    ax[1].set_title('Neuronal Preferred Direction')
+
+                    fig.colorbar(im0, ax=ax[0])
+                    fig.colorbar(im1, ax=ax[1])
+                    fig.suptitle('Pulse {}'.format(p))
+
+                    plt.savefig('./plots/iter{}_pev_and_dir_pulse{}.png'.format(i,p))
+                    plt.clf()
+                    plt.close()
+
+                print('Diagnostics complete.\n')
+
+
+            if i%par['iters_between_outputs'] == 0: #200 in list(range(len(par['trial_type']))):
+                 weights = sess.run(model.var_dict)
+
+                 results = {
+                     'model_performance': model_performance,
+                     'parameters': par,
+                     'weights': weights,
+                     'ltm_dyn_hist': np.array(ltm_dyn_hist)}
+                 pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
             #     if i>=5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
             #         break
 
-            if i>5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
+            if False and i>5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
 
                 weights = sess.run(model.var_dict)
                 results = {

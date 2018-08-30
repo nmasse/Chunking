@@ -65,7 +65,7 @@ class AdamOpt:
             self.update_var_op.append(tf.assign(self.v[var.op.name], new_v))
 
             if 'W_rnn' in var.op.name:
-                print('Applied W_rnn mask.')
+                print('Applied W_rnn mask to {}.'.format(var.op.name))
                 delta_grad *= par['w_rnn_mask']
             elif 'W_out' in var.op.name:
                 print('Applied W_out mask.')
