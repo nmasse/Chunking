@@ -128,7 +128,6 @@ class Stimulus:
         resp_start = int((par['dead_time'] + par['fix_time'] + num_pulses*par['sample_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
         delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
 
-
         for t in range(par['batch_train_size']):
 
             """
@@ -454,4 +453,4 @@ class Stimulus:
 
 if __name__ == '__main__':
     s = Stimulus()
-    s.generate_trial('sequence', var_delay=True)
+    s.generate_trial('sequence_cue', var_delay=True)

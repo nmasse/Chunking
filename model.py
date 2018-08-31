@@ -70,7 +70,7 @@ class Model:
         with tf.variable_scope('LTM'):
             self.var_dict['W_to_LTM']  = tf.get_variable('W_to', initializer=par['w_to_LTM0']/100)
             self.var_dict['W_fr_LTM']  = tf.get_variable('W_fr', initializer=par['w_fr_LTM0']/100)
-            self.var_dict['W_rnn_LTM'] = tf.get_variable('W_rnn', initializer=par['w_rnn_LTM0'], trainable=False)
+            self.var_dict['W_rnn_LTM'] = tf.get_variable('W_rnn', initializer=par['w_rnn_LTM0']/100, trainable=True)
             self.var_dict['b_rnn_LTM'] = tf.get_variable('b_rnn', initializer=par['b_rnn_LTM0'])
             self.var_dict['W_dyn_init'] = tf.get_variable('W_dyn_init', initializer=par['w_dyn_init0'], trainable=False)
 
@@ -163,7 +163,7 @@ class Model:
         #pre = pre * tf.nn.softmax(10*pre, axis=1)
         #post = m_next - self.moving_average
 
-        pre = par['EI_list'][np.newaxis,:] * m
+        pre = par['EI_list'][np.newaxis,:] * tf.nn.relu(m - m_prev)
         post = m_next - m
 
         quantity = tf.einsum('bi,bj->bij', pre, post)

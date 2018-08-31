@@ -81,7 +81,7 @@ par = {
     'sample_time'           : 200,  # Sample time for sequence tasks
     'sample_time_RF'        : 500,  # Sample time for RF-based tasks
     'delay_time'            : 200,  # Short delay period (augmented for pulses)
-    'long_delay_time'       : 500,  # Long delay period
+    'long_delay_time'       : 1500,  # Long delay period
     'RF_long_delay_time'    : 1000, # Long delay period for RF tasks
     'var_delay_max'         : 500,  # Maximum delay caused by var delay
     'resp_cue_time'         : 500,  # Duration of a requested response
@@ -252,10 +252,12 @@ def update_dependencies():
     par['b_rnn0'] = np.zeros((1, par['n_hidden']), dtype=np.float32)
     par['b_rnn_LTM0'] = np.float32(np.random.uniform(-1,-0.1, [1,par['n_hidden']]))
 
-    par['w_to_LTM0'] = initialize([par['n_hidden'], par['n_hidden']])
+    par['w_to_LTM0'] = initialize([par['n_hidden'], par['n_hidden']]) + initialize([par['n_hidden'], par['n_hidden']])
+    par['w_to_LTM0'][::2,::2] = 0
     #par['w_to_LTM0'] *= (par['connection_prob'] > np.random.rand(*par['w_to_LTM0'].shape))
 
-    par['w_fr_LTM0'] = initialize([par['n_hidden'], par['n_hidden']])
+    par['w_fr_LTM0'] = initialize([par['n_hidden'], par['n_hidden']]) + initialize([par['n_hidden'], par['n_hidden']])
+    par['w_fr_LTM0'][1::2,1::2] = 0
     #par['w_fr_LTM0'] *= (par['connection_prob'] > np.random.rand(*par['w_fr_LTM0'].shape))
 
     par['w_dyn_init0'] = np.zeros([par['batch_train_size'], par['n_hidden'], par['n_hidden']], dtype=np.float32)
