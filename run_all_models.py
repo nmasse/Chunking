@@ -27,7 +27,6 @@ data = pickle.load(open(filename, 'rb'))
 data['parameters']['save_fn'] = filename[:-5] + '_regenerated.pkl'
 data['parameters']['weight_load_fn'] = filename
 data['parameters']['load_prev_weights'] = True
-data['parameters']['learning_rate'] = 4e-3
 
 update_parameters(data['parameters'])
 par['h_init'] = data['weights']['h_init']
