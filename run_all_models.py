@@ -18,6 +18,31 @@ def try_model():
         quit('Quit by KeyboardInterrupt')
 
 
+pulse5 = 'debug_sequence_sequence_cue_RF_detection_RF_cue_p5_v0acc80_.pkl'
+pulse6 = 'debug_sequence_sequence_cue_RF_detection_RF_cue_p6_v1acc70_.pkl'
+
+
+filename = pulse5
+data = pickle.load(open(filename, 'rb'))
+data['parameters']['save_fn'] = filename[:-5] + '_regenerated.pkl'
+data['parameters']['weight_load_fn'] = filename
+data['parameters']['load_prev_weights'] = True
+data['parameters']['learning_rate'] = 4e-3
+
+update_parameters(data['parameters'])
+par['h_init'] = data['weights']['h_init']
+
+print(par['n_hidden'])
+
+try_model()
+quit()
+
+
+
+
+
+
+
 #trial_types = [['sequence', 'sequence_cue', 'RF_detection', 'RF_cue']]
 trial_types = [['RF_cue','sequence_cue']]
 num_pulses = [6,8,10]

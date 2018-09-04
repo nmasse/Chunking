@@ -26,7 +26,7 @@ par = {
     'tol'                   : 0.2,
 
     # Task parameters (non-timing)
-    'trial_type'            : ['RF_cue'],
+    'trial_type'            : ['RF_cue', 'sequence_cue'],
     'var_delay'             : True,
     'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
     'var_num_pulses'        : True,
@@ -43,7 +43,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 20,
-    'learning_rate'         : 2e-3,
+    'learning_rate'         : 4e-3,
     'membrane_time_constant': 100,
 
     # Variance values
@@ -69,7 +69,7 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 100000,
+    'num_iterations'        : 10000000,
     'iters_between_outputs' : 50,
 
     # Task specs

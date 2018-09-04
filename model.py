@@ -282,7 +282,7 @@ def main(gpu_id=None):
                     'parameters': par,
                     'weights': weights}
                 acc_str = str(int(accuracy_threshold[acc_count]*100))
-                sf = save_fn[:-4] + 'acc' + acc_str + '_' + save_fn[-4:]
+                sf = save_fn[:-4] + '_acc' + acc_str + save_fn[-4:]
                 print(sf)
                 pickle.dump(results, open(sf, 'wb') )
                 acc_count += 1
