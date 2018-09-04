@@ -6,11 +6,21 @@ import numpy as np
 from parameters import *
 from sklearn import svm
 import time
+import sys
 import pickle
 import stimulus
 import copy
 import matplotlib.pyplot as plt
 from itertools import product
+
+if len(sys.argv) > 1:
+    GPU_ID = sys.argv[1]
+    os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
+else:
+    GPU_ID = None
+    os.environ["CUDA_VISIBLE_DEVICES"] = ''
+
+print('gpu id:', GPU_ID)
 
 
 def load_and_replace_parameters(filename, savefile=None, parameter_updates={}):
@@ -27,7 +37,7 @@ def load_and_replace_parameters(filename, savefile=None, parameter_updates={}):
 
     data['weights']['h_init'] = data['weights']['h_init']
     #data['parameters']['dt'] = 100
-    #data['parameters']['batch_train_size'] = 16
+    #data['parameters']['batch_train_size'] = 5
 
 
     update_parameters(data['parameters'])
@@ -51,7 +61,9 @@ def load_tensorflow_model():
 
     # Make session, load model, and initialize weights
     sess = tf.Session()
-    mod = model.Model(x, y, m, l, ci, cj, h, sx, su)
+    device = '/cpu:0'# if GPU_ID is None else '/gpu:0'
+    with tf.device(device):
+        mod = model.Model(x, y, m, l, ci, cj, h, sx, su)
     load_model_weights(sess)
 
     # Return session, model, and placeholders
@@ -71,7 +83,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     stim = stimulus.Stimulus()
 
     # Generate a batch of stimulus for training
-    for task in par['trial_type'][1:]:
+    for task in par['trial_type']:
         results[task] = {}
 
         print('\n' + '-'*60 + '\nTask: {}\n'.format(task) + '-'*60)
@@ -145,7 +157,6 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
         if decoding:
             print('decoding activity...')
             decoding_results =  svm_wraper_simple(h, syn_x, syn_u, trial_info, num_reps = 3, num_reps_stability = 0)
-            print('done done done????')
             for key, val in decoding_results.items():
                 print(key)
                 results[task][key] = val
@@ -161,6 +172,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
                 results[task][key] = val
             pickle.dump(results, open(savefile, 'wb'))
     sess.close()
+
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
         cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):
@@ -190,6 +202,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
             'trial_time': trial_time,
             'mean_h': mean_h,
             'timeline': trial_info['timeline']}
+    #mod = model.Model(x, y, m, l, ci, cj, h, sx, su)
 
     pickle.dump(results, open(save_fn, 'wb') )
     print('Analysis results saved in ', save_fn)

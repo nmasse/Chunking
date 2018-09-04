@@ -232,7 +232,7 @@ def main(gpu_id=None):
         # Begin training loop
         print('\nStarting training...\n')
         acc_count = int(0)
-        accuracy_threshold = np.array([0.6, 0.7, 0.8, 0.9, 0.95])
+        accuracy_threshold = np.array([0.0, 0.6, 0.7, 0.8, 0.9, 0.95])
         save_fn = par['save_dir'] + par['save_fn']
         save_fn_ind = save_fn[1:].find('.') - 1
 
@@ -273,6 +273,8 @@ def main(gpu_id=None):
             #         break
 
             if i>5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
+
+                print('SAVING')
 
                 weights = sess.run(model.var_dict)
                 results = {

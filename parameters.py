@@ -29,7 +29,7 @@ par = {
     'trial_type'            : ['RF_cue'],
     'var_delay'             : True,
     'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
-    'var_num_pulses'        : False,
+    'var_num_pulses'        : True,
     'all_RF'                : True,
     'num_pulses'            : 4,
     'pulse_prob'            : 0.8,
