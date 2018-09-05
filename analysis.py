@@ -109,10 +109,11 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
         results[task]['task_acc'] = accuracy
         pickle.dump(results, open(savefile, 'wb'))
 
-
-        print(accuracy)
-        print(pulse_accuracy)
-
+        print('Accuracy:', accuracy)
+        if 'sequence' in task:
+            print('Accuracy by pulse:'.ljust(20), pulse_accuracy)
+        elif 'RF' in task:
+            print('Accuracy by RF:'.ljust(20), pulse_accuracy)
 
         currents, tuning, simulation, decoding, cut_weight_analysis = False, True, False, True, False
 

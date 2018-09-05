@@ -175,6 +175,7 @@ class Stimulus:
 
 
             trial_info['test'][t] = np.random.choice(np.arange(len(pulse_list)))
+            trial_info['pulse_id'][resp_times[0],t] = trial_info['test'][t]
 
             # response properties
             trial_info['neural_input'][resp_times[0], t, :] += self.cue_tuning[:, trial_info['test'][t]]
@@ -261,6 +262,7 @@ class Stimulus:
             # Building network output
             trial_info['desired_output'][:trial_resp_start,b,:] = self.fix_output_tuning
             trial_info['desired_output'][trial_resp_start:,b,:] = resp
+            trial_info['pulse_id'][trial_resp_start:,b] = targets[b]
 
             # Building network mask
             if catch:
@@ -328,6 +330,7 @@ class Stimulus:
             # Building network output
             trial_info['desired_output'][:trial_resp_start,b,:] = self.fix_output_tuning
             trial_info['desired_output'][trial_resp_start:,b,:] = resp
+            trial_info['pulse_id'][trial_resp_start:,b] = targets[b]
 
             # Building network mask
             if catch:
