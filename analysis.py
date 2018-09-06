@@ -704,8 +704,8 @@ def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
     current_results['cue_current']    = input_activity[:,cue_rng] @ network_weights['W_in'][cue_rng,:]
 
     for t in range(trial_length):
-        current_results['rnn_current'][:, :, t, 0] = mean_activity[t,:] @ network_weights['W_rnn']
-        current_results['rnn_current'][:, :, t, 1] = mean_eff_activity[t,:] @ network_weights['W_rnn']
+        current_results['rnn_current'][t, :, :, 0] = mean_activity[t,:] @ network_weights['W_rnn']
+        current_results['rnn_current'][t, :, :, 1] = mean_eff_activity[t,:] @ network_weights['W_rnn']
 
     return current_results
 
