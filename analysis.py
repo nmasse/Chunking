@@ -115,7 +115,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
         elif 'RF' in task:
             print('Accuracy by RF:'.ljust(20), pulse_accuracy)
 
-        currents, tuning, simulation, decoding, cut_weight_analysis = False, True, False, True, False
+        currents, tuning, simulation, decoding, cut_weight_analysis = True, True, False, True, False
 
         """
         Calculate currents
