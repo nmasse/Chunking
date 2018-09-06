@@ -18,21 +18,20 @@ def try_model():
         quit('Quit by KeyboardInterrupt')
 
 
-pulse5 = 'debug_sequence_sequence_cue_RF_detection_RF_cue_p5_v0acc80_.pkl'
+pulse5 = 'debug_sequence_sequence_cue_RF_detection_RF_cue_p5_v0acc80_regenerated_acc80.pkl'
 pulse6 = 'debug_sequence_sequence_cue_RF_detection_RF_cue_p6_v1acc70_.pkl'
 
 
 filename = pulse5
-data = pickle.load(open(filename, 'rb'))
-data['parameters']['save_fn'] = filename[:-5] + '_regenerated.pkl'
-data['parameters']['weight_load_fn'] = filename
+data = pickle.load(open('./savedir/'+filename, 'rb'))
+data['parameters']['save_fn'] = filename[:-10] + '.pkl'#'_regenerated.pkl'
+data['parameters']['weight_load_fn'] = './savedir/' + filename
 data['parameters']['load_prev_weights'] = True
 
 update_parameters(data['parameters'])
 par['h_init'] = data['weights']['h_init']
 
-print(par['n_hidden'])
-
+print('Model now starting: {} pulses, {} RFs'.format(par['num_pulses'], par['num_RFs']))
 try_model()
 quit()
 
@@ -43,18 +42,16 @@ quit()
 
 
 #trial_types = [['sequence', 'sequence_cue', 'RF_detection', 'RF_cue']]
-trial_types = [['RF_cue','sequence_cue']]
-num_pulses = [6,8,10]
+trial_types = [['RF_cue','RF_detection']]
+num_pulses = [1]
 all_RFs = [False]
-
-# NEXT TO RUN IS VAR_PULSES
 
 for pulse in num_pulses:
     for trial_type in trial_types:
         for all_RF in all_RFs:
 
             print('Training network on {} task(s) with {} pulses (all_RF = {})'.format(trial_type, str(pulse), str(all_RF)))
-            save_fn = '{}_p{}_100_neuron_v2.pkl'.format('_'.join(trial_type), str(pulse))
+            save_fn = '{}_p{}_100_testing_v0.pkl'.format('_'.join(trial_type), str(pulse))
             print('Saving in:', save_fn)
 
             updates = {

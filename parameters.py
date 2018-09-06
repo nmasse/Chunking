@@ -37,7 +37,7 @@ par = {
     # Network shape
     'num_motion_tuned'      : 24,
     'num_fix_tuned'         : 2,
-    'num_RFs'               : 6,
+    'num_RFs'               : 4,
     'n_hidden'              : 100,
     'output_type'           : 'one_hot',
 
@@ -133,6 +133,9 @@ def update_dependencies():
     # Backwards compatibility
     if 'pulse_prob' not in par.keys():
         par['pulse_prob'] = 1.
+
+    if par['num_pulses'] != par['num_RFs']:
+        print('WARNING:  NUMBER OF PULSES IS NOT EQUAL TO THE NUMBER OF RECEPTIVE FIELDS')
 
     # Set up a variety of delay times for the appropriate task types
     par['delay_times'] = par['delay_time']*np.ones((par['num_pulses']), dtype = np.int16)
