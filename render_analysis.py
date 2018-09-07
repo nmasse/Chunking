@@ -90,11 +90,15 @@ def task_pevs():
             key = '{}_pev'.format(pev_type)
 
             fig, ax = plt.subplots(2,par['num_pulses']//2+par['num_pulses']%2,figsize=(8,6))
-            vert = 2
             hori = par['num_pulses']//2+par['num_pulses']%2
             for p in range(par['num_pulses']):
-                ax[p//vert,p%hori].imshow(x[key][:,p,:], aspect='auto', clim=[0,1])
-                ax[p//vert,p%hori].set_title('{} {}'.format(aspect, p))
+
+                if par['num_pulses'] == 4:
+                    ax[p//2,p%hori].imshow(x[key][:,p,:], aspect='auto', clim=[0,1])
+                    ax[p//2,p%hori].set_title('{} {}'.format(aspect, p))
+                elif par['num_pulses'] == 5:
+                    ax[0 if p <= par['num_pulses']//2 else 1,p%hori].imshow(x[key][:,p,:], aspect='auto', clim=[0,1])
+                    ax[0 if p <= par['num_pulses']//2 else 1,p%hori].set_title('{} {}'.format(aspect, p))
 
             plt.suptitle('{} PEV for {}'.format(pev_type, task))
             plt.savefig('./plots/{}/{}_{}_pev.png'.format(foldername, task, pev_type))
@@ -180,7 +184,7 @@ def selective_task_currents(num_top_neurons=5):
 
             aspect = 'RF' if 'RF' in task else 'pulse'
             plt.suptitle('Network Currents for Top {} PEV Neurons for {} task, {} {}'.format(num_top_neurons, task, aspect, p))
-            './plots/{}/top_synaptic_PEV_currents/{}top/{}_pulse{}_{}top_currents.png'.format(foldername, p, task, p, num_top_neurons))
+            plt.savefig('./plots/{}/top_synaptic_PEV_currents/{}top/{}_pulse{}_{}top_currents.png'.format(foldername, num_top_neurons, task, p, num_top_neurons))
             plt.clf()
             plt.close()
 
@@ -188,7 +192,7 @@ def selective_task_currents(num_top_neurons=5):
 if __name__ == '__main__':
 
     # Setup
-    filename = 'analysis_RF_cue_sequence_cue_p4_100_neuron_high_lr_v0_acc90.pkl'
+    filename = 'analysis_RF_cue_sequence_cue_p5_100_neuron_high_lr_v0_acc90.pkl'
     foldername = filename[:-4]
 
     os.makedirs('./plots/{}/'.format(foldername), exist_ok=True)
@@ -205,7 +209,7 @@ if __name__ == '__main__':
     task_currents()
 
     for i in range(6):
-        os.makedirs('./plots/{}/top_synaptic_PEV_currents/{}top/'.format(foldername,i), exist_ok=True)
+        os.makedirs('./plots/{}/top_synaptic_PEV_currents/{}top/'.format(foldername,i+1), exist_ok=True)
         selective_task_currents(num_top_neurons=i+1)
 
     for t in [0.15, 0.25]:
