@@ -65,6 +65,9 @@ class Model:
             self.var_dict['b_rnn_dend_in']   = tf.get_variable('b_rnn_dend_in', initializer=par['b_rnn_dend_in0'])
             self.var_dict['b_rnn_dend_gate'] = tf.get_variable('b_rnn_dend_gate', initializer=par['b_rnn_dend_gate0'])
 
+            self.var_dict['W_hebb_init']     = tf.get_variable('W_hebb_init', initializer=par['w_hebb_init0'], trainable=False)
+            self.var_dict['hebb_beta']       = tf.get_variable('hebb_beta', initializer=par['hebb_beta0'], trainable=True)
+
         with tf.variable_scope('out'):
             self.var_dict['W_out'] = tf.get_variable('W_out', initializer=par['w_out0'])
             self.var_dict['b_out'] = tf.get_variable('b_out', initializer=par['b_out0'])
@@ -77,6 +80,8 @@ class Model:
         self.W_exc  = tf.constant(par['excitatory_mask']) * self.W_rnn_eff[:,:par['n_dendrites'],:]
         self.W_gate = tf.constant(par['gating_mask']) * self.W_rnn_eff[:,:par['n_dendrites'],:]
         self.W_inh  = tf.constant(par['inhibitory_mask']) * self.W_rnn_eff[:,-1,:]
+        self.zero_diag = tf.constant(par['rnn_zero_diag'])
+        self.hebb_mask = tf.constant(par['excitatory_mask']) * self.zero_diag
 
         # Analysis-based variable manipulation commands
         self.lesion = self.var_dict['W_rnn'][:,:,self.lesioned_neuron].assign(tf.zeros_like(self.var_dict['W_rnn'][:,:,self.lesioned_neuron]))
@@ -95,29 +100,32 @@ class Model:
         self.hidden_hist = []
         self.syn_x_hist = []
         self.syn_u_hist = []
+        self.w_hebb_hist = []
 
         # Load starting network state
         h = self.var_dict['h_init']
         syn_x = self.var_dict['syn_x_init']
         syn_u = self.var_dict['syn_u_init']
+        W_hebb = self.var_dict['W_hebb_init'] if par['use_hebbian_trace'] else tf.zeros_like(self.var_dict['W_hebb_init'])
 
         # Loop through the neural inputs, indexed in time
         for rnn_input in self.input_data:
 
             # Compute the state of the hidden layer
-            h, syn_x, syn_u = self.recurrent_cell(h, syn_x, syn_u, rnn_input)
+            h, syn_x, syn_u, W_hebb = self.recurrent_cell(h, syn_x, syn_u, rnn_input, W_hebb)
 
             # Record network state
             self.hidden_hist.append(h)
             self.syn_x_hist.append(syn_x)
             self.syn_u_hist.append(syn_u)
+            self.w_hebb_hist.append(W_hebb)
 
             # Compute output state
             y = h @ tf.nn.relu(self.var_dict['W_out']) + self.var_dict['b_out']
             self.y_hat.append(y)
 
 
-    def recurrent_cell(self, h, syn_x, syn_u, rnn_input):
+    def recurrent_cell(self, h, syn_x, syn_u, rnn_input, W_hebb):
         """ Using the standard biologically-inspired recurrent,
             cell compute the new hidden state """
 
@@ -127,27 +135,37 @@ class Model:
             syn_u = syn_u + par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
             syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
             syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
-            h_post = syn_u*syn_x*h
+            h_pre = syn_u*syn_x*h
         else:
-            h_post = h
+            h_pre = h
+
+        # Modify excitatory weights with Hebbian trace
+        W_exc = self.W_exc + self.var_dict['hebb_beta']*self.hebb_mask*tf.nn.relu(W_hebb)
 
         # Calculate dendritic input from excitatory and stimulus connections
         dendrite_in = tf.tensordot(rnn_input, self.W_in_eff, [[1],[0]]) \
-                    + tf.tensordot(h, self.W_exc, [[1],[0]]) \
+                    + tf.einsum('bi,bidj->bdj', h_pre, W_exc) \
                     + self.var_dict['b_rnn_dend_in']
 
         # Calculate dendritic gating signal from inhibitory connections
-        dendrite_gate = tf.nn.sigmoid(tf.tensordot(h, self.W_gate, [[1],[0]]) + self.var_dict['b_rnn_dend_gate'])
+        dendrite_gate = tf.nn.sigmoid(tf.tensordot(h_pre, self.W_gate, [[1],[0]]) + self.var_dict['b_rnn_dend_gate'])
 
         #  Calculate neural inhibitory signal
-        inhibitory_signal = h @ self.W_inh
+        inhibitory_signal = h_pre @ self.W_inh
 
         # Calculate new hidden state
-        h = tf.nn.relu((1-par['alpha_neuron'])*h + par['alpha_neuron'] \
-            * (tf.reduce_mean(dendrite_in*dendrite_gate, axis=1) + inhibitory_signal + self.var_dict['b_rnn']) \
-            + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
+        h_post = tf.nn.relu((1-par['alpha_neuron'])*h + par['alpha_neuron'] \
+               * (tf.reduce_mean(dendrite_in*dendrite_gate, axis=1) + inhibitory_signal + self.var_dict['b_rnn']) \
+               + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
 
-        return h, syn_x, syn_u
+        # Calculate the next Hebbian weights
+        if par['use_hebbian_trace']:
+            quantity = tf.nn.relu(tf.einsum('bdi,bj->bidj',dendrite_gate*h_pre[:,tf.newaxis,:],h_post))
+            W_hebb_next = (1-par['alpha_hebb'])*W_hebb + par['alpha_hebb']*quantity
+        else:
+            W_hebb_next = tf.zeros_like(W_hebb)
+
+        return h_post, syn_x, syn_u, W_hebb_next
 
 
     def optimize(self):

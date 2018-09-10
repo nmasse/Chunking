@@ -17,6 +17,7 @@ par = {
     'load_prev_weights'     : False,
     'analyze_model'         : True,
     'balance_EI'            : True,
+    'use_hebbian_trace'     : True,
 
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
@@ -46,6 +47,7 @@ par = {
     'dt'                    : 20,
     'learning_rate'         : 4e-3,
     'membrane_time_constant': 100,
+    'hebbian_time_constant' : 1000,
 
     # Variance values
     'clip_max_grad_val'     : 1,
@@ -205,6 +207,7 @@ def update_dependencies():
 
     # Membrane time constant of RNN neurons
     par['alpha_neuron'] = np.float32(par['dt'])/par['membrane_time_constant']
+    par['alpha_hebb'] = np.float32(par['dt'])/par['hebbian_time_constant']
 
     # The standard deviation of the Gaussian noise added to each RNN neuron at each time step
     par['noise_rnn'] = np.sqrt(2*par['alpha_neuron'])*par['noise_rnn_sd']
@@ -247,6 +250,11 @@ def update_dependencies():
     else:
         par['w_rnn0'] = 0.54 * np.eye(par['n_hidden'])[:,np.newaxis,:] * np.ones([1,par['n_dendrites']+1,1])
         par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_dendrites']+1, par['n_hidden']), dtype=np.float32)
+
+    par['w_hebb_init0'] = np.zeros([par['batch_train_size'], par['n_hidden'],par['n_dendrites'],par['n_hidden']], dtype=np.float32)
+    par['hebb_beta0'] = np.float32(np.random.uniform(0, 0.01, [par['n_hidden'], par['n_dendrites'], par['n_hidden']]))
+    par['hebb_beta0'] *= (par['connection_prob'] > np.random.rand(*[par['n_hidden'], par['n_dendrites'], par['n_hidden']]))
+    par['rnn_zero_diag'] = np.float32(1 - np.eye(par['n_hidden'])[:,np.newaxis,:])
 
     par['b_rnn0']           = np.zeros((1, par['n_hidden']), dtype=np.float32)
     par['b_rnn_dend_in0']   = np.zeros((1, par['n_dendrites'], par['n_hidden']), dtype=np.float32)
