@@ -39,7 +39,7 @@ par = {
     'num_motion_tuned'      : 24,
     'num_fix_tuned'         : 2,
     'num_RFs'               : 3,
-    'n_dendrites'           : 5,
+    'n_dendrites'           : 3,
     'n_hidden'              : 100,
     'output_type'           : 'one_hot',
 

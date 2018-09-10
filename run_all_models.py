@@ -17,7 +17,7 @@ def try_model():
     except KeyboardInterrupt:
         quit('Quit by KeyboardInterrupt')
 
-
+"""
 pulse5 = 'debug_sequence_sequence_cue_RF_detection_RF_cue_p5_v0acc80_regenerated_acc80.pkl'
 pulse6 = 'debug_sequence_sequence_cue_RF_detection_RF_cue_p6_v1acc70_.pkl'
 
@@ -34,7 +34,7 @@ par['h_init'] = data['weights']['h_init']
 print('Model now starting: {} pulses, {} RFs'.format(par['num_pulses'], par['num_RFs']))
 try_model()
 quit()
-
+"""
 
 
 
@@ -42,8 +42,8 @@ quit()
 
 
 #trial_types = [['sequence', 'sequence_cue', 'RF_detection', 'RF_cue']]
-trial_types = [['RF_cue','RF_detection']]
-num_pulses = [1]
+trial_types = [['RF_cue','sequence_cue']]
+num_pulses = [4]
 all_RFs = [False]
 
 for pulse in num_pulses:
@@ -51,7 +51,7 @@ for pulse in num_pulses:
         for all_RF in all_RFs:
 
             print('Training network on {} task(s) with {} pulses (all_RF = {})'.format(trial_type, str(pulse), str(all_RF)))
-            save_fn = '{}_p{}_100_testing_v0.pkl'.format('_'.join(trial_type), str(pulse))
+            save_fn = '{}_p{}_100_dendrites.pkl'.format('_'.join(trial_type), str(pulse))
             print('Saving in:', save_fn)
 
             updates = {

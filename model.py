@@ -65,8 +65,9 @@ class Model:
             self.var_dict['b_rnn_dend_in']   = tf.get_variable('b_rnn_dend_in', initializer=par['b_rnn_dend_in0'])
             self.var_dict['b_rnn_dend_gate'] = tf.get_variable('b_rnn_dend_gate', initializer=par['b_rnn_dend_gate0'])
 
-            self.var_dict['W_hebb_init']     = tf.get_variable('W_hebb_init', initializer=par['w_hebb_init0'], trainable=False)
-            self.var_dict['hebb_beta']       = tf.get_variable('hebb_beta', initializer=par['hebb_beta0'], trainable=True)
+            if par['use_hebbian_trace']:
+                self.var_dict['W_hebb_init']     = tf.get_variable('W_hebb_init', initializer=par['w_hebb_init0'], trainable=False)
+                self.var_dict['hebb_beta']       = tf.get_variable('hebb_beta', initializer=par['hebb_beta0'], trainable=True)
 
         with tf.variable_scope('out'):
             self.var_dict['W_out'] = tf.get_variable('W_out', initializer=par['w_out0'])
@@ -80,8 +81,10 @@ class Model:
         self.W_exc  = tf.constant(par['excitatory_mask']) * self.W_rnn_eff[:,:par['n_dendrites'],:]
         self.W_gate = tf.constant(par['gating_mask']) * self.W_rnn_eff[:,:par['n_dendrites'],:]
         self.W_inh  = tf.constant(par['inhibitory_mask']) * self.W_rnn_eff[:,-1,:]
-        self.zero_diag = tf.constant(par['rnn_zero_diag'])
-        self.hebb_mask = tf.constant(par['excitatory_mask']) * self.zero_diag
+
+        if par['use_hebbian_trace']:
+            self.zero_diag = tf.constant(par['rnn_zero_diag'])
+            self.hebb_mask = tf.constant(par['excitatory_mask']) * self.zero_diag
 
         # Analysis-based variable manipulation commands
         self.lesion = self.var_dict['W_rnn'][:,:,self.lesioned_neuron].assign(tf.zeros_like(self.var_dict['W_rnn'][:,:,self.lesioned_neuron]))
@@ -106,7 +109,7 @@ class Model:
         h = self.var_dict['h_init']
         syn_x = self.var_dict['syn_x_init']
         syn_u = self.var_dict['syn_u_init']
-        W_hebb = self.var_dict['W_hebb_init'] if par['use_hebbian_trace'] else tf.zeros_like(self.var_dict['W_hebb_init'])
+        W_hebb = self.var_dict['W_hebb_init'] if par['use_hebbian_trace'] else 0.
 
         # Loop through the neural inputs, indexed in time
         for rnn_input in self.input_data:
@@ -140,7 +143,10 @@ class Model:
             h_pre = h
 
         # Modify excitatory weights with Hebbian trace
-        W_exc = self.W_exc + self.var_dict['hebb_beta']*self.hebb_mask*tf.nn.relu(W_hebb)
+        if par['use_hebbian_trace']:
+            W_exc = self.W_exc + self.var_dict['hebb_beta']*self.hebb_mask*tf.nn.relu(W_hebb)
+        else:
+            W_exc = self.W_exc[tf.newaxis,...]*tf.ones([par['batch_train_size'],1,1,1])
 
         # Calculate dendritic input from excitatory and stimulus connections
         dendrite_in = tf.tensordot(rnn_input, self.W_in_eff, [[1],[0]]) \
@@ -163,7 +169,7 @@ class Model:
             quantity = tf.nn.relu(tf.einsum('bdi,bj->bidj',dendrite_gate*h_pre[:,tf.newaxis,:],h_post))
             W_hebb_next = (1-par['alpha_hebb'])*W_hebb + par['alpha_hebb']*quantity
         else:
-            W_hebb_next = tf.zeros_like(W_hebb)
+            W_hebb_next = 0.
 
         return h_post, syn_x, syn_u, W_hebb_next
 
