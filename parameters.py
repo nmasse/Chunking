@@ -149,15 +149,14 @@ def update_dependencies():
     # Determine the number of time steps
     time_steps_sequence = par['dead_time'] + par['fix_time'] \
         + par['num_pulses']*par['sample_time'] \
-        + (2*par['num_pulses']-1)*par['resp_cue_time'] \
+        + (2*par['num_pulses']-1)*par['sample_time'] \
         + par['long_delay_time'] \
         + np.sum(par['delay_times'])
 
     time_steps_RFs = par['dead_time'] + par['fix_time'] \
         + 2*par['sample_time_RF'] \
         + par['RF_long_delay_time'] \
-        + par['var_delay_max'] \
-        + par['dt']
+        + par['var_delay_max']
 
     par['num_time_steps'] = int(np.maximum(time_steps_sequence, time_steps_RFs)//par['dt'])
 

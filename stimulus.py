@@ -103,7 +103,7 @@ class Stimulus:
                     resp_count += 1
 
             # in case there's left over time (true for var pulse conditions)
-            trial_info['train_mask'][np.max(resp_times[-1]):, t] = 0
+            trial_info['train_mask'][np.max(resp_times[-1])+1:, t] = 0
 
         if False:
             self.plot_stim(trial_info)
@@ -190,7 +190,7 @@ class Stimulus:
                 trial_info['neural_input'][resp_times[0], t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = 0
 
             # in case there's left over time (true for var pulse conditions)
-            trial_info['train_mask'][np.max(resp_times[-1]):, t] = 0
+            trial_info['train_mask'][np.max(resp_times[-1])+1:, t] = 0
 
         if False:
             self.plot_stim(trial_info)
@@ -457,4 +457,11 @@ class Stimulus:
 
 if __name__ == '__main__':
     s = Stimulus()
-    s.generate_trial('sequence', var_delay=True)
+    trial_info = s.generate_trial('RF_detection', var_delay=True)
+
+    fig, ax = plt.subplots(3)
+    ax[0].imshow(np.sum(trial_info['neural_input'],axis=1).T, aspect='auto')#, clim=[0,4])
+    ax[1].imshow(np.sum(trial_info['desired_output'], axis=1).T, aspect='auto')#, clim=[0,4])
+    ax[2].imshow(np.sum(trial_info['train_mask'], axis=1)[:,np.newaxis].T, aspect='auto')#, clim=[0,4])
+
+    plt.show()
