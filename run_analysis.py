@@ -4,7 +4,7 @@ import time
 from analysis import *
 
 savedir = './savedir/'
-file = 'RF_cue_sequence_cue_p4_100_neuron_high_lr_v0_acc80.pkl'
+file = 'RF_cue_sequence_cue_p4_100_neuron_high_lr_v0_acc98.pkl'
 
 print('Analyzing network {}...'.format(file))
 save_fn = savedir + 'new/analysis_' + file
