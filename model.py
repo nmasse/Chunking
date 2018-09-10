@@ -62,21 +62,28 @@ class Model:
             self.var_dict['W_in']  = tf.get_variable('W_in', initializer=par['w_in0'])
             self.var_dict['W_rnn'] = tf.get_variable('W_rnn', initializer=par['w_rnn0'])
             self.var_dict['b_rnn'] = tf.get_variable('b_rnn', initializer=par['b_rnn0'])
+            self.var_dict['b_rnn_dend_in']   = tf.get_variable('b_rnn_dend_in', initializer=par['b_rnn_dend_in0'])
+            self.var_dict['b_rnn_dend_gate'] = tf.get_variable('b_rnn_dend_gate', initializer=par['b_rnn_dend_gate0'])
 
         with tf.variable_scope('out'):
             self.var_dict['W_out'] = tf.get_variable('W_out', initializer=par['w_out0'])
             self.var_dict['b_out'] = tf.get_variable('b_out', initializer=par['b_out0'])
 
-        self.W_rnn_eff = (tf.constant(par['EI_matrix']) @ tf.nn.relu(self.var_dict['W_rnn'])) \
+        self.W_rnn_eff = tf.tensordot(tf.constant(par['EI_matrix']), tf.nn.relu(self.var_dict['W_rnn']), [[1],[0]]) \
             if par['EI'] else self.var_dict['W_rnn']
 
+        self.W_in_eff = tf.nn.relu(self.var_dict['W_in'])
+
+        self.W_exc  = tf.constant(par['excitatory_mask']) * self.W_rnn_eff[:,:par['n_dendrites'],:]
+        self.W_gate = tf.constant(par['gating_mask']) * self.W_rnn_eff[:,:par['n_dendrites'],:]
+        self.W_inh  = tf.constant(par['inhibitory_mask']) * self.W_rnn_eff[:,-1,:]
+
         # Analysis-based variable manipulation commands
-        self.lesion = self.var_dict['W_rnn'][:,self.lesioned_neuron].assign(tf.zeros_like(self.var_dict['W_rnn'][:,self.lesioned_neuron]))
-        self.cutting = self.var_dict['W_rnn'][self.cut_weight_i, self.cut_weight_j].assign(0.)
+        self.lesion = self.var_dict['W_rnn'][:,:,self.lesioned_neuron].assign(tf.zeros_like(self.var_dict['W_rnn'][:,:,self.lesioned_neuron]))
+        self.cutting = self.var_dict['W_rnn'][self.cut_weight_i, :, self.cut_weight_j].assign(0.)
         self.load_h_init = self.var_dict['h_init'].assign(self.h_init_replace)
         self.load_syn_x_init = self.var_dict['syn_x_init'].assign(self.syn_x_init_replace)
         self.load_syn_u_init = self.var_dict['syn_u_init'].assign(self.syn_u_init_replace)
-
 
 
     def rnn_cell_loop(self):
@@ -124,9 +131,20 @@ class Model:
         else:
             h_post = h
 
+        # Calculate dendritic input from excitatory and stimulus connections
+        dendrite_in = tf.tensordot(rnn_input, self.W_in_eff, [[1],[0]]) \
+                    + tf.tensordot(h, self.W_exc, [[1],[0]]) \
+                    + self.var_dict['b_rnn_dend_in']
+
+        # Calculate dendritic gating signal from inhibitory connections
+        dendrite_gate = tf.nn.sigmoid(tf.tensordot(h, self.W_gate, [[1],[0]]) + self.var_dict['b_rnn_dend_gate'])
+
+        #  Calculate neural inhibitory signal
+        inhibitory_signal = h @ self.W_inh
+
         # Calculate new hidden state
         h = tf.nn.relu((1-par['alpha_neuron'])*h + par['alpha_neuron'] \
-            * (rnn_input @ self.var_dict['W_in'] + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
+            * (tf.reduce_mean(dendrite_in*dendrite_gate, axis=1) + inhibitory_signal + self.var_dict['b_rnn']) \
             + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
 
         return h, syn_x, syn_u

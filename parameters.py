@@ -31,13 +31,14 @@ par = {
     'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
     'var_num_pulses'        : True,
     'all_RF'                : True,
-    'num_pulses'            : 6,
+    'num_pulses'            : 3,
     'pulse_prob'            : 0.8,
 
     # Network shape
     'num_motion_tuned'      : 24,
     'num_fix_tuned'         : 2,
-    'num_RFs'               : 4,
+    'num_RFs'               : 3,
+    'n_dendrites'           : 5,
     'n_hidden'              : 100,
     'output_type'           : 'one_hot',
 
@@ -217,31 +218,39 @@ def update_dependencies():
 
     par['h_init'] = 0.1*np.ones((par['batch_train_size'], par['n_hidden']), dtype=np.float32)
 
-    par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
-    par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
-
-
     # Initialize input weights
-    par['w_in0'] = initialize([par['n_input'], par['n_hidden']])
+    par['w_in0'] = initialize([par['n_input'], par['n_dendrites'], par['n_hidden']])
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
     #   zeroes on the diagonal
     # If not, initializes with a diagonal matrix
     if par['EI']:
-        par['w_rnn0'] = initialize([par['n_hidden'], par['n_hidden']])
+        par['w_rnn0'] = initialize([par['n_hidden'], par['n_dendrites']+1, par['n_hidden']])
 
         if par['balance_EI']:
-            par['w_rnn0'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], shape=1., scale=1.)
+            par['w_rnn0'][:, :, par['ind_inh']] = initialize([par['n_hidden'], par['n_dendrites']+1, par['num_inh_units']], shape=1., scale=1.)
 
         for i in range(par['n_hidden']):
-            par['w_rnn0'][i,i] = 0
-        par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])
-    else:
-        par['w_rnn0'] = 0.54*np.eye(par['n_hidden'])
-        par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32)
+            par['w_rnn0'][i,:,i] = 0
 
-    par['b_rnn0'] = np.zeros((1, par['n_hidden']), dtype=np.float32)
+        par['excitatory_mask'] = np.zeros([par['n_hidden'],par['n_dendrites'],par['n_hidden']], dtype=np.float32)
+        par['excitatory_mask'][:par['num_exc_units'],:] = 1
+
+        par['gating_mask'] = np.zeros([par['n_hidden'],par['n_dendrites'],par['n_hidden']], dtype=np.float32)
+        par['gating_mask'][par['num_exc_units']:par['num_exc_units']+par['num_inh_units']//2,:,:] = 1
+
+        par['inhibitory_mask'] = np.zeros([par['n_hidden'],par['n_hidden']], dtype=np.float32)
+        par['inhibitory_mask'][-par['num_inh_units']//2:,:] = 1
+
+        par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_dendrites']+1, par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])[:,np.newaxis,:]
+    else:
+        par['w_rnn0'] = 0.54 * np.eye(par['n_hidden'])[:,np.newaxis,:] * np.ones([1,par['n_dendrites']+1,1])
+        par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_dendrites']+1, par['n_hidden']), dtype=np.float32)
+
+    par['b_rnn0']           = np.zeros((1, par['n_hidden']), dtype=np.float32)
+    par['b_rnn_dend_in0']   = np.zeros((1, par['n_dendrites'], par['n_hidden']), dtype=np.float32)
+    par['b_rnn_dend_gate0'] = np.zeros((1, par['n_dendrites'], par['n_hidden']), dtype=np.float32)
 
     # Effective synaptic weights are stronger when no short-term synaptic plasticity
     # is used, so the strength of the recurrent weights is reduced to compensate
