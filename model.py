@@ -126,7 +126,7 @@ class Model:
 
         # Calculate new hidden state
         h = tf.nn.relu((1-par['alpha_neuron'])*h + par['alpha_neuron'] \
-            * (rnn_input @ self.var_dict['W_in'] + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
+            * (rnn_input @ tf.nn.relu(self.var_dict['W_in']) + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
             + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
 
         return h, syn_x, syn_u
@@ -232,7 +232,9 @@ def main(gpu_id=None):
         # Begin training loop
         print('\nStarting training...\n')
         acc_count = int(0)
-        accuracy_threshold = np.array([0.0, 0.6, 0.7, 0.8, 0.9, 0.95])
+        accuracy_threshold = \
+            np.array([0.0, 0.6, 0.7, 0.8, 0.9, 0.95, 0.96, \
+                      0.97, 0.98, 0.99, 0.995, 0.999])
         save_fn = par['save_dir'] + par['save_fn']
         save_fn_ind = save_fn[1:].find('.') - 1
 
