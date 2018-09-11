@@ -239,7 +239,7 @@ def update_dependencies():
         print('Mask details:')
         par['excitatory_mask'] = np.zeros([par['n_hidden'],par['n_dendrites'],par['n_hidden']], dtype=np.float32)
         par['excitatory_mask'][:par['num_exc_units'],:] = 1
-        print('  Excitatory -> Excitatory')
+        print('  Excitatory -> All dendrites')
 
         par['gating_mask'] = np.zeros([par['n_hidden'],par['n_dendrites'],par['n_hidden']], dtype=np.float32)
         #par['gating_mask'][par['num_exc_units']:par['num_exc_units']+par['num_inh_units']//2,:,:] = 1

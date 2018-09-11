@@ -45,6 +45,9 @@ class Model:
         # Declare all Tensorflow variables
         self.declare_variables()
 
+        print('Input weights not relu\'d.')
+        print('Relu\'d input dendrites.')
+
         # Build the Tensorflow graph
         self.rnn_cell_loop()
 
@@ -80,7 +83,6 @@ class Model:
         self.W_rnn_eff = tf.tensordot(tf.constant(par['EI_matrix']), tf.nn.relu(self.var_dict['W_rnn']), [[1],[0]]) \
             if par['EI'] else self.var_dict['W_rnn']
 
-        print('Input weights not relu\'d.')
         self.W_in_eff = self.var_dict['W_in'] #tf.nn.relu(self.var_dict['W_in'])
 
         self.W_exc  = tf.constant(par['excitatory_mask']) * self.W_rnn_eff[:,:par['n_dendrites'],:]
@@ -157,9 +159,9 @@ class Model:
             W_exc = self.W_exc[tf.newaxis,...]*tf.ones([par['batch_train_size'],1,1,1])
 
         # Calculate dendritic input from excitatory and stimulus connections
-        dendrite_in = tf.tensordot(rnn_input, self.W_in_eff, [[1],[0]]) \
+        dendrite_in = tf.nn.relu(tf.tensordot(rnn_input, self.W_in_eff, [[1],[0]]) \
                     + tf.einsum('bi,bidj->bdj', h_pre, W_exc) \
-                    + self.var_dict['b_rnn_dend_in']
+                    + self.var_dict['b_rnn_dend_in'])
 
         # Calculate dendritic gating signal from inhibitory connections
         dendrite_gate = tf.nn.sigmoid(tf.tensordot(h_pre, self.W_gate, [[1],[0]]) + self.var_dict['b_rnn_dend_gate'])
@@ -316,20 +318,20 @@ def main(gpu_id=None):
                 print_results(i, par['trial_type'], perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy)
 
                 dend_in, dend_gate, hidden = sess.run([model.dend_in_hist, model.dend_gate_hist, model.hidden_hist], feed_dict=feed_dict)
+                dend_in = np.stack(dend_in, axis=0)
+                dend_gate = np.stack(dend_gate, axis=0)
+                hidden = np.stack(hidden, axis=0)
 
                 for b in range(3):
-                    dend_in = np.stack(dend_in, axis=0)[:,b,:,:]
-                    dend_gate = np.stack(dend_gate, axis=0)[:,b,:,:]
-                    hidden = np.stack(hidden, axis=0)[:,b,:]
 
                     fig, ax = plt.subplots(3,3, figsize=(8,6))
-                    p0 = ax[0,0].imshow(dend_in[:,0,:], aspect='auto')
-                    p1 = ax[0,1].imshow(dend_gate[:,0,:], aspect='auto')
-                    p0 = ax[1,0].imshow(dend_in[:,1,:], aspect='auto')
-                    p1 = ax[1,1].imshow(dend_gate[:,1,:], aspect='auto')
-                    p0 = ax[2,0].imshow(dend_in[:,2,:], aspect='auto')
-                    p1 = ax[2,1].imshow(dend_gate[:,2,:], aspect='auto')
-                    p2 = ax[0,2].imshow(hidden, aspect='auto')
+                    p0 = ax[0,0].imshow(dend_in[:,b,0,:], aspect='auto')
+                    p1 = ax[0,1].imshow(dend_gate[:,b,0,:], aspect='auto')
+                    p0 = ax[1,0].imshow(dend_in[:,b,1,:], aspect='auto')
+                    p1 = ax[1,1].imshow(dend_gate[:,b,1,:], aspect='auto')
+                    p0 = ax[2,0].imshow(dend_in[:,b,2,:], aspect='auto')
+                    p1 = ax[2,1].imshow(dend_gate[:,b,2,:], aspect='auto')
+                    p2 = ax[0,2].imshow(hidden[:,b,:], aspect='auto')
 
                     ax[0,0].set_title('dend_in 0')
                     ax[0,1].set_title('dend_gate 0')
