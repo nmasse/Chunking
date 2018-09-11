@@ -12,6 +12,7 @@ import stimulus
 import copy
 import matplotlib.pyplot as plt
 from itertools import product
+import historian
 
 if len(sys.argv) > 1:
     GPU_ID = sys.argv[1]
@@ -81,10 +82,17 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     sess, model, x, y, m, *_ = load_tensorflow_model()
 
     stim = stimulus.Stimulus()
+    code_state_tested = False
 
     # Generate a batch of stimulus for training
     for task in par['trial_type']:
         results[task] = {}
+
+        # Check to make sure that code is unchanged since originally ran model
+        if not code_state_tested and 'code_state' in results[task].keys():
+            print('Checking if code has changed since original run...')
+            historian.diff_state_and_current(results[task]['code_state'])
+            code_state_tested = True
 
         print('\n' + '-'*60 + '\nTask: {}\n'.format(task) + '-'*60)
 

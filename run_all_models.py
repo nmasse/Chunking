@@ -3,16 +3,19 @@ from parameters import *
 import model
 import sys
 import pickle
+import historian
+
+code_state = historian.record_code_state()
 
 def try_model():
 
     try:
         if len(sys.argv) > 1:
             print('Running on GPU {}.'.format(sys.argv[1]))
-            model.main(sys.argv[1])
+            model.main(gpu_id=sys.argv[1], code_state=code_state)
         else:
             print('Running on CPU.')
-            model.main()
+            model.main(code_state=code_state)
 
     except KeyboardInterrupt:
         quit('Quit by KeyboardInterrupt')

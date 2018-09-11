@@ -11,6 +11,7 @@ from parameters import *
 import stimulus
 import AdamOpt
 import analysis
+import historian
 
 # Match GPU IDs to nvidia-smi command
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -200,7 +201,7 @@ def shuffle_trials(stim):
     par['batch_train_size'] = train_size
     return trial_info
 
-def main(gpu_id=None):
+def main(gpu_id=None, code_state=historian.record_code_state()):
     """ Run supervised learning training """
 
     # Isolate requested GPU
@@ -282,7 +283,8 @@ def main(gpu_id=None):
                 results = {
                     'model_performance': model_performance,
                     'parameters': par,
-                    'weights': weights}
+                    'weights': weights,
+                    'code_state': code_state}
                 acc_str = str(int(accuracy_threshold[acc_count]*100))
                 sf = save_fn[:-4] + '_acc' + acc_str + save_fn[-4:]
                 print(sf)
