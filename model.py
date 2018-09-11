@@ -174,7 +174,7 @@ class Model:
 
         # Calculate new hidden state
         h_post = tf.nn.relu((1-par['alpha_neuron'])*h + par['alpha_neuron'] \
-               * (tf.reduce_mean(dendrite_in*dendrite_gate, axis=1) + inhibitory_signal + self.var_dict['b_rnn']) \
+               * (tf.reduce_sum(dendrite_in*dendrite_gate, axis=1) + inhibitory_signal + self.var_dict['b_rnn']) \
                + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
 
         # Calculate the next Hebbian weights
