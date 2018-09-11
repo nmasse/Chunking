@@ -317,21 +317,25 @@ def main(gpu_id=None):
             if i%par['iters_between_outputs'] == 0: #in list(range(len(par['trial_type']))):
                 print_results(i, par['trial_type'], perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy)
 
-                dend_in, dend_gate, hidden = sess.run([model.dend_in_hist, model.dend_gate_hist, model.hidden_hist], feed_dict=feed_dict)
-                dend_in = np.stack(dend_in, axis=0)
-                dend_gate = np.stack(dend_gate, axis=0)
-                hidden = np.stack(hidden, axis=0)
 
-                for b in range(3):
+
+                for task in par['trial_type']:
+                    trial_info = stim.generate_trial(task, var_delay=False, var_num_pulses=False)
+                    feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}
+
+                    dend_in, dend_gate, hidden = sess.run([model.dend_in_hist, model.dend_gate_hist, model.hidden_hist], feed_dict=feed_dict)
+                    dend_in = np.mean(np.stack(dend_in, axis=0), axis=1)
+                    dend_gate = np.mean(np.stack(dend_gate, axis=0), axis=1)
+                    hidden = np.mean(np.stack(hidden, axis=0), axis=1)
 
                     fig, ax = plt.subplots(3,3, figsize=(8,6))
-                    p0 = ax[0,0].imshow(dend_in[:,b,0,:], aspect='auto')
-                    p1 = ax[0,1].imshow(dend_gate[:,b,0,:], aspect='auto')
-                    p0 = ax[1,0].imshow(dend_in[:,b,1,:], aspect='auto')
-                    p1 = ax[1,1].imshow(dend_gate[:,b,1,:], aspect='auto')
-                    p0 = ax[2,0].imshow(dend_in[:,b,2,:], aspect='auto')
-                    p1 = ax[2,1].imshow(dend_gate[:,b,2,:], aspect='auto')
-                    p2 = ax[0,2].imshow(hidden[:,b,:], aspect='auto')
+                    p0 = ax[0,0].imshow(dend_in[:,0,:], aspect='auto')
+                    p1 = ax[0,1].imshow(dend_gate[:,0,:], aspect='auto')
+                    p0 = ax[1,0].imshow(dend_in[:,1,:], aspect='auto')
+                    p1 = ax[1,1].imshow(dend_gate[:,1,:], aspect='auto')
+                    p0 = ax[2,0].imshow(dend_in[:,2,:], aspect='auto')
+                    p1 = ax[2,1].imshow(dend_gate[:,2,:], aspect='auto')
+                    p2 = ax[0,2].imshow(hidden, aspect='auto')
 
                     ax[0,0].set_title('dend_in 0')
                     ax[0,1].set_title('dend_gate 0')
@@ -350,7 +354,7 @@ def main(gpu_id=None):
                     fig.colorbar(p2,ax=ax[0,2])
 
                     plt.suptitle('Iter {}, Trial {}'.format(i, b))
-                    plt.savefig('./plots/dend_state_iter{}_trial{}.png'.format(i,b))
+                    plt.savefig('./plots/dend_state_iter{}_{}.png'.format(i,task))
                     plt.clf()
                     plt.close()
 
