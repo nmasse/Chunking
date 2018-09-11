@@ -45,7 +45,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 20,
-    'learning_rate'         : 4e-3,
+    'learning_rate'         : 1e-3,
     'membrane_time_constant': 100,
     'hebbian_time_constant' : 1000,
 
@@ -71,7 +71,7 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 1024,
+    'batch_train_size'      : 256,
     'num_iterations'        : 10000000,
     'iters_between_outputs' : 50,
 
@@ -236,14 +236,20 @@ def update_dependencies():
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,:,i] = 0
 
+        print('Mask details:')
         par['excitatory_mask'] = np.zeros([par['n_hidden'],par['n_dendrites'],par['n_hidden']], dtype=np.float32)
         par['excitatory_mask'][:par['num_exc_units'],:] = 1
+        print('  Excitatory -> Excitatory')
 
         par['gating_mask'] = np.zeros([par['n_hidden'],par['n_dendrites'],par['n_hidden']], dtype=np.float32)
-        par['gating_mask'][par['num_exc_units']:par['num_exc_units']+par['num_inh_units']//2,:,:] = 1
+        #par['gating_mask'][par['num_exc_units']:par['num_exc_units']+par['num_inh_units']//2,:,:] = 1
+        par['gating_mask'][par['num_exc_units']:,:,:] = 1
+        print('  Inhibitory -> All dendrites')
 
         par['inhibitory_mask'] = np.zeros([par['n_hidden'],par['n_hidden']], dtype=np.float32)
-        par['inhibitory_mask'][-par['num_inh_units']//2:,:] = 1
+        #par['inhibitory_mask'][-par['num_inh_units']//2:,:] = 1
+        par['inhibitory_mask'][-par['num_inh_units']:,:] = 1
+        print('  Inhibitory -> All neurons')
 
         par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_dendrites']+1, par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])[:,np.newaxis,:]
     else:

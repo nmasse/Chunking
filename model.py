@@ -1,5 +1,9 @@
 ### Authors:  Nick, Greg, Catherine, Sylvia
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 # Required packages
 import tensorflow as tf
 import numpy as np
@@ -76,7 +80,8 @@ class Model:
         self.W_rnn_eff = tf.tensordot(tf.constant(par['EI_matrix']), tf.nn.relu(self.var_dict['W_rnn']), [[1],[0]]) \
             if par['EI'] else self.var_dict['W_rnn']
 
-        self.W_in_eff = tf.nn.relu(self.var_dict['W_in'])
+        print('Input weights not relu\'d.')
+        self.W_in_eff = self.var_dict['W_in'] #tf.nn.relu(self.var_dict['W_in'])
 
         self.W_exc  = tf.constant(par['excitatory_mask']) * self.W_rnn_eff[:,:par['n_dendrites'],:]
         self.W_gate = tf.constant(par['gating_mask']) * self.W_rnn_eff[:,:par['n_dendrites'],:]
@@ -110,6 +115,9 @@ class Model:
         syn_x = self.var_dict['syn_x_init']
         syn_u = self.var_dict['syn_u_init']
         W_hebb = self.var_dict['W_hebb_init'] if par['use_hebbian_trace'] else 0.
+
+        self.dend_in_hist = []
+        self.dend_gate_hist = []
 
         # Loop through the neural inputs, indexed in time
         for rnn_input in self.input_data:
@@ -155,6 +163,9 @@ class Model:
 
         # Calculate dendritic gating signal from inhibitory connections
         dendrite_gate = tf.nn.sigmoid(tf.tensordot(h_pre, self.W_gate, [[1],[0]]) + self.var_dict['b_rnn_dend_gate'])
+
+        self.dend_in_hist.append(dendrite_in)
+        self.dend_gate_hist.append(dendrite_gate)
 
         #  Calculate neural inhibitory signal
         inhibitory_signal = h_pre @ self.W_inh
@@ -304,6 +315,43 @@ def main(gpu_id=None):
             if i%par['iters_between_outputs'] == 0: #in list(range(len(par['trial_type']))):
                 print_results(i, par['trial_type'], perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy)
 
+                dend_in, dend_gate, hidden = sess.run([model.dend_in_hist, model.dend_gate_hist, model.hidden_hist], feed_dict=feed_dict)
+
+                for b in range(3):
+                    dend_in = np.stack(dend_in, axis=0)[:,b,:,:]
+                    dend_gate = np.stack(dend_gate, axis=0)[:,b,:,:]
+                    hidden = np.stack(hidden, axis=0)[:,b,:]
+
+                    fig, ax = plt.subplots(3,3, figsize=(8,6))
+                    p0 = ax[0,0].imshow(dend_in[:,0,:], aspect='auto')
+                    p1 = ax[0,1].imshow(dend_gate[:,0,:], aspect='auto')
+                    p0 = ax[1,0].imshow(dend_in[:,1,:], aspect='auto')
+                    p1 = ax[1,1].imshow(dend_gate[:,1,:], aspect='auto')
+                    p0 = ax[2,0].imshow(dend_in[:,2,:], aspect='auto')
+                    p1 = ax[2,1].imshow(dend_gate[:,2,:], aspect='auto')
+                    p2 = ax[0,2].imshow(hidden, aspect='auto')
+
+                    ax[0,0].set_title('dend_in 0')
+                    ax[0,1].set_title('dend_gate 0')
+                    ax[1,0].set_title('dend_in 1')
+                    ax[1,1].set_title('dend_gate 1')
+                    ax[2,0].set_title('dend_in 2')
+                    ax[2,1].set_title('dend_gate 2')
+                    ax[0,2].set_title('hidden')
+
+                    fig.colorbar(p0,ax=ax[0,0])
+                    fig.colorbar(p1,ax=ax[0,1])
+                    fig.colorbar(p0,ax=ax[1,0])
+                    fig.colorbar(p1,ax=ax[1,1])
+                    fig.colorbar(p0,ax=ax[2,0])
+                    fig.colorbar(p1,ax=ax[2,1])
+                    fig.colorbar(p2,ax=ax[0,2])
+
+                    plt.suptitle('Iter {}, Trial {}'.format(i, b))
+                    plt.savefig('./plots/dend_state_iter{}_trial{}.png'.format(i,b))
+                    plt.clf()
+                    plt.close()
+
             # if i%200 in list(range(len(par['trial_type']))):
             #     weights = sess.run(model.var_dict)
             #     results = {
@@ -314,7 +362,7 @@ def main(gpu_id=None):
             #     if i>=5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
             #         break
 
-            if i>5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
+            if False and i>5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
 
                 print('SAVING')
 

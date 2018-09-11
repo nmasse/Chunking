@@ -43,7 +43,7 @@ quit()
 
 #trial_types = [['sequence', 'sequence_cue', 'RF_detection', 'RF_cue']]
 trial_types = [['RF_cue','sequence_cue']]
-num_pulses = [4]
+num_pulses = [2]
 all_RFs = [False]
 
 for pulse in num_pulses:
@@ -62,6 +62,7 @@ for pulse in num_pulses:
                 'all_RF'        : all_RF,
                 'n_hidden'      : 100,
                 'var_num_pulses': True,
+                'use_hebbian_trace' : False
             }
 
             update_parameters(updates)
