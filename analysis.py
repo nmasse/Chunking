@@ -103,7 +103,8 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
         syn_u = np.stack(syn_u, axis=0)
         trial_time = np.arange(0,h.shape[0]*par['dt'], par['dt'])
 
-        results[task]['mean_h'] = np.mean(h,axis=1)
+        results[task]['mean_h'] = np.mean(h, axis=1)
+        results[task]['var_h'] = np.var(h, axis=1)
         accuracy, pulse_accuracy = get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
 
         print('Accuracy:'.ljust(20), accuracy)
