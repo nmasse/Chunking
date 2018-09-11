@@ -328,7 +328,7 @@ def main(gpu_id=None):
                     dend_gate = np.mean(np.stack(dend_gate, axis=0), axis=1)
                     hidden = np.mean(np.stack(hidden, axis=0), axis=1)
 
-                    fig, ax = plt.subplots(3,3, figsize=(8,6))
+                    fig, ax = plt.subplots(3,3, figsize=(10,8))
                     p0 = ax[0,0].imshow(dend_in[:,0,:], aspect='auto')
                     p1 = ax[0,1].imshow(dend_gate[:,0,:], aspect='auto')
                     p0 = ax[1,0].imshow(dend_in[:,1,:], aspect='auto')
@@ -353,7 +353,7 @@ def main(gpu_id=None):
                     fig.colorbar(p1,ax=ax[2,1])
                     fig.colorbar(p2,ax=ax[0,2])
 
-                    plt.suptitle('Iter {}, Trial {}'.format(i, b))
+                    plt.suptitle('Iter {}, {}'.format(i, task))
                     plt.savefig('./plots/dend_state_iter{}_{}.png'.format(i,task))
                     plt.clf()
                     plt.close()
