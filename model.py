@@ -127,7 +127,7 @@ class Model:
 
         # Calculate new hidden state
         h = tf.nn.relu((1-par['alpha_neuron'])*h + par['alpha_neuron'] \
-            * (rnn_input @ tf.nn.relu(self.var_dict['W_in']) + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
+            * (rnn_input @ self.var_dict['W_in'] + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
             + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
 
         return h, syn_x, syn_u

@@ -152,11 +152,10 @@ def selective_task_currents(num_top_neurons=5):
         pev = x['synaptic_pev']
         end_of_task = np.where(trial_info[task]['train_mask'][:,0]==1.)[0][-1]
 
-        fig, ax = plt.subplots(1,4)
         for p in range(par['num_pulses']):
 
             mean_pev = np.mean(pev[:,p,:end_of_task+1], axis=-1)
-            greatest_neurons = np.argsort(mean_pev)[-(num_top_neurons+1):][::-1]
+            greatest_neurons = np.argsort(mean_pev)[-(num_top_neurons):][::-1]
 
             fig, ax = plt.subplots(2,1,figsize=(8,7))
 
@@ -189,13 +188,123 @@ def selective_task_currents(num_top_neurons=5):
             plt.close()
 
 
+def hidden_state_deviation():
+
+    for task in par['trial_type']:
+        x = data[task]
+        fig, ax = plt.subplots(1, figsize=(8,6))
+        im = ax.imshow(x['std_h'].T, aspect='auto')
+        fig.colorbar(im, ax=ax)
+        ax.set_title('Standard deviation (across trials) for {}'.format(task))
+        plt.savefig('./plots/{}/{}_variance.png'.format(foldername, task))
+        plt.clf()
+        plt.close()
+
+
+def selective_hidden_state_deviation(num_top_neurons=5):
+
+    for task in par['trial_type']:
+        x = data[task]
+        pev = x['synaptic_pev']
+        end_of_task = np.where(trial_info[task]['train_mask'][:,0]==1.)[0][-1]
+
+        aspect = 'RF' if 'RF' in task else 'pulse'
+        fig, ax = plt.subplots(2,2,figsize=(8,7))
+        for p in range(par['num_pulses']):
+
+            mean_pev = np.mean(pev[:,p,:end_of_task+1], axis=-1)
+            greatest_neurons = np.argsort(mean_pev)[-(num_top_neurons):][::-1]
+
+            im = ax[p//2,p%2].imshow(x['std_h'][:,greatest_neurons].T, aspect='auto')
+            ax[p//2,p%2].set_yticks(np.arange(len(greatest_neurons)))
+            ax[p//2,p%2].set_yticklabels(greatest_neurons)
+            ax[p//2,p%2].set_title('{} {}'.format(aspect, p))
+            ax[p//2,p%2].set_ylabel('Top Neurons')
+
+            fig.colorbar(im, ax=ax[p//2,p%2])
+
+        plt.suptitle('Standard Deviation for Top {} PEV Neurons for {} task'.format(num_top_neurons, task))
+        plt.savefig('./plots/{}/top_synaptic_PEV_deviations/{}_{}top_deviations.png'.format(foldername, task, num_top_neurons))
+        plt.clf()
+        plt.close()
+
+
+def multi_accuracy_selective_hidden_state_deviation():
+
+    pevs = {}
+    stds = {}
+    for acc in [90, 95, 96, 97, 98]:
+        task_pevs = {}
+        task_stds = {}
+        filename = 'analysis_RF_cue_sequence_cue_p4_100_neuron_high_lr_v0_acc{}.pkl'.format(str(acc))
+        data = pickle.load(open('./savedir/new/'+filename, 'rb'))
+
+        for task in par['trial_type']:
+            task_pevs[task] = data[task]['synaptic_pev']
+            task_stds[task] = data[task]['std_h']
+
+        pevs[acc] = task_pevs
+        stds[acc] = task_stds
+
+    for task in par['trial_type'][::-1]:
+        end_of_delay = np.where(trial_info[task]['desired_output'][:,:,0]==0.)[0][0] - 1
+        fig, ax = plt.subplots(2,2,figsize=(10,7))
+        for p in range(par['num_pulses']):
+
+            target = ax[p//2,p%2]
+
+            assembly = []
+            for acc in [90, 95, 96, 97, 98]:
+
+                greatest_neurons = np.argsort(pevs[acc][task][:,p,end_of_delay])[-5:][::-1]
+                greatest_pevs = pevs[acc][task][greatest_neurons,p,end_of_delay]
+                for n, pe in zip(greatest_neurons, greatest_pevs):
+                    assembly.append((n, pe))
+
+            aggregate = []
+            for a in sorted(assembly, key=lambda x: -x[1]):
+                if a[0] not in aggregate:
+                    aggregate.append(a[0])
+                if len(aggregate) == 5:
+                    break
+
+            for acc in [90, 95, 96, 97, 98]:
+
+                aggregate_pevs = pevs[acc][task][aggregate,p,end_of_delay]
+
+                curve = stds[acc][task][:,aggregate]
+                #curve = stds[acc][task]*pevs[acc][task][np.newaxis,:,p,end_of_delay]**2/np.sum(pevs[acc][task][:,p,end_of_delay]**2)
+
+                target.plot(np.mean(curve, axis=-1), label='Acc={}'.format(acc))
+                target.set_ylabel('Normalized Std. Devs.')
+
+        plt.legend()
+        plt.suptitle('Weighted Mean of Std. Dev. by PEV : {}'.format(task))
+        plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 if __name__ == '__main__':
 
     # Setup
-    filename = 'analysis_RF_cue_sequence_cue_p5_100_neuron_high_lr_v0_acc90.pkl'
+    filename = 'analysis_RF_cue_sequence_cue_p4_100_neuron_high_lr_v0_acc98.pkl'
     foldername = filename[:-4]
 
     os.makedirs('./plots/{}/'.format(foldername), exist_ok=True)
+    os.makedirs('./plots/{}/top_synaptic_PEV_deviations/'.format(foldername), exist_ok=True)
     data = pickle.load(open('./savedir/new/' + filename, 'rb'))
     data['parameters']['load_prev_weights'] = False
     update_parameters(data['parameters'])
@@ -205,12 +314,19 @@ if __name__ == '__main__':
     for t in par['trial_type']:
         trial_info[t] = stim.generate_trial(t, var_delay=False, var_num_pulses=False, all_RF=par['all_RF'])
 
+    #multi_accuracy_selective_hidden_state_deviation()
+    #quit()
+
     # Make plots
     task_currents()
+
+    hidden_state_deviation()
 
     for i in range(6):
         os.makedirs('./plots/{}/top_synaptic_PEV_currents/{}top/'.format(foldername,i+1), exist_ok=True)
         selective_task_currents(num_top_neurons=i+1)
+
+    selective_hidden_state_deviation(num_top_neurons=5)
 
     for t in [0.15, 0.25]:
         task_overlap(threshold=t)

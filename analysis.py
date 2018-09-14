@@ -112,7 +112,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
         trial_time = np.arange(0,h.shape[0]*par['dt'], par['dt'])
 
         results[task]['mean_h'] = np.mean(h, axis=1)
-        results[task]['var_h'] = np.var(h, axis=1)
+        results[task]['std_h'] = np.std(h, axis=1)
         accuracy, pulse_accuracy = get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
 
         print('Accuracy:'.ljust(20), accuracy)
@@ -857,7 +857,7 @@ def calculate_tuning(h, syn_x, syn_u, sample):
             for t in range(num_time_steps):
 
                 # Neuronal sample tuning
-                w = np.linalg.lstsq(sample_dir[:,:,i], h[t,:,n], rcond=None)
+                w = np.linalg.lstsq(sample_dir[:,:,i], h[t,:,n])#, rcond=None)
                 w = w[0][...,np.newaxis]
                 h_hat =  np.dot(sample_dir[:,:,i], w).T
                 pred_err = h[t,:,n] - h_hat
@@ -869,7 +869,7 @@ def calculate_tuning(h, syn_x, syn_u, sample):
                     tuning_results['neuronal_pref_dir'][n,i,t] = np.arctan2(w[2,0],w[1,0])
 
                 # Synaptic sample tuning
-                w = np.linalg.lstsq(sample_dir[:,:,i], syn_efficacy[t,:,n], rcond=None)
+                w = np.linalg.lstsq(sample_dir[:,:,i], syn_efficacy[t,:,n])#, rcond=None)
                 w = w[0][...,np.newaxis]
                 syn_hat = np.dot(sample_dir[:,:,i], w).T
                 pred_err = syn_efficacy[t,:,n] - syn_hat

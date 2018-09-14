@@ -5,14 +5,20 @@ from analysis import *
 
 savedir = './savedir/'
 file = 'RF_cue_sequence_cue_p4_100_neuron_high_lr_v0_acc98.pkl'
+base = 'RF_cue_sequence_cue_p4_100_neuron_high_lr_v0_acc'
+addition = ['90.pkl', '95.pkl', '96.pkl', '97.pkl', '98.pkl']
 
-print('Analyzing network {}...'.format(file))
-save_fn = savedir + 'new/analysis_' + file
 
-try:
-    analyze_model_from_file(savedir+file, savefile=save_fn)
-except KeyboardInterrupt:
-    quit('Quit by KeyboardInterrupt')
+for a in addition:
+
+    file = base + a
+    print('Analyzing network {}...'.format(file))
+    save_fn = savedir + 'new/analysis_' + file
+
+    try:
+        analyze_model_from_file(savedir+file, savefile=save_fn)
+    except KeyboardInterrupt:
+        quit('Quit by KeyboardInterrupt')
 
 
 """
