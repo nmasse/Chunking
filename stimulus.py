@@ -11,16 +11,16 @@ class Stimulus:
         self.create_tuning_functions()
 
 
-    def generate_trial(self, task, var_delay=False, var_num_pulses=False, all_RF=False, test_mode = False):
+    def generate_trial(self, task, selection_id=None, var_delay=False, var_num_pulses=False, all_RF=False, test_mode=False):
 
         if task == "sequence":
             trial_info = self.generate_sequence_trial(var_delay, var_num_pulses, all_RF)
         elif task == "sequence_cue":
-            trial_info = self.generate_sequence_cue_trial(var_delay, var_num_pulses)
+            trial_info = self.generate_sequence_cue_trial(var_delay, var_num_pulses, selection_id=selection_id)
         elif task == "RF_detection":
             trial_info = self.generate_RF_detection_trial(var_delay)
         elif task == "RF_cue":
-            trial_info = self.generate_RF_cue_trial(var_delay)
+            trial_info = self.generate_RF_cue_trial(var_delay, selection_id=selection_id)
         else:
             trial_info = None
 
@@ -111,7 +111,7 @@ class Stimulus:
         return trial_info
 
 
-    def generate_sequence_cue_trial(self, var_delay=False, var_num_pulses=False, all_RF=False, test_mode=False):
+    def generate_sequence_cue_trial(self, var_delay=False, var_num_pulses=False, all_RF=False, test_mode=False, selection_id=None):
         trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
                       'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
                       'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
@@ -174,7 +174,11 @@ class Stimulus:
                 pulse_list.append(trial_info['sample'][t,i])
 
 
-            trial_info['test'][t] = np.random.choice(np.arange(len(pulse_list)))
+            target = np.random.choice(np.arange(len(pulse_list)))
+            if selection_id is not None:
+                target = selection_id
+
+            trial_info['test'][t] = target
             trial_info['pulse_id'][resp_times[0],t] = trial_info['test'][t]
 
             # response properties
@@ -276,7 +280,7 @@ class Stimulus:
         return trial_info
 
 
-    def generate_RF_cue_trial(self, var_delay=True):
+    def generate_RF_cue_trial(self, var_delay=True, selection_id=None):
 
         trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
                       'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
@@ -299,6 +303,8 @@ class Stimulus:
 
         directions = np.random.choice(par['num_motion_dirs'], size=[par['batch_train_size'], par['num_RFs']])
         targets = np.random.choice(par['num_RFs'], size=[par['batch_train_size']])
+        if selection_id is not None:
+            targets = selection_id*np.ones_like(targets)
 
         trial_info['sample'] = directions   # Direction in each RF
         trial_info['test']   = targets      # RF to be cued/recalled
@@ -457,4 +463,6 @@ class Stimulus:
 
 if __name__ == '__main__':
     s = Stimulus()
-    s.generate_trial('sequence', var_delay=True)
+    for i in range(par['num_pulses']):
+        s.generate_trial('sequence_cue', selection_id=i, var_delay=True)
+    s.generate_trial('sequence_cue', selection_id=None, var_delay=True)

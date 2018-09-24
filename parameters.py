@@ -43,7 +43,7 @@ par = {
 
     # Timings and rates
     'dt'                    : 20,
-    'learning_rate'         : 4e-3,
+    'learning_rate'         : 2e-4,
     'membrane_time_constant': 100,
 
     # Variance values
@@ -68,7 +68,9 @@ par = {
     'U_std'                 : 0.45,
 
     # Training specs
-    'batch_train_size'      : 1024,
+    'k_steps'               : 5,
+    'batch_train_size'      : 16,
+    'num_test_batches'      : 64,
     'num_iterations'        : 10000000,
     'iters_between_outputs' : 50,
 

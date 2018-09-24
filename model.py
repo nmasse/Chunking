@@ -241,28 +241,63 @@ def main(gpu_id=None, code_state=historian.record_code_state()):
 
         for i in range(par['num_iterations']):
 
+            t = np.random.choice(par['trial_type'])
+            selection_id = np.random.choice(par['num_pulses'])
+
             # Generate a batch of stimulus for training
-            trial_info = shuffle_trials(stim)
+            for k in range(par['k_steps']):
+                trial_info = stim.generate_trial(t, selection_id=selection_id, \
+                    var_delay=par['var_delay'], var_num_pulses=par['var_num_pulses'], \
+                    all_RF=par['all_RF'], test_mode=False)
 
-            # Put together the feed dictionary
-            feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}
+                # Put together the feed dictionary
+                feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}
 
-            # Run the model
-            _, loss, perf_loss, spike_loss, y_hat, state_hist, syn_x_hist, syn_u_hist = \
-                sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, \
-                model.hidden_hist, model.syn_x_hist, model.syn_u_hist], feed_dict=feed_dict)
-
-            # Calculate accuracy from the model's output
-            if par['output_type'] == 'directional':
-                accuracy, pulse_accuracy = analysis.get_coord_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
-            elif par['output_type'] == 'one_hot':
-                accuracy, pulse_accuracy = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
-
-            # Record the model's performance
-            model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*par['batch_train_size'])
+                # Run the model
+                sess.run(model.train_op, feed_dict=feed_dict)
 
             # Save and show the model's performance
             if i%par['iters_between_outputs'] == 0: #in list(range(len(par['trial_type']))):
+
+                perf_losses = []
+                spike_losses = []
+                state_hists = []
+                accuracies = []
+                pulse_accuracies = []
+                for k in range(par['num_test_batches']):
+
+                    # Get a batch of random data
+                    trial_info = shuffle_trials(stim)
+
+                    # Put together the feed dictionary
+                    feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}
+
+                    # Run the model
+                    _, loss, perf_loss, spike_loss, y_hat, state_hist, syn_x_hist, syn_u_hist = \
+                        sess.run([model.train_op, model.loss, model.perf_loss, model.spike_loss, model.y_hat, \
+                        model.hidden_hist, model.syn_x_hist, model.syn_u_hist], feed_dict=feed_dict)
+
+                    # Calculate accuracy from the model's output
+                    if par['output_type'] == 'directional':
+                        accuracy, pulse_accuracy = analysis.get_coord_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
+                    elif par['output_type'] == 'one_hot':
+                        accuracy, pulse_accuracy = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'], trial_info['pulse_id'])
+
+                    perf_losses.append(perf_loss)
+                    spike_losses.append(spike_loss)
+                    state_hists.append(state_hist)
+                    accuracies.append(accuracy)
+                    pulse_accuracies.append(pulse_accuracy)
+
+                perf_loss = np.mean(np.stack(perf_losses))
+                spike_losses = np.mean(np.stack(spike_losses))
+                state_hists = np.mean(np.stack(state_hists))
+                accuracy = np.mean(np.stack(accuracies))
+                pulse_accuracy = np.mean(np.stack(pulse_accuracies, axis=0), axis=0)
+
+                # Record the model's performance
+                model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*par['batch_train_size'])
+
                 print_results(i, par['trial_type'], perf_loss, spike_loss, state_hist, accuracy, pulse_accuracy)
 
             # if i%200 in list(range(len(par['trial_type']))):

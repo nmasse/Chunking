@@ -49,7 +49,7 @@ quit()
 
 #trial_types = [['sequence', 'sequence_cue', 'RF_detection', 'RF_cue']]
 trial_types = [['RF_cue','sequence_cue']]
-num_pulses = [5,7]
+num_pulses = [4]
 all_RFs = [False]
 
 for pulse in num_pulses:
@@ -57,7 +57,7 @@ for pulse in num_pulses:
         for all_RF in all_RFs:
 
             print('Training network on {} task(s) with {} pulses (all_RF = {})'.format(trial_type, str(pulse), str(all_RF)))
-            save_fn = '{}_p{}_100_relu_input.pkl'.format('_'.join(trial_type), str(pulse))
+            save_fn = '{}_p{}_100_stutter.pkl'.format('_'.join(trial_type), str(pulse))
             print('Saving in:', save_fn)
 
             updates = {
@@ -67,7 +67,7 @@ for pulse in num_pulses:
                 'trial_type'    : trial_type,
                 'all_RF'        : all_RF,
                 'n_hidden'      : 100,
-                'var_num_pulses': True,
+                'var_num_pulses': False,
             }
 
             update_parameters(updates)
