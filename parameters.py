@@ -24,6 +24,7 @@ par = {
     'connection_prob'       : 0.25,
     'response_multiplier'   : 4,
     'tol'                   : 0.2,
+    'architecture'          : 'BIO',
 
     # Task parameters (non-timing)
     'trial_type'            : ['sequence', 'sequence_cue', 'RF_detection', 'RF_cue'],
@@ -117,11 +118,11 @@ def update_parameters(updates):
 def load_previous_weights():
 
     x = pickle.load(open(par['weight_load_fn'],'rb'))
-    par['w_in0']  = x['weights']['W_in']
-    par['w_rnn0'] = x['weights']['W_rnn']
-    par['w_out0'] = x['weights']['W_out']
-    par['b_rnn0'] = x['weights']['b_rnn']
-    par['b_out0'] = x['weights']['b_out']
+    par['W_in_init']  = x['weights']['W_in']
+    par['W_rnn_init'] = x['weights']['W_rnn']
+    par['W_out_init'] = x['weights']['W_out']
+    par['b_rnn_init'] = x['weights']['b_rnn']
+    par['b_out_init'] = x['weights']['b_out']
     print('Weights from {} loaded.'.format(par['weight_load_fn']))
 
 
@@ -222,42 +223,42 @@ def update_dependencies():
 
 
     # Initialize input weights
-    par['w_in0'] = initialize([par['n_input'], par['n_hidden']])
+    par['W_in_init'] = initialize([par['n_input'], par['n_hidden']])
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
     #   zeroes on the diagonal
     # If not, initializes with a diagonal matrix
     if par['EI']:
-        par['w_rnn0'] = initialize([par['n_hidden'], par['n_hidden']])
+        par['W_rnn_init'] = initialize([par['n_hidden'], par['n_hidden']])
 
         if par['balance_EI']:
-            par['w_rnn0'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], shape=1., scale=1.)
+            par['W_rnn_init'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], shape=1., scale=1.)
 
         for i in range(par['n_hidden']):
-            par['w_rnn0'][i,i] = 0
+            par['W_rnn_init'][i,i] = 0
         par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])
     else:
-        par['w_rnn0'] = 0.54*np.eye(par['n_hidden'])
+        par['W_rnn_init'] = 0.54*np.eye(par['n_hidden'])
         par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32)
 
-    par['b_rnn0'] = np.zeros((1, par['n_hidden']), dtype=np.float32)
+    par['b_rnn_init'] = np.zeros((1, par['n_hidden']), dtype=np.float32)
 
     # Effective synaptic weights are stronger when no short-term synaptic plasticity
     # is used, so the strength of the recurrent weights is reduced to compensate
 
     if par['synapse_config'] == None:
-        par['w_rnn0'] = par['w_rnn0']/(spectral_radius(par['w_rnn0']))
+        par['W_rnn_init'] = par['W_rnn_init']/(spectral_radius(par['W_rnn_init']))
 
 
     # Initialize output weights and biases
-    par['w_out0'] =initialize([par['n_hidden'], par['n_output']])
-    par['b_out0'] = np.zeros((1, par['n_output']), dtype=np.float32)
+    par['W_out_init'] =initialize([par['n_hidden'], par['n_output']])
+    par['b_out_init'] = np.zeros((1, par['n_output']), dtype=np.float32)
     par['w_out_mask'] = np.ones((par['n_hidden'], par['n_output']), dtype=np.float32)
 
     # if par['EI']:
     #     par['ind_inh'] = np.where(par['EI_list'] == -1)[0]
-    #     par['w_out0'][:, par['ind_inh']] = 0
+    #     par['W_out_init'][:, par['ind_inh']] = 0
     #     par['w_out_mask'][:, par['ind_inh']] = 0
 
     """
@@ -311,6 +312,24 @@ def update_dependencies():
     par['alpha_std'] = par['alpha_std'].T
     par['U'] = par['U'].T
 
+
+    if par['architecture'] == 'LSTM':
+        c = 0.01
+        par['Wf_init'] =  np.float32(np.random.uniform(-c, c, size = [par['n_input'], par['n_hidden']]))
+        par['Wi_init'] =  np.float32(np.random.uniform(-c, c, size = [par['n_input'], par['n_hidden']]))
+        par['Wo_init'] =  np.float32(np.random.uniform(-c, c, size = [par['n_input'], par['n_hidden']]))
+        par['Wc_init'] =  np.float32(np.random.uniform(-c, c, size = [par['n_input'], par['n_hidden']]))
+
+        par['Uf_init'] =  np.float32(np.random.uniform(-c, c, size = [par['n_hidden'], par['n_hidden']]))
+        par['Ui_init'] =  np.float32(np.random.uniform(-c, c, size = [par['n_hidden'], par['n_hidden']]))
+        par['Uo_init'] =  np.float32(np.random.uniform(-c, c, size = [par['n_hidden'], par['n_hidden']]))
+        par['Uc_init'] =  np.float32(np.random.uniform(-c, c, size = [par['n_hidden'], par['n_hidden']]))
+
+
+        par['bf_init'] = np.zeros((1, par['n_hidden']), dtype = np.float32)
+        par['bi_init'] = np.zeros((1, par['n_hidden']), dtype = np.float32)
+        par['bo_init'] = np.zeros((1, par['n_hidden']), dtype = np.float32)
+        par['bc_init'] = np.zeros((1, par['n_hidden']), dtype = np.float32)
 
 def initialize(dims, shape=0.25, scale=1.0):
     w = np.random.gamma(shape, scale, size=dims)

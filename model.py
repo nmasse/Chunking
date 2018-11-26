@@ -52,32 +52,39 @@ class Model:
     def declare_variables(self):
         """ Declare/initialize all required variables (and some constants) """
 
+        lstm_var_prefixes   = ['Wf', 'Wi', 'Wo', 'Wc', 'Uf', 'Ui', 'Uo', 'Uc', 'bf', 'bi', 'bo', 'bc']
+        bio_var_prefixes    = ['W_in', 'b_rnn', 'W_rnn']
+        base_var_prefies    = ['W_out', 'b_out']
+        
         self.var_dict = {}
-
         with tf.variable_scope('init'):
             self.var_dict['h_init']     = tf.get_variable('hidden', initializer=par['h_init'], trainable=True)
             self.var_dict['syn_x_init'] = tf.get_variable('syn_x_init', initializer=par['syn_x_init'], trainable=False)
             self.var_dict['syn_u_init'] = tf.get_variable('syn_u_init', initializer=par['syn_u_init'], trainable=False)
+        
+        # Add relevant prefixes to variable declaration
+        prefix_list = base_var_prefies
+        if par['architecture'] == 'LSTM':
+            prefix_list += lstm_var_prefixes
 
-        with tf.variable_scope('rnn'):
-            self.var_dict['W_in']  = tf.get_variable('W_in', initializer=par['w_in0'])
-            self.var_dict['W_rnn'] = tf.get_variable('W_rnn', initializer=par['w_rnn0'])
-            self.var_dict['b_rnn'] = tf.get_variable('b_rnn', initializer=par['b_rnn0'])
+        elif par['architecture'] == 'BIO':
+            prefix_list += bio_var_prefixes
 
-        with tf.variable_scope('out'):
-            self.var_dict['W_out'] = tf.get_variable('W_out', initializer=par['w_out0'])
-            self.var_dict['b_out'] = tf.get_variable('b_out', initializer=par['b_out0'])
+            # Analysis-based variable manipulation commands
+            # self.lesion = self.var_dict['W_rnn'][:,self.lesioned_neuron].assign(tf.zeros_like(self.var_dict['W_rnn'][:,self.lesioned_neuron]))
+            # self.cutting = self.var_dict['W_rnn'][self.cut_weight_i, self.cut_weight_j].assign(0.)
+            # self.load_h_init = self.var_dict['h_init'].assign(self.h_init_replace)
+            # self.load_syn_x_init = self.var_dict['syn_x_init'].assign(self.syn_x_init_replace)
+            # self.load_syn_u_init = self.var_dict['syn_u_init'].assign(self.syn_u_init_replace)
 
-        self.W_rnn_eff = (tf.constant(par['EI_matrix']) @ tf.nn.relu(self.var_dict['W_rnn'])) \
-            if par['EI'] else self.var_dict['W_rnn']
+        # Use prefix list to declare required variables and place them in a dict
+        with tf.variable_scope('network'):
+            for p in prefix_list:
+                self.var_dict[p] = tf.get_variable(p, initializer=par[p+'_init'])
 
-        # Analysis-based variable manipulation commands
-        self.lesion = self.var_dict['W_rnn'][:,self.lesioned_neuron].assign(tf.zeros_like(self.var_dict['W_rnn'][:,self.lesioned_neuron]))
-        self.cutting = self.var_dict['W_rnn'][self.cut_weight_i, self.cut_weight_j].assign(0.)
-        self.load_h_init = self.var_dict['h_init'].assign(self.h_init_replace)
-        self.load_syn_x_init = self.var_dict['syn_x_init'].assign(self.syn_x_init_replace)
-        self.load_syn_u_init = self.var_dict['syn_u_init'].assign(self.syn_u_init_replace)
-
+        if par['architecture'] == 'BIO':
+            self.W_rnn_eff = (tf.constant(par['EI_matrix']) @ tf.nn.relu(self.var_dict['W_rnn'])) \
+                if par['EI'] else self.var_dict['W_rnn']
 
 
     def rnn_cell_loop(self):
@@ -95,11 +102,19 @@ class Model:
         syn_x = self.var_dict['syn_x_init']
         syn_u = self.var_dict['syn_u_init']
 
+        # Initialize network state
+        if par['architecture'] == 'BIO':
+            c = tf.constant(par['h_init'])
+        elif par['architecture'] == 'LSTM':
+            h = 0.*h
+            c = 0.*h
+
+
         # Loop through the neural inputs, indexed in time
         for rnn_input in self.input_data:
 
             # Compute the state of the hidden layer
-            h, syn_x, syn_u = self.recurrent_cell(h, syn_x, syn_u, rnn_input)
+            h, c, syn_x, syn_u = self.recurrent_cell(h, c, syn_x, syn_u, rnn_input)
 
             # Record network state
             self.hidden_hist.append(h)
@@ -111,26 +126,45 @@ class Model:
             self.y_hat.append(y)
 
 
-    def recurrent_cell(self, h, syn_x, syn_u, rnn_input):
-        """ Using the standard biologically-inspired recurrent,
-            cell compute the new hidden state """
+    def recurrent_cell(self, h, c, syn_x, syn_u, rnn_input):
+        """ Using the appropriate recurrent cell
+            architecture, compute the hidden state """
 
-        # Apply synaptic short-term facilitation and depression, if required
-        if par['synapse_config'] == 'std_stf':
-            syn_x = syn_x + par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
-            syn_u = syn_u + par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
-            syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
-            syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
-            h_post = syn_u*syn_x*h
-        else:
-            h_post = h
+        if par['architecture'] == 'BIO':
 
-        # Calculate new hidden state
-        h = tf.nn.relu((1-par['alpha_neuron'])*h + par['alpha_neuron'] \
-            * (rnn_input @ self.var_dict['W_in'] + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
-            + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
+            # Apply synaptic short-term facilitation and depression, if required
+            if par['synapse_config'] == 'std_stf':
+                syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
+                syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
+                syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
+                syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
+                h_post = syn_u*syn_x*h
+            else:
+                h_post = h
 
-        return h, syn_x, syn_u
+            # Compute hidden state
+            h = tf.nn.relu((1-par['alpha_neuron'])*h \
+              + par['alpha_neuron']*(rnn_input @ self.var_dict['W_in'] + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
+              + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
+            c = tf.constant(-1.)
+
+        elif par['architecture'] == 'LSTM':
+
+            # Compute LSTM state
+            # f : forgetting gate, i : input gate,
+            # c : cell state, o : output gate
+            f   = tf.sigmoid(rnn_input @ self.var_dict['Wf'] + h @ self.var_dict['Uf'] + self.var_dict['bf'])
+            i   = tf.sigmoid(rnn_input @ self.var_dict['Wi'] + h @ self.var_dict['Ui'] + self.var_dict['bi'])
+            cn  = tf.tanh(rnn_input @ self.var_dict['Wc'] + h @ self.var_dict['Uc'] + self.var_dict['bc'])
+            c   = f * c + i * cn
+            o   = tf.sigmoid(rnn_input @ self.var_dict['Wo'] + h @ self.var_dict['Uo'] + self.var_dict['bo'])
+
+            # Compute hidden state
+            h = o * tf.tanh(c)
+            syn_x = tf.constant(-1.)
+            syn_u = tf.constant(-1.)
+
+        return h, c, syn_x, syn_u
 
 
     def optimize(self):
@@ -156,10 +190,13 @@ class Model:
             for h in self.hidden_hist]))
 
         # Calculate L1 loss on weight strengths
-        self.wiring_loss  = tf.reduce_sum(tf.nn.relu(self.var_dict['W_in'])) \
-                          + tf.reduce_sum(tf.nn.relu(self.var_dict['W_rnn'])) \
-                          + tf.reduce_sum(tf.nn.relu(self.var_dict['W_out']))
-        self.wiring_loss *= par['wiring_cost']
+        if par['architecture'] == 'BIO':
+            self.wiring_loss  = tf.reduce_sum(tf.nn.relu(self.var_dict['W_in'])) \
+                              + tf.reduce_sum(tf.nn.relu(self.var_dict['W_rnn'])) \
+                              + tf.reduce_sum(tf.nn.relu(self.var_dict['W_out']))
+            self.wiring_loss *= par['wiring_cost']
+        elif par['architecture'] == 'LSTM':
+            self.wiring_loss = 0
 
         # Collect total loss
         self.loss = self.perf_loss + self.spike_loss + self.wiring_loss

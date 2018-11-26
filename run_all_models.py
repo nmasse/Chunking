@@ -48,8 +48,8 @@ quit()
 
 
 #trial_types = [['sequence', 'sequence_cue', 'RF_detection', 'RF_cue']]
-trial_types = [['RF_cue','sequence_cue']]
-num_pulses = [5,7]
+trial_types = [['sequence_cue']]
+num_pulses = [1,2,5,7]
 all_RFs = [False]
 
 for pulse in num_pulses:
