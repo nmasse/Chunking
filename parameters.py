@@ -11,9 +11,9 @@ Independent parameters
 
 par = {
     # Setup parameters
-    'save_dir'              : './savedir/',
+    'save_dir'              : './savedir_standard/',
     'save_fn'               : 'model_results.pkl',
-    'weight_load_fn'        : './savedir/weights.pkl',
+    'weight_load_fn'        : './savedir_standard/weights.pkl',
     'load_prev_weights'     : False,
     'analyze_model'         : True,
     'balance_EI'            : True,
@@ -27,18 +27,18 @@ par = {
     'architecture'          : 'BIO',
 
     # Task parameters (non-timing)
-    'trial_type'            : ['sequence', 'sequence_cue', 'RF_detection', 'RF_cue'],
+    'trial_type'            : ['sequence'],
     'var_delay'             : True,
     'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
-    'var_num_pulses'        : True,
+    'var_num_pulses'        : False,
     'all_RF'                : True,
     'num_pulses'            : 6,
-    'pulse_prob'            : 0.8,
+    'pulse_prob'            : 1,
 
     # Network shape
     'num_motion_tuned'      : 24,
-    'num_fix_tuned'         : 2,
-    'num_RFs'               : 4,
+    'num_fix_tuned'         : 0,
+    'num_RFs'               : 1,
     'n_hidden'              : 100,
     'output_type'           : 'one_hot',
 
@@ -74,15 +74,15 @@ par = {
     'iters_between_outputs' : 50,
 
     # Task specs
-    'dead_time'             : 100,  # Time at start of trial that is masked
+    'dead_time'             : 0,    # Time at start of trial that is masked
     'fix_time'              : 200,  # Amount of fixation time before stimulus is shown
     'sample_time'           : 200,  # Sample time for sequence tasks
     'sample_time_RF'        : 500,  # Sample time for RF-based tasks
     'delay_time'            : 200,  # Short delay period (augmented for pulses)
-    'long_delay_time'       : 500,  # Long delay period
+    'long_delay_time'       : 200,  # Long delay period
     'RF_long_delay_time'    : 1000, # Long delay period for RF tasks
     'var_delay_max'         : 500,  # Maximum delay caused by var delay
-    'resp_cue_time'         : 500,  # Duration of a requested response
+    'resp_cue_time'         : 200,  # Duration of a requested response
     'mask_duration'         : 40,   # Duration of training mask after test onset
     'num_rules'             : 1,    # Legacy, used in analysis.py
 
@@ -92,7 +92,6 @@ par = {
     'decode_test'           : False,
     'decode_rule'           : False,
     'decode_sample_vs_test' : False,
-
 }
 
 
@@ -161,7 +160,7 @@ def update_dependencies():
 
     # Number of input neurons
     par['num_max_pulse'] = par['num_pulses']
-    par['num_cue_tuned'] = par['num_max_pulse']
+    par['num_cue_tuned'] = 1 #par['num_max_pulse']
     par['total_motion_tuned'] = par['num_motion_tuned']*par['num_RFs']
 
     if len(par['trial_type']) > 1:
