@@ -374,13 +374,13 @@ class Stimulus:
                 motion_tuning[:,r,r*par['num_motion_tuned']+n] = par['tuning_height']*np.exp(par['kappa']*diff)/np.exp(par['kappa'])
 
         # Tune fixation neurons to the correct height
-        for n in range(par['num_fix_tuned']):
-            fix_tuning[0,par['total_motion_tuned']+n] = par['tuning_height']
+        # for n in range(par['num_fix_tuned']):
+        fix_tuning[0,par['total_motion_tuned']] = par['tuning_height']
 
-            if par['output_type'] == 'directional':
-                fix_output_tuning[0,:] = 0.
-            elif par['output_type'] == 'one_hot':
-                fix_output_tuning[0,0] = 1.
+        if par['output_type'] == 'directional':
+            fix_output_tuning[0,:] = 0.
+        elif par['output_type'] == 'one_hot':
+            fix_output_tuning[0,0] = 1.
 
         # Tune rule neurons to the correct height
         for n in range(par['num_rule_tuned']):
@@ -394,11 +394,11 @@ class Stimulus:
                 dir_output_tuning[d, d+1] = 1.
 
         # Tune output neurons to the correct directions
-        for rf in range(par['num_RFs']):
-            if par['output_type'] == 'directional':
-                rf_output_tuning[rf] = [np.cos(rf_dirs[rf]), np.sin(rf_dirs[rf])]
-            elif par['output_type'] == 'one_hot':
-                rf_output_tuning[rf, rf+par['num_motion_dirs']+1] = 1.
+        # for rf in range(par['num_RFs']):
+        #     if par['output_type'] == 'directional':
+        #         rf_output_tuning[rf] = [np.cos(rf_dirs[rf]), np.sin(rf_dirs[rf])]
+        #     elif par['output_type'] == 'one_hot':
+        #         rf_output_tuning[rf, rf+par['num_motion_dirs']+1] = 1.
 
         # Tune order neurons
         # for n in range(par['num_cue_tuned']):
@@ -411,7 +411,7 @@ class Stimulus:
         self.fix_tuning        = fix_tuning
         self.rule_tuning       = rule_tuning
         self.dir_output_tuning = dir_output_tuning
-        self.rf_output_tuning  = rf_output_tuning
+        # self.rf_output_tuning  = rf_output_tuning
         self.fix_output_tuning = fix_output_tuning
         self.cue_tuning        = cue_tuning
 

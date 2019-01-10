@@ -175,7 +175,7 @@ def update_dependencies():
         par['n_output'] = 2
         par['loss_function'] = 'MSE'
     elif par['output_type'] == 'one_hot':
-        par['n_output'] = par['num_motion_dirs'] + par['num_RFs'] + 1
+        par['n_output'] = par['num_motion_dirs'] + 1
         par['loss_function'] = 'cross_entropy'
 
     # General network shape
