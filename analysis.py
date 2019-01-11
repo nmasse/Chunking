@@ -80,7 +80,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
     print(' --- Loading and running model for analysis.')
     results, savefile = load_and_replace_parameters(filename, savefile)
     sess, model, x, y, m, *_ = load_tensorflow_model()
-
+    
     stim = stimulus.Stimulus()
     code_state_tested = False
 

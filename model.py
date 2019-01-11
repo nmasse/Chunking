@@ -131,7 +131,7 @@ class Model:
             architecture, compute the hidden state """
 
         if par['architecture'] == 'BIO':
-
+  
             # Apply synaptic short-term facilitation and depression, if required
             if par['synapse_config'] == 'std_stf':
                 syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
