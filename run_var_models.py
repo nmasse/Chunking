@@ -53,15 +53,17 @@ except:
 num_pulses = [4,5,6]
 
 for n in num_pulses:
-    print('Training network with variable delay on', n, ' pulses, without cue...')
-    save_fn = 'var_delay_' + str(n) + '.pkl'
-    updates = {'var_delay': True, 'var_resp_delay': True, 'var_num_pulses': True, \
+    print('Training network with no variable delay on', n, ' pulses, without cue...')
+    save_fn = 'no_var_delay_' + str(n) + '.pkl'
+    updates = {'var_delay': False, 'var_resp_delay': False, 'var_num_pulses': True, \
                'num_pulses': n, 'save_fn': save_fn, 'order_cue': False}
     update_parameters(updates)
     try_model(gpu_id)
 
-    save_fn = 'no_var_delay_' + str(n) + '.pkl'
-    updates = {'var_delay': False, 'var_resp_delay': False, 'save_fn': save_fn}
-    update_parameters(updates)
-    try_model(gpu_id)
+    if n == 6:
+        print('Training network with variable delay on', n, ' pulses, without cue...')
+        save_fn = 'var_delay_' + str(n) + '.pkl'
+        updates = {'var_delay': True, 'var_resp_delay': True, 'save_fn': save_fn}
+        update_parameters(updates)
+        try_model(gpu_id)
 

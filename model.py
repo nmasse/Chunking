@@ -272,7 +272,7 @@ def main(gpu_id=None, code_state=historian.record_code_state()):
         acc_count = int(0)
         accuracy_threshold = \
             np.array([0.0, 0.6, 0.7, 0.8, 0.9, 0.95, 0.96, \
-                      0.97, 0.98, 0.99, 0.995, 0.999])
+                      0.97, 0.98])
         save_fn = par['save_dir'] + par['save_fn']
         save_fn_ind = save_fn[1:].find('.') - 1
 
