@@ -234,7 +234,7 @@ def update_dependencies():
 
         if par['balance_EI']:
             par['W_rnn_init'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], shape=.2, scale=1.)
-            par['W_rnn_init'][par['ind_inh'], :] = initialize([par['n_hidden'], par['num_inh_units']], shape=.2, scale=1.)
+            par['W_rnn_init'][par['ind_inh'], :] = initialize([par['num_inh_units'], par['n_hidden']], shape=.2, scale=1.)
 
         for i in range(par['n_hidden']):
             par['W_rnn_init'][i,i] = 0
