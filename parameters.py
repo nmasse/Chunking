@@ -32,7 +32,7 @@ par = {
     'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
     'var_num_pulses'        : False,
     'all_RF'                : True,
-    'num_pulses'            : 6,
+    'num_pulses'            : 4,
     'pulse_prob'            : 1,
 
     # Network shape
@@ -59,7 +59,7 @@ par = {
     'kappa'                 : 2,        # concentration scaling factor for von Mises
 
     # Cost parameters
-    'spike_cost'            : 1e-9,
+    'spike_cost'            : 1e-9,     # run another with 1e-4
     'wiring_cost'           : 0.,
 
     # Synaptic plasticity specs
@@ -117,6 +117,7 @@ def update_parameters(updates):
 def load_previous_weights():
 
     x = pickle.load(open(par['weight_load_fn'],'rb'))
+    par['h_init'] = x['weights']['h_init']
     par['W_in_init']  = x['weights']['W_in']
     par['W_rnn_init'] = x['weights']['W_rnn']
     par['W_out_init'] = x['weights']['W_out']
@@ -222,7 +223,7 @@ def update_dependencies():
 
 
     # Initialize input weights
-    par['W_in_init'] = initialize([par['n_input'], par['n_hidden']])
+    par['W_in_init'] = initialize([par['n_input'], par['n_hidden']], shape=.2)
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
@@ -232,7 +233,8 @@ def update_dependencies():
         par['W_rnn_init'] = initialize([par['n_hidden'], par['n_hidden']])
 
         if par['balance_EI']:
-            par['W_rnn_init'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], shape=1., scale=1.)
+            par['W_rnn_init'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], shape=.2, scale=1.)
+            par['W_rnn_init'][par['ind_inh'], :] = initialize([par['n_hidden'], par['num_inh_units']], shape=.2, scale=1.)
 
         for i in range(par['n_hidden']):
             par['W_rnn_init'][i,i] = 0
@@ -330,7 +332,7 @@ def update_dependencies():
         par['bo_init'] = np.zeros((1, par['n_hidden']), dtype = np.float32)
         par['bc_init'] = np.zeros((1, par['n_hidden']), dtype = np.float32)
 
-def initialize(dims, shape=0.25, scale=1.0):
+def initialize(dims, shape=0.1, scale=1.0):
     w = np.random.gamma(shape, scale, size=dims)
     w *= (par['connection_prob'] > np.random.rand(*dims))
     return np.float32(w)

@@ -50,20 +50,19 @@ except:
     gpu_id = None
 
 
-num_pulses = [4,5,6]
+num_pulses = [5,6]
 
 for n in num_pulses:
-    print('Training network with no variable delay on', n, ' pulses, without cue...')
-    save_fn = 'no_var_delay_' + str(n) + '.pkl'
+    print('Training network with no variable delay on', n, ' pulses, without cue, spike_cost 1e-9...')
+    save_fn = 'no_var_delay_' + str(n) + '_spike_cost_1e_9.pkl'
     updates = {'var_delay': False, 'var_resp_delay': False, 'var_num_pulses': True, \
-               'num_pulses': n, 'save_fn': save_fn, 'order_cue': False}
+               'spike_cost': 1e-9, 'num_pulses': n, 'save_fn': save_fn, 'order_cue': False}
     update_parameters(updates)
     try_model(gpu_id)
 
-    if n == 6:
-        print('Training network with variable delay on', n, ' pulses, without cue...')
-        save_fn = 'var_delay_' + str(n) + '.pkl'
-        updates = {'var_delay': True, 'var_resp_delay': True, 'save_fn': save_fn}
-        update_parameters(updates)
-        try_model(gpu_id)
+    print('Training network with no variable delay on', n, ' pulses, without cue, spike_cost 1e-9...')
+    save_fn = 'no_var_delay_' + str(n) + '_spike_cost_1e_4.pkl'
+    updates = {'spike_cost': 1e-4, 'save_fn': save_fn}
+    update_parameters(updates)
+    try_model(gpu_id)
 

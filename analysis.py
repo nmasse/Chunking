@@ -33,13 +33,11 @@ def load_and_replace_parameters(filename, savefile=None, parameter_updates={}):
         data['parameters']['save_fn'] = savefile
 
     data['parameters']['weight_load_fn'] = filename
-    data['parameters']['response_multiplier'] = 1.
+    data['parameters']['response_multiplier'] = 4.
     data['parameters']['load_prev_weights'] = True
 
-    data['weights']['h_init'] = data['weights']['h_init']
     #data['parameters']['dt'] = 100
     #data['parameters']['batch_train_size'] = 5
-
 
     update_parameters(data['parameters'])
 
@@ -96,7 +94,7 @@ def analyze_model_from_file(filename, savefile=None, analysis = False, test_mode
 
         print('\n' + '-'*60 + '\nTask: {}\n'.format(task) + '-'*60)
 
-        trial_info = stim.generate_trial(task, var_delay=False, var_num_pulses=False, all_RF=par['all_RF'])
+        trial_info = stim.generate_trial(task, var_delay=True, var_num_pulses=True, all_RF=par['all_RF'])
 
         # Put together the feed dictionary
         feed_dict = {x:trial_info['neural_input'], y:trial_info['desired_output'], m:trial_info['train_mask']}

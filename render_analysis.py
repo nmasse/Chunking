@@ -209,7 +209,7 @@ def selective_hidden_state_deviation(num_top_neurons=5):
         end_of_task = np.where(trial_info[task]['train_mask'][:,0]==1.)[0][-1]
 
         aspect = 'RF' if 'RF' in task else 'pulse'
-        fig, ax = plt.subplots(2,2,figsize=(8,7))
+        fig, ax = plt.subplots(3,2,figsize=(8,7))
         for p in range(par['num_pulses']):
 
             mean_pev = np.mean(pev[:,p,:end_of_task+1], axis=-1)
@@ -300,36 +300,40 @@ def multi_accuracy_selective_hidden_state_deviation():
 if __name__ == '__main__':
 
     # Setup
-    filename = 'analysis_RF_cue_sequence_cue_p4_100_neuron_high_lr_v0_acc98.pkl'
-    foldername = filename[:-4]
+    # filename = 'analysis_var_delay_5_acc90.pkl'
+    
+    files = os.listdir('./analysis_results/')
+    for filename in files:
+        print("PLOTTING FILE ", filename)
+        foldername = filename[:-4]
+        os.makedirs('./plots/{}/'.format(foldername), exist_ok=True)
+        os.makedirs('./plots/{}/top_synaptic_PEV_deviations/'.format(foldername), exist_ok=True)
+        
+        data = pickle.load(open('./analysis_results/' + filename, 'rb'))
+        data['parameters']['load_prev_weights'] = False
+        update_parameters(data['parameters'])
 
-    os.makedirs('./plots/{}/'.format(foldername), exist_ok=True)
-    os.makedirs('./plots/{}/top_synaptic_PEV_deviations/'.format(foldername), exist_ok=True)
-    data = pickle.load(open('./savedir/new/' + filename, 'rb'))
-    data['parameters']['load_prev_weights'] = False
-    update_parameters(data['parameters'])
+        trial_info = {}
+        stim = stimulus.Stimulus()
+        for t in par['trial_type']:
+            trial_info[t] = stim.generate_trial(t, var_delay=False, var_num_pulses=False, all_RF=par['all_RF'])
 
-    trial_info = {}
-    stim = stimulus.Stimulus()
-    for t in par['trial_type']:
-        trial_info[t] = stim.generate_trial(t, var_delay=False, var_num_pulses=False, all_RF=par['all_RF'])
+        #multi_accuracy_selective_hidden_state_deviation()
+        #quit()
 
-    #multi_accuracy_selective_hidden_state_deviation()
-    #quit()
+        # Make plots
+        task_currents()
 
-    # Make plots
-    task_currents()
+        hidden_state_deviation()
 
-    hidden_state_deviation()
+        for i in range(6):
+            os.makedirs('./plots/{}/top_synaptic_PEV_currents/{}top/'.format(foldername,i+1), exist_ok=True)
+            selective_task_currents(num_top_neurons=i+1)
 
-    for i in range(6):
-        os.makedirs('./plots/{}/top_synaptic_PEV_currents/{}top/'.format(foldername,i+1), exist_ok=True)
-        selective_task_currents(num_top_neurons=i+1)
+        selective_hidden_state_deviation(num_top_neurons=5)
 
-    selective_hidden_state_deviation(num_top_neurons=5)
+        for t in [0.15, 0.25]:
+            task_overlap(threshold=t)
+            task_overlap(threshold=t, all=True)
 
-    for t in [0.15, 0.25]:
-        task_overlap(threshold=t)
-        task_overlap(threshold=t, all=True)
-
-    task_pevs()
+        task_pevs()

@@ -457,5 +457,5 @@ class Stimulus:
 
 if __name__ == '__main__':
     s = Stimulus()
-    trial_info = s.generate_trial('sequence', var_delay=True, var_num_pulses=True)
+    trial_info = s.generate_trial('sequence', var_delay=False, var_num_pulses=False)
     s.plot_stim(trial_info)

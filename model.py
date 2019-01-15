@@ -122,7 +122,7 @@ class Model:
             self.syn_u_hist.append(syn_u)
 
             # Compute output state
-            y = h @ tf.nn.relu(self.var_dict['W_out']) + self.var_dict['b_out']
+            y = h @ self.var_dict['W_out'] + self.var_dict['b_out']
             self.y_hat.append(y)
 
 
@@ -144,7 +144,7 @@ class Model:
 
             # Compute hidden state
             h = tf.nn.relu((1-par['alpha_neuron'])*h \
-              + par['alpha_neuron']*(rnn_input @ self.var_dict['W_in'] + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
+              + par['alpha_neuron']*(rnn_input @ tf.nn.relu(self.var_dict['W_in']) + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
               + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
             c = tf.constant(-1.)
 
