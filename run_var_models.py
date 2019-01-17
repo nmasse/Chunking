@@ -57,7 +57,7 @@ weekends = [4]
 for n in weekends:
     print('Training network with variable delay on', n, ' pulses, without cue...')
     save_fn = 'var_delay_' + str(n) + '_cue_off.pkl'
-    updates = {'var_delay': True, 'var_resp_delay': True, 'var_num_pulses': False, 
+    updates = {'var_delay': True, 'var_num_pulses': False, 
                 /'num_pulses': n, 'save_fn': save_fn, 'order_cue': False}
     update_parameters(updates)
     try_model(gpu_id)
@@ -65,4 +65,3 @@ for n in weekends:
 
 
 
-    
