@@ -26,11 +26,11 @@ par = {
     'tol'                   : 0.2,
 
     # Task parameters (non-timing)
-    'trial_type'            : ['sequence', 'sequence_cue', 'RF_detection', 'RF_cue'],
+    'trial_type'            : ['sequence_cue'],
     'var_delay'             : True,
     'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
-    'var_num_pulses'        : True,
-    'all_RF'                : True,
+    'var_num_pulses'        : False,
+    'all_RF'                : False,
     'num_pulses'            : 6,
     'pulse_prob'            : 0.8,
 
@@ -73,12 +73,12 @@ par = {
     'iters_between_outputs' : 50,
 
     # Task specs
-    'dead_time'             : 100,  # Time at start of trial that is masked
+    'dead_time'             : 0,  # Time at start of trial that is masked
     'fix_time'              : 200,  # Amount of fixation time before stimulus is shown
     'sample_time'           : 200,  # Sample time for sequence tasks
     'sample_time_RF'        : 500,  # Sample time for RF-based tasks
     'delay_time'            : 200,  # Short delay period (augmented for pulses)
-    'long_delay_time'       : 500,  # Long delay period
+    'long_delay_time'       : 200,  # Long delay period
     'RF_long_delay_time'    : 1000, # Long delay period for RF tasks
     'var_delay_max'         : 500,  # Maximum delay caused by var delay
     'resp_cue_time'         : 500,  # Duration of a requested response
