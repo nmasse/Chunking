@@ -55,13 +55,13 @@ class Model:
         lstm_var_prefixes   = ['Wf', 'Wi', 'Wo', 'Wc', 'Uf', 'Ui', 'Uo', 'Uc', 'bf', 'bi', 'bo', 'bc']
         bio_var_prefixes    = ['W_in', 'b_rnn', 'W_rnn']
         base_var_prefies    = ['W_out', 'b_out']
-        
+
         self.var_dict = {}
         with tf.variable_scope('init'):
             self.var_dict['h_init']     = tf.get_variable('hidden', initializer=par['h_init'], trainable=True)
             self.var_dict['syn_x_init'] = tf.get_variable('syn_x_init', initializer=par['syn_x_init'], trainable=False)
             self.var_dict['syn_u_init'] = tf.get_variable('syn_u_init', initializer=par['syn_u_init'], trainable=False)
-        
+
         # Add relevant prefixes to variable declaration
         prefix_list = base_var_prefies
         if par['architecture'] == 'LSTM':
@@ -78,13 +78,19 @@ class Model:
             # self.load_syn_u_init = self.var_dict['syn_u_init'].assign(self.syn_u_init_replace)
 
         # Use prefix list to declare required variables and place them in a dict
-        with tf.variable_scope('network'):
+        with tf.variable_scope('network', reuse=tf.AUTO_REUSE):
             for p in prefix_list:
-                self.var_dict[p] = tf.get_variable(p, initializer=par[p+'_init'])
+                self.var_dict[p] = tf.get_variable(p, initializer=par[p+'_real_init'])
+                self.var_dict[p] = tf.get_variable(p, initializer=par[p+'_imag_init'])
 
         if par['architecture'] == 'BIO':
-            self.W_rnn_eff = (tf.constant(par['EI_matrix']) @ tf.nn.relu(self.var_dict['W_rnn'])) \
-                if par['EI'] else self.var_dict['W_rnn']
+            if par['EI'] == True:
+                self.W_rnn_eff = (tf.constant(par['EI_matrix']) @ tf.identity(self.var_dict['W_rnn']))
+                # TODO: Replace this identity with relu
+                # TODO: Replace this identity with relu
+            else:
+                self.W_rnn_eff = self.var_dict['W_rnn']
+
 
 
     def rnn_cell_loop(self):
@@ -122,7 +128,8 @@ class Model:
             self.syn_u_hist.append(syn_u)
 
             # Compute output state
-            y = h @ tf.nn.relu(self.var_dict['W_out']) + self.var_dict['b_out']
+            y = h @ tf.identity(self.var_dict['W_out']) + self.var_dict['b_out']
+            # TODO: Replace this identity with relu
             self.y_hat.append(y)
 
 
@@ -136,16 +143,19 @@ class Model:
             if par['synapse_config'] == 'std_stf':
                 syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
                 syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
-                syn_x = tf.minimum(np.float32(1), tf.nn.relu(syn_x))
-                syn_u = tf.minimum(np.float32(1), tf.nn.relu(syn_u))
+                syn_x = tf.minimum(np.float32(1), tf.identity(syn_x))
+                # TODO: Replace this identity with relu
+                syn_u = tf.minimum(np.float32(1), tf.identity(syn_u))
+                # TODO: Replace this identity with relu
                 h_post = syn_u*syn_x*h
             else:
                 h_post = h
 
             # Compute hidden state
-            h = tf.nn.relu((1-par['alpha_neuron'])*h \
+            h = tf.identity((1-par['alpha_neuron'])*h \
               + par['alpha_neuron']*(rnn_input @ self.var_dict['W_in'] + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
               + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
+            # TODO: Replace this identity with relu
             c = tf.constant(-1.)
 
         elif par['architecture'] == 'LSTM':
@@ -180,7 +190,7 @@ class Model:
                 in zip(self.mask, self.target_data, self.y_hat)]
 
         elif par['loss_function'] == 'cross_entropy':
-            perf_loss = [m*tf.nn.softmax_cross_entropy_with_logits_v2(logits=y, labels=t) for m, t, y \
+            perf_loss = [m*tf.cast(tf.nn.softmax_cross_entropy_with_logits_v2(logits=y, labels=t), dtype=tf.float32) for m, t, y \
                 in zip(self.mask, self.target_data, self.y_hat)]
 
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss))
@@ -191,9 +201,10 @@ class Model:
 
         # Calculate L1 loss on weight strengths
         if par['architecture'] == 'BIO':
-            self.wiring_loss  = tf.reduce_sum(tf.nn.relu(self.var_dict['W_in'])) \
-                              + tf.reduce_sum(tf.nn.relu(self.var_dict['W_rnn'])) \
-                              + tf.reduce_sum(tf.nn.relu(self.var_dict['W_out']))
+            self.wiring_loss  = tf.reduce_sum(tf.identity(self.var_dict['W_in'])) \
+                              + tf.reduce_sum(tf.identity(self.var_dict['W_rnn'])) \
+                              + tf.reduce_sum(tf.identity(self.var_dict['W_out']))
+            # TODO: Replace this identity with relu
             self.wiring_loss *= par['wiring_cost']
         elif par['architecture'] == 'LSTM':
             self.wiring_loss = 0
@@ -212,7 +223,7 @@ def shuffle_trials(stim):
                   'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
                   'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
                   'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8),
-                  'test'            : np.zeros((par['batch_train_size']),dtype=np.int32)}
+                  'test'            : np.zeros((par['batch_train_size']),dtype=np.int8)}
 
     train_size = par['batch_train_size']
     par['batch_train_size'] //= len(par['trial_type'])
@@ -373,9 +384,9 @@ def get_placeholders():
     y  = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size'], par['n_output']], 'out')
     m  = tf.placeholder(tf.float32, [par['num_time_steps'], par['batch_train_size']], 'mask')
 
-    l  = tf.placeholder(tf.int32, shape=[], name='lesion')
-    ci = tf.placeholder(tf.int32, shape=[], name='cut_i')
-    cj = tf.placeholder(tf.int32, shape=[], name='cut_j')
+    l  = tf.placeholder(tf.int8, shape=[], name='lesion')
+    ci = tf.placeholder(tf.int8, shape=[], name='cut_i')
+    cj = tf.placeholder(tf.int8, shape=[], name='cut_j')
     h  = tf.placeholder(tf.float32, shape=par['h_init'].shape, name='h_init')
     sx = tf.placeholder(tf.float32, shape=par['syn_x_init'].shape, name='syn_x_init')
     su = tf.placeholder(tf.float32, shape=par['syn_u_init'].shape, name='syn_u_init')

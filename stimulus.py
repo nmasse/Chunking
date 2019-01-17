@@ -44,12 +44,12 @@ class Stimulus:
 
 
     def generate_sequence_trial(self, var_delay=False, var_num_pulses=False, all_RF=False, test_mode=False):
-        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
-                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
+        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.complex64),
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.complex64),
                       'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
                       'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
-                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
-                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8),
+                      'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])).astype(np.complex64),
+                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int32),
                       'test'            : np.zeros((par['batch_train_size']),dtype=np.int32)}
 
         num_pulses = par['num_pulses']
@@ -88,6 +88,15 @@ class Stimulus:
                     trial_info['sample'][t,i] = np.random.randint(par['num_motion_dirs'])
                     trial_info['sample_RF'][t,i] = 0
 
+                    print("trial_info.neural_input")
+                    print(trial_info['neural_input'])
+                    print("trial.info.sample")
+                    print(trial_info['sample'])
+                    print("t")
+                    print(t)
+
+                    # input()
+
                     trial_info['neural_input'][stim_times[i], t, :] += self.motion_tuning[trial_info['sample'][t,i], trial_info['sample_RF'][t,i]]
 
                     # response properties
@@ -112,13 +121,13 @@ class Stimulus:
 
 
     def generate_sequence_cue_trial(self, var_delay=False, var_num_pulses=False, all_RF=False, test_mode=False):
-        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
-                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
-                      'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
-                      'test'            : np.zeros((par['batch_train_size']),dtype=np.int32),
-                      'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
+        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.complex64),
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.complex64),
+                      'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.complex64), # Changed from int32. May break due to float
+                      'test'            : np.zeros((par['batch_train_size']),dtype=np.complex64), # Changed from int32. May break due to float
+                      'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.complex64), # Changed from int32. May break due to float
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
-                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8)}
+                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.complex64)} # Changed from int8. May break due to float
 
         num_pulses = par['num_pulses']
         start = int((par['dead_time'] + par['fix_time'])//par['dt'])
@@ -201,13 +210,13 @@ class Stimulus:
 
     def generate_RF_detection_trial(self, var_delay=True):
 
-        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
-                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
-                      'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
-                      'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
+        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.complex64),
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.complex64),
+                      'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.complex64), # Changed from int32. May break due to float
+                      'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.complex64), # Changed from int32. May break due to float
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
-                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8),
-                      'test'            : np.zeros((par['batch_train_size']),dtype=np.int32)}
+                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.complex64), # Changed from int8. May break due to float
+                      'test'            : np.zeros((par['batch_train_size']),dtype=np.complex64)} # Changed from int32. May break due to float
 
         dead            = int(par['dead_time']//par['dt'])
         start           = int((par['dead_time'] + par['fix_time'])//par['dt'])
@@ -235,7 +244,7 @@ class Stimulus:
             # Select response onset
             catch = False
             if var_delay:
-                s = np.int32(np.random.exponential(scale=par['var_delay_scale']))
+                s = np.complex64(np.random.exponential(scale=par['var_delay_scale'])) # Changed from int32. May break due to float
                 trial_resp_start = resp_start + s
                 if s >= var_delay_max:
                     catch = True    # If catch, mask from end of var_delay_max onward
@@ -279,13 +288,13 @@ class Stimulus:
 
     def generate_RF_cue_trial(self, var_delay=True):
 
-        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
-                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.float32),
-                      'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
-                      'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int32),
+        trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.complex64),
+                      'train_mask'      :  np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.complex64),
+                      'sample'          :  -np.ones((par['batch_train_size'], par['num_pulses']),dtype=np.complex64), # Changed from int32. May break due to float
+                      'sample_RF'       : np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.complex64), # Changed from int32. May break due to float
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['num_time_steps'], par['batch_train_size'], par['n_input'])),
-                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.int8),
-                      'test'            : np.zeros((par['batch_train_size']),dtype=np.int32)}
+                      'pulse_id'        :  -np.ones((par['num_time_steps'], par['batch_train_size']),dtype=np.complex64), # Changed from int8. May break due to float
+                      'test'            : np.zeros((par['batch_train_size']),dtype=np.complex64)} # Changed from int32. May break due to float
 
         dead            = int(par['dead_time']//par['dt'])
         start           = int((par['dead_time'] + par['fix_time'])//par['dt'])
@@ -311,7 +320,7 @@ class Stimulus:
             # Select response onset
             catch = False
             if var_delay:
-                s = np.int32(np.random.exponential(scale=par['var_delay_scale']))
+                s = np.complex64(np.random.exponential(scale=par['var_delay_scale'])) # Changed from int32. May break due to float
                 trial_resp_start = resp_start + s
                 if s >= var_delay_max:
                     catch = True    # If catch, mask from end of var_delay_max onward
@@ -363,9 +372,9 @@ class Stimulus:
         cue_tuning        = np.zeros([par['n_input'], par['num_pulses']])
 
         # Generate lists of preferred and possible stimulus directions
-        pref_dirs = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_motion_tuned']))
-        stim_dirs = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_motion_dirs']))
-        rf_dirs   = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_RFs']))
+        pref_dirs = np.complex64(np.arange(0,2*np.pi,2*np.pi/par['num_motion_tuned']))
+        stim_dirs = np.complex64(np.arange(0,2*np.pi,2*np.pi/par['num_motion_dirs']))
+        rf_dirs   = np.complex64(np.arange(0,2*np.pi,2*np.pi/par['num_RFs']))
 
         # Tune individual neurons to specific stimulus directions
         for n in range(par['num_motion_tuned']):

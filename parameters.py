@@ -19,7 +19,7 @@ par = {
     'balance_EI'            : True,
 
     # Network configuration
-    'synapse_config'        : 'std_stf', # Full is 'std_stf'
+    'synapse_config'        : False, # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
     'connection_prob'       : 0.25,
     'response_multiplier'   : 4,
@@ -192,7 +192,7 @@ def update_dependencies():
     par['num_exc_units'] = int(np.round(par['n_hidden']*par['exc_inh_prop']))
     par['num_inh_units'] = par['n_hidden'] - par['num_exc_units']
 
-    par['EI_list'] = np.ones(par['n_hidden'], dtype=np.float32)
+    par['EI_list'] = np.ones(par['n_hidden'], dtype=np.float32) # Maybe change back to float32
     par['EI_list'][-par['num_inh_units']:] = -1.
 
     par['drop_mask'] = np.ones((par['n_hidden'],par['n_hidden']), dtype=np.float32)
@@ -200,7 +200,7 @@ def update_dependencies():
     par['drop_mask'][:, par['ind_inh']] = 0.
     par['drop_mask'][par['ind_inh'], :] = 0.
 
-    par['EI_matrix'] = np.diag(par['EI_list'])
+    par['EI_matrix'] = np.diag(par['EI_list']).astype(np.float32)
 
     # Membrane time constant of RNN neurons
     par['alpha_neuron'] = np.float32(par['dt'])/par['membrane_time_constant']
@@ -221,39 +221,40 @@ def update_dependencies():
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
 
 
-    # Initialize input weights
-    par['W_in_init'] = initialize([par['n_input'], par['n_hidden']])
+    for part in {"real", "imag"}:
 
-    # Initialize starting recurrent weights
-    # If excitatory/inhibitory neurons desired, initializes with random matrix with
-    #   zeroes on the diagonal
-    # If not, initializes with a diagonal matrix
-    if par['EI']:
-        par['W_rnn_init'] = initialize([par['n_hidden'], par['n_hidden']])
+        # Initialize input weights
+        par['W_in_{}_init'.format(part)] = initialize([par['n_input'], par['n_hidden']])
 
-        if par['balance_EI']:
-            par['W_rnn_init'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], shape=1., scale=1.)
+        # Initialize starting recurrent weights
+        # If excitatory/inhibitory neurons desired, initializes with random matrix with
+        #   zeroes on the diagonal
+        # If not, initializes with a diagonal matrix
+        if par['EI']:
+            par['W_rnn_{}_init'.format(part)] = initialize([par['n_hidden'], par['n_hidden']])
 
-        for i in range(par['n_hidden']):
-            par['W_rnn_init'][i,i] = 0
-        par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])
-    else:
-        par['W_rnn_init'] = 0.54*np.eye(par['n_hidden'])
-        par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32)
+            if par['balance_EI']:
+                par['W_rnn_{}_init'.format(part)][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], shape=1., scale=1.)
 
-    par['b_rnn_init'] = np.zeros((1, par['n_hidden']), dtype=np.float32)
+            for i in range(par['n_hidden']):
+                par['W_rnn_{}_init'.format(part)][i,i] = 0
+            par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])
+        else:
+            par['W_rnn_{}_init'.format(part)] = 0.54*np.eye(par['n_hidden'])
+            par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32)
 
-    # Effective synaptic weights are stronger when no short-term synaptic plasticity
-    # is used, so the strength of the recurrent weights is reduced to compensate
+        par['b_rnn_{}_init'.format(part)] = np.zeros((1, par['n_hidden']), dtype=np.float32)
 
-    if par['synapse_config'] == None:
-        par['W_rnn_init'] = par['W_rnn_init']/(spectral_radius(par['W_rnn_init']))
+        # Effective synaptic weights are stronger when no short-term synaptic plasticity
+        # is used, so the strength of the recurrent weights is reduced to compensate
 
+        if par['synapse_config'] == None:
+            par['W_rnn_{}_init'.format(part)] = par['W_rnn_{}_init'.format(part)]/(spectral_radius(par['W_rnn_{}_init'.format(part)]))
 
-    # Initialize output weights and biases
-    par['W_out_init'] =initialize([par['n_hidden'], par['n_output']])
-    par['b_out_init'] = np.zeros((1, par['n_output']), dtype=np.float32)
-    par['w_out_mask'] = np.ones((par['n_hidden'], par['n_output']), dtype=np.float32)
+        # Initialize output weights and biases
+        par['W_out_{}_init'.format(part)] = initialize([par['n_hidden'], par['n_output']])
+        par['b_out_{}_init'.format(part)] = np.zeros((1, par['n_output']), dtype=np.float32)
+        par['w_out_mask'] = np.ones((par['n_hidden'], par['n_output']), dtype=np.float32)
 
     # if par['EI']:
     #     par['ind_inh'] = np.where(par['EI_list'] == -1)[0]
@@ -341,4 +342,5 @@ def spectral_radius(A):
 
 
 update_dependencies()
+print("WARNING: REPLACE ALL IDENTITY'S WITH RELU'S")
 print("--> Parameters successfully loaded.\n")
