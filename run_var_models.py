@@ -100,6 +100,15 @@ for n in weekends:
 num_pulses = [4]
 
 for n in num_pulses:
+
+    print('Training network with variable delay on', n, ' pulses, v4...')
+    save_fn = 'old_var_delay_' + str(n) + '_v4.pkl'
+    updates = {'var_delay': True, 'var_num_pulses': True, 'num_pulses': n, 'save_fn': save_fn, \
+                    'num_RFs': 1, 'long_delay_time': 200, 'dead_time': 0, 'num_fix_tuned': 1}
+    update_parameters(updates)
+    try_model(gpu_id)
+
+'''
     print('Training network with variable delay on', n, ' pulses, v1...')
     save_fn = 'old_var_delay_' + str(n) + '_v1.pkl'
     updates = {'var_delay': True, 'var_num_pulses': True, 'num_pulses': n, 'save_fn': save_fn, \
@@ -118,3 +127,4 @@ for n in num_pulses:
     updates = {'num_fix_tuned': 1, 'save_fn': save_fn}
     update_parameters(updates)
     try_model(gpu_id)
+'''

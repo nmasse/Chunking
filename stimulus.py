@@ -105,6 +105,9 @@ class Stimulus:
             # in case there's left over time (true for var pulse conditions)
             trial_info['train_mask'][np.max(resp_times[-1])+1:, t] = 0
 
+            trial_info['neural_input'][:, t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = \
+                4- trial_info['neural_input'][:, t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']]
+
         if True:
             self.plot_stim(trial_info)
 
