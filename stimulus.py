@@ -67,7 +67,7 @@ class Stimulus:
             Generate trial paramaters
             """
             num_pulses = par['num_pulses']
-            loc = np.random.permutation(np.arange(par['num_pulses'])) if all_RF else np.array([np.random.choice(np.arange(par['num_pulses']))] * par['num_pulses'])
+            loc = np.random.permutation(np.arange(par['num_pulses'])) if all_RF else np.array([np.random.choice(np.arange(par['num_RFs']))] * par['num_pulses'])
 
             current_delay_times = np.random.permutation(delay_times) if var_delay else delay_times
             stim_times = [range(start + i*pulse_dur + np.sum(current_delay_times[:i]), start + (i+1)*pulse_dur + np.sum(current_delay_times[:i])) for i in range(num_pulses)]
@@ -105,7 +105,7 @@ class Stimulus:
             # in case there's left over time (true for var pulse conditions)
             trial_info['train_mask'][np.max(resp_times[-1])+1:, t] = 0
 
-        if False:
+        if True:
             self.plot_stim(trial_info)
 
         return trial_info

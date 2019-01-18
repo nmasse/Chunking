@@ -11,7 +11,7 @@ Independent parameters
 
 par = {
     # Setup parameters
-    'save_dir'              : './savedir/',
+    'save_dir'              : './savedir_nov_old/',
     'save_fn'               : 'model_results.pkl',
     'weight_load_fn'        : './savedir/weights.pkl',
     'load_prev_weights'     : False,
@@ -27,13 +27,13 @@ par = {
     'architecture'          : 'BIO',
 
     # Task parameters (non-timing)
-    'trial_type'            : ['sequence', 'sequence_cue', 'RF_detection', 'RF_cue'],
+    'trial_type'            : ['sequence'],
     'var_delay'             : True,
     'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
     'var_num_pulses'        : True,
-    'all_RF'                : True,
-    'num_pulses'            : 6,
-    'pulse_prob'            : 0.8,
+    'all_RF'                : False,
+    'num_pulses'            : 4,
+    'pulse_prob'            : 1.0,
 
     # Network shape
     'num_motion_tuned'      : 24,
@@ -161,7 +161,8 @@ def update_dependencies():
 
     # Number of input neurons
     par['num_max_pulse'] = par['num_pulses']
-    par['num_cue_tuned'] = par['num_max_pulse']
+    #par['num_cue_tuned'] = par['num_max_pulse']
+    par['num_cue_tuned'] = 0
     par['total_motion_tuned'] = par['num_motion_tuned']*par['num_RFs']
 
     if len(par['trial_type']) > 1:

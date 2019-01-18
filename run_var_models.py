@@ -51,7 +51,7 @@ except:
 
 # num_pulses = [10, 12, 14]
 # num_max_pulse = [10, 12, 14]
-
+'''
 weekends = [8]
 
 for n in weekends:
@@ -94,3 +94,27 @@ for n in weekends:
                 #plot(save_fn, par['num_pulses'], savename='var_delay_'+str(par['num_pulses'])+'_pulses_cue_off')
     updates = {'var_delay': True, 'var_resp_delay': True, 'var_num_pulses': False}
     update_parameters(updates)
+'''
+
+
+num_pulses = [4]
+
+for n in num_pulses:
+    print('Training network with variable delay on', n, ' pulses, v1...')
+    save_fn = 'old_var_delay_' + str(n) + '_v1.pkl'
+    updates = {'var_delay': True, 'var_num_pulses': True, 'num_pulses': n, 'save_fn': save_fn, \
+                    'num_RFs': 1, 'long_delay_time': 200}
+    update_parameters(updates)
+    try_model(gpu_id)
+
+    print('Training network with variable delay on', n, ' pulses, v2...')
+    save_fn = 'old_var_delay_' + str(n) + '_v2.pkl'
+    updates = {'dead_time': 0, 'save_fn': save_fn}
+    update_parameters(updates)
+    try_model(gpu_id)
+
+    print('Training network with variable delay on', n, ' pulses, v3...')
+    save_fn = 'old_var_delay_' + str(n) + '_v3.pkl'
+    updates = {'num_fix_tuned': 1, 'save_fn': save_fn}
+    update_parameters(updates)
+    try_model(gpu_id)

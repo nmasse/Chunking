@@ -1,3 +1,29 @@
+Test Versions:
+
+original: 4 RFs, 100ms dead time, 500ms long delay, 2 fix neurons, fixation
+v1: 1 RF, 200ms long delay
+v2: v1 + 0 ms dead time
+v3: v2 + 1 fixation neurons
+
+v4: v3 + resp_cue neuron
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <Models that are running>
 *lower learning rate, low connection, 500 ms resp time for sequence cue
 
@@ -12,15 +38,6 @@
 
 -- 100 hidden
 3. sequence cue + RF cue, pulse 4, 6, 8, 10 
-
-
-
-
-
-
-
-
-
 
 
 
@@ -47,3 +64,9 @@
      sequence_3_var_delay_cue_off_v0.pkl     --> 90%, but fixation was funky
      RF_cue_3_var_delay_cue_off_v0.pkl       --> 90% in ./perfect (older stim version)
      RF_detection_3_var_delay_cue_off_v0.pkl --> 90% in ./perfect (older stim version)
+
+
+
+
+
+
