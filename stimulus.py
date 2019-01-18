@@ -60,6 +60,9 @@ class Stimulus:
         resp_start = int((par['dead_time'] + par['fix_time'] + num_pulses*par['sample_time'] + par['long_delay_time'] + np.sum(par['delay_times']))//par['dt'])
         delay_times = par['delay_times']//par['dt'] if var_delay else par['delay_time']*np.ones_like(par['delay_times'])//par['dt']
 
+        print(num_pulses)
+        print(all_RF)
+        print(trial_info['neural_input'].shape)
 
         for t in range(par['batch_train_size']):
 
@@ -67,7 +70,7 @@ class Stimulus:
             Generate trial paramaters
             """
             num_pulses = par['num_pulses']
-            loc = np.random.permutation(np.arange(par['num_pulses'])) if all_RF else np.array([np.random.choice(np.arange(par['num_pulses']))] * par['num_pulses'])
+            loc = np.random.permutation(np.arange(par['num_pulses'])) if all_RF else np.array([np.random.choice(np.arange(par['num_RFs']))] * par['num_pulses'])
 
             current_delay_times = np.random.permutation(delay_times) if var_delay else delay_times
             stim_times = [range(start + i*pulse_dur + np.sum(current_delay_times[:i]), start + (i+1)*pulse_dur + np.sum(current_delay_times[:i])) for i in range(num_pulses)]
@@ -88,7 +91,7 @@ class Stimulus:
                     # stimulus properties
                     trial_info['sample'][t,i] = np.random.randint(par['num_motion_dirs'])
                     trial_info['sample_RF'][t,i] = loc[i]
-
+                    
                     trial_info['neural_input'][stim_times[i], t, :] += self.motion_tuning[trial_info['sample'][t,i], trial_info['sample_RF'][t,i]]
 
                     # response properties
@@ -99,13 +102,14 @@ class Stimulus:
 
                     if par['num_fix_tuned'] > 0:
                         trial_info['neural_input'][resp_times[resp_count], t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = 0
-
                     resp_count += 1
 
             # in case there's left over time (true for var pulse conditions)
             trial_info['train_mask'][np.max(resp_times[-1])+1:, t] = 0
+            trial_info['neural_input'][:, t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = 4 -  trial_info['neural_input'][:, t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']]
 
-        if False:
+
+        if True:
             self.plot_stim(trial_info)
 
         return trial_info
@@ -192,7 +196,7 @@ class Stimulus:
             # in case there's left over time (true for var pulse conditions)
             trial_info['train_mask'][np.max(resp_times[-1])+1:, t] = 0
 
-        if True:
+        if False:
             self.plot_stim(trial_info)
 
         return trial_info

@@ -26,7 +26,7 @@ par = {
     'tol'                   : 0.2,
 
     # Task parameters (non-timing)
-    'trial_type'            : ['sequence_cue'],
+    'trial_type'            : ['sequence'],
     'var_delay'             : True,
     'var_delay_scale'       : 12,        # Set for 9% to 15% catch trials for RF
     'var_num_pulses'        : False,
@@ -36,8 +36,8 @@ par = {
 
     # Network shape
     'num_motion_tuned'      : 24,
-    'num_fix_tuned'         : 2,
-    'num_RFs'               : 4,
+    'num_fix_tuned'         : 1,
+    'num_RFs'               : 1,
     'n_hidden'              : 100,
     'output_type'           : 'one_hot',
 
@@ -73,11 +73,11 @@ par = {
     'iters_between_outputs' : 50,
 
     # Task specs
-    'dead_time'             : 100,  # Time at start of trial that is masked
+    'dead_time'             : 0,  # Time at start of trial that is masked
     'fix_time'              : 200,  # Amount of fixation time before stimulus is shown
     'sample_time'           : 200,  # Sample time for sequence tasks
     'sample_time_RF'        : 500,  # Sample time for RF-based tasks
-    'delay_time'            : 500,  # Short delay period (augmented for pulses)
+    'delay_time'            : 200,  # Short delay period (augmented for pulses)
     'long_delay_time'       : 200,  # Long delay period
     'RF_long_delay_time'    : 1000, # Long delay period for RF tasks
     'var_delay_max'         : 500,  # Maximum delay caused by var delay
@@ -160,7 +160,7 @@ def update_dependencies():
 
     # Number of input neurons
     par['num_max_pulse'] = par['num_pulses']
-    par['num_cue_tuned'] = par['num_max_pulse']
+    par['num_cue_tuned'] = 0
     par['total_motion_tuned'] = par['num_motion_tuned']*par['num_RFs']
 
     if len(par['trial_type']) > 1:
