@@ -108,7 +108,7 @@ class Stimulus:
             trial_info['neural_input'][:, t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']] = \
                 4- trial_info['neural_input'][:, t, par['num_motion_tuned']*par['num_RFs']:par['num_motion_tuned']*par['num_RFs']+par['num_fix_tuned']]
 
-        if True:
+        if False:
             self.plot_stim(trial_info)
 
         return trial_info
