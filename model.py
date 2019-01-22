@@ -59,10 +59,10 @@ class Model:
         self.rnn_cell_loop(self.input_data, self.hidden_init, self.synapse_x_init, self.synapse_u_init)
 
         with tf.variable_scope('output'):
-            # W_out = tf.get_variable('W_out', initializer = par['w_out0'], trainable=True)
-            # b_out = tf.get_variable('b_out', initializer = par['b_out0'], trainable=True)
-            W_out = tf.get_variable('W_out', initializer = par['weights_trained']['w_out'], trainable=True)
-            b_out = tf.get_variable('b_out', initializer = par['weights_trained']['b_out'], trainable=True)
+            W_out = tf.get_variable('W_out', initializer = par['w_out0'], trainable=True)
+            b_out = tf.get_variable('b_out', initializer = par['b_out0'], trainable=True)
+            # W_out = tf.get_variable('W_out', initializer = par['weights_trained']['w_out'], trainable=True)
+            # b_out = tf.get_variable('b_out', initializer = par['weights_trained']['b_out'], trainable=True)
 
         """
         Network output
@@ -77,12 +77,12 @@ class Model:
         Initialize weights and biases
         """
         with tf.variable_scope('rnn_cell'):
-            # W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=True)
-            # W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
-            # b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
-            W_in = tf.get_variable('W_in', initializer = par['weights_trained']['w_in'], trainable=True)
-            W_rnn = tf.get_variable('W_rnn', initializer = par['weights_trained']['w_rnn'], trainable=True)
-            b_rnn = tf.get_variable('b_rnn', initializer = par['weights_trained']['b_rnn'], trainable=True)
+            W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=True)
+            W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
+            b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
+            # W_in = tf.get_variable('W_in', initializer = par['weights_trained']['w_in'], trainable=True)
+            # W_rnn = tf.get_variable('W_rnn', initializer = par['weights_trained']['w_rnn'], trainable=True)
+            # b_rnn = tf.get_variable('b_rnn', initializer = par['weights_trained']['b_rnn'], trainable=True)
         self.W_ei = tf.constant(par['EI_matrix'])
 
         self.hidden_state_hist = []
@@ -226,9 +226,9 @@ def main(gpu_id = None):
     """
     stim = stimulus.Stimulus()
 
-    f = pickle.load(open('./savedir/var_pulses_8_cue_off.pkl', 'rb'))
-    par['weights_trained'] = f['weights']
-    update_parameters(f['parameters'])
+    #f = pickle.load(open('./savedir/var_pulses_8_cue_off.pkl', 'rb'))
+    #par['weights_trained'] = f['weights']
+    #update_parameters(f['parameters'])
 
     n_input, n_hidden, n_output = par['shape']
     N = par['batch_train_size'] # trials per iteration, calculate gradients after batch_train_size
@@ -240,11 +240,13 @@ def main(gpu_id = None):
     x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
     y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
 
-    config = tf.ConfigProto()
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8) if gpu_id=='0' else tf.GPUOptions()
+
+    #config = tf.ConfigProto()
     #config.gpu_options.allow_growth=True
 
     # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
-    with tf.Session(config=config) as sess:
+    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
 
         device = '/cpu:0' if gpu_id is None else '/gpu:0'
         with tf.device(device):
