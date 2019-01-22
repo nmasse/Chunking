@@ -100,8 +100,10 @@ class Stimulus:
 
             # RESPONSE CUE
             trial_info['neural_input'][eft:ert, eolongd:eor[0], t] += np.reshape(self.response_tuning[:,0],(-1,1))
+            trial_info['train_mask'][eolongd:eor[0], t] *= par['tuning_height']
             for i in range(1, num_pulses):
                 trial_info['neural_input'][eft:ert, eodr[i-1]:eor[i], t] += np.reshape(self.response_tuning[:,0],(-1,1))
+                trial_info['train_mask'][eodr[i-1]:eor[i], t] *= par['tuning_height']
 
             # ORDER CUE
             if par['order_cue']:
@@ -127,6 +129,20 @@ class Stimulus:
             """
             trial_info['sample'][t,:] = sample_dirs
             trial_info['rule'][t] = rule
+        
+        if par['check_stim']:
+            for i in range(5):
+                fig, ax = plt.subplots(3)
+
+                ax[0].imshow(trial_info['neural_input'][:,:,i],aspect='auto', clim=[0,par['tuning_height']])
+                ax[1].imshow(trial_info['train_mask'][:,i,np.newaxis],aspect='auto', clim=[0,par['tuning_height']])
+                ax[2].imshow(trial_info['desired_output'][:,:,i],aspect='auto', clim=[0,1])
+
+                ax[0].set_title('Neural Input')
+                ax[1].set_title('Train Mask')
+                ax[2].set_title('Desired Output')
+
+                plt.show()
 
         return trial_info
 
@@ -254,11 +270,15 @@ class Stimulus:
                 trial_info['neural_input'][emt:eft, eodead:eolongd, t] += np.reshape(self.fix_tuning[:,0],(-1,1))
                 for i in range(num_pulses):
                     trial_info['neural_input'][emt:eft, eor[i]:eodr[i], t] += np.reshape(self.fix_tuning[:,0],(-1,1))
+            # flip fixation to resp cue
+            # trial_info['neural_input'][emt:eft, eor[i]:eodr[i], t] = par['tuning_height'] - trial_info['neural_input'][emt:eft, eor[i]:eodr[i], t]
 
             # RESPONSE CUE
             trial_info['neural_input'][eft:ert, eolongd:eor[0], t] += np.reshape(self.response_tuning[:,0],(-1,1))
+            trial_info['train_mask'][eolongd:eor[0], t] *= par['tuning_height']
             for i in range(1, num_pulses):
                 trial_info['neural_input'][eft:ert, eodr[i-1]:eor[i], t] += np.reshape(self.response_tuning[:,0],(-1,1))
+                trial_info['train_mask'][eodr[i-1]:eor[i], t] *= par['tuning_height']
 
             # ORDER CUE
             if par['order_cue']:
@@ -287,23 +307,17 @@ class Stimulus:
 
         if par['check_stim']:
             for i in range(5):
-                plt.figure()
-                plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(list(trial_info['delay'][i,:trial_info['num_pulses'][i]-1])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
-                plt.imshow(trial_info['neural_input'][:,:,i],aspect='auto')
-                plt.colorbar()
+                fig, ax = plt.subplots(3)
+
+                ax[0].imshow(trial_info['neural_input'][:,:,i],aspect='auto', clim=[0,par['tuning_height']])
+                ax[1].imshow(trial_info['train_mask'][:,i,np.newaxis],aspect='auto', clim=[0,par['tuning_height']])
+                ax[2].imshow(trial_info['desired_output'][:,:,i],aspect='auto', clim=[0,1])
+
+                ax[0].set_title('Neural Input')
+                ax[1].set_title('Train Mask')
+                ax[2].set_title('Desired Output')
+
                 plt.show()
-                plt.close()
-                plt.figure()
-                plt.plot(trial_info['train_mask'][:,i])
-                plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(list(trial_info['delay'][i,:trial_info['num_pulses'][i]-1])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
-                plt.show()
-                plt.close()
-                plt.figure()
-                plt.imshow(trial_info['desired_output'][:,:,i],aspect='auto')
-                plt.title("num_pulses: "+str(trial_info['num_pulses'][i])+"\nvar_delay: "+str(list(trial_info['delay'][i,:trial_info['num_pulses'][i]-1])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:trial_info['num_pulses'][i]]))
-                plt.colorbar()
-                plt.show()
-                plt.close()
 
         return trial_info
 
@@ -373,3 +387,10 @@ class Stimulus:
         ax.set_title('Motion input')
         plt.show()
         plt.savefig('stimulus.pdf', format='pdf')
+
+#stim = Stimulus()
+#updates = {'num_pulses': 4, 'var_delay': True, 'var_resp_delay': True, 'var_num_pulses': False, 'save_fn': '', 'order_cue': False}
+#update_parameters(updates)
+#par['check_stim'] = True
+#stim.generate_trial(analysis = False, num_fixed=0, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], var_num_pulses=par['var_num_pulses'])
+

@@ -10,7 +10,7 @@ Independent parameters
 
 par = {
     # Setup parameters
-    'save_dir'              : './savedir/',
+    'save_dir'              : './savedir_restart/',
     'debug_model'           : False,
     'load_previous_model'   : False,
     'analyze_model'         : True,
@@ -24,19 +24,19 @@ par = {
 
     # Network shape
     'num_motion_tuned'      : 24,
-    'num_fix_tuned'         : 2,
+    'num_fix_tuned'         : 0,
     'num_rule_tuned'        : 0,
     'n_hidden'              : 100,
     'n_output'              : 9,
 
     # Chunking trial
-    'num_pulses'            : 100,
+    'num_pulses'            : 5,
     'num_max_pulse'         : 0,
     'var_num_pulses'        : False,
-    'num_resp_cue_tuned'    : 2,
-    'long_delay_time'       : 500,
+    'num_resp_cue_tuned'    : 1,
+    'long_delay_time'       : 200,
     'resp_cue_time'         : 200,
-    'order_cue'             : True,
+    'order_cue'             : False,
     'balance_EI'            : True,
 
     # Timings and rates
@@ -75,12 +75,12 @@ par = {
     # Task specs
     'trial_type'            : 'chunking', # allowable types: DMS, DMRS45, DMRS90, DMRS180, DMC, DMS+DMRS, ABBA, ABCA, dualDMS
     'rotation_match'        : 0,  # angular difference between matching sample and test
-    'dead_time'             : 100,
+    'dead_time'             : 0,
     'fix_time'              : 200,
     'sample_time'           : 200,
     'delay_time'            : 200,
-    'test_time'             : 500,
-    'variable_delay_max'    : 300,
+    'test_time'             : 200,
+    'variable_delay_max'    : 500,
     'mask_duration'         : 50,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
@@ -205,8 +205,8 @@ def update_trial_params():
         if par['var_num_pulses']:
             par['num_pulses'] = par['num_max_pulse']
         if par['var_delay']:
-            par['delay_time'] = 300
-            par['long_delay_time'] = 700
+            par['delay_time'] = 200
+            par['long_delay_time'] = 200
             par['num_max_pulse'] = par['num_pulses']
         if par['order_cue']:
             if par['num_max_pulse']:
@@ -275,7 +275,11 @@ def update_dependencies():
     if par['trial_type'] == 'dualDMS' and not par['dualDMS_single_test']:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
     elif par['trial_type'] == 'chunking':
-        par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
+        if par['var_delay']:
+            par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*300 + 700 + \
+            par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*300
+        else:
+            par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
             par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
     else:
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+par['delay_time']+par['test_time']
