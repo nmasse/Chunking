@@ -19,8 +19,8 @@ par = {
     # Network configuration
     'synapse_config'        : 'std_stf', # Full is 'std_stf'
     'exc_inh_prop'          : 0.8,       # Literature 0.8, for EI off 1
-    'var_delay'             : False,
-    'var_resp_delay'        : False,
+    'var_delay'             : True,
+    'var_resp_delay'        : True,
 
     # Network shape
     'num_motion_tuned'      : 24,

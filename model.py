@@ -259,16 +259,21 @@ def main(gpu_id = None):
         # keep track of the model performance across training
         model_performance = {'accuracy': [], 'pulse_accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': []}
 
+        acc_count = int(0)
+        accuracy_threshold = np.array([0.0, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97])
+        save_fn = par['save_dir'] + par['save_fn']
+        save_fn_ind = save_fn[1:].find('.') - 1
+
         for i in range(par['num_iterations']):
 
             # generate batch of batch_train_size
             trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'])
 
-            if not par['var_num_pulses']:
-                onset = np.array([np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1])
-                pulse_masks = np.array([np.zeros((par['num_time_steps'], par['batch_train_size']),dtype=np.float32)] * par['num_pulses'])
-                for p in range(par['num_pulses']):
-                    pulse_masks[p,onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt'],:] = 1
+            #if not par['var_num_pulses']:
+                # onset = np.array([np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1])
+                # pulse_masks = np.array([np.zeros((par['num_time_steps'], par['batch_train_size']),dtype=np.float32)] * par['num_pulses'])
+                #for p in range(par['num_pulses']):
+                    #pulse_masks[p,onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt'],:] = 1
 
 
             """
@@ -281,10 +286,19 @@ def main(gpu_id = None):
 
             accuracy = analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask'])
 
+            # print("I am in model")
+            # print(pulse_masks.shape)
+            # print(trial_info['train_mask'].shape)
+            # plt.figure()
+            # plt.plot(trial_info['train_mask'][:,0])
+            # plt.plot(trial_info['pulse_masks'][0,:,0])
+            # plt.plot(trial_info['pulse_masks'][1,:,0])
+            # plt.show()
+
             pulse_accuracy = []
             if not par['var_num_pulses']:
                 for p in range(par['num_pulses']):
-                    pulse_accuracy.append(analysis.get_perf(trial_info['desired_output'], y_hat, pulse_masks[p]))
+                    pulse_accuracy.append(analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['pulse_masks'][p]))
 
 
             model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*N)
@@ -294,7 +308,7 @@ def main(gpu_id = None):
             """
             if i%par['iters_between_outputs']==0 and i > 0:
                 print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
-
+            '''
             if i%5000 == 0:
                 weights = eval_weights()
                 syn_x_stacked = np.stack(syn_x_hist, axis=1)
@@ -310,8 +324,9 @@ def main(gpu_id = None):
                     'mean_h': mean_h,
                     'timeline': trial_info['timeline']}
                 pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
-
-            if accuracy > 0.995:
+            '''
+            if i>5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
+                print("SAVING")
                 weights = eval_weights()
                 syn_x_stacked = np.stack(syn_x_hist, axis=1)
                 syn_u_stacked = np.stack(syn_u_hist, axis=1)
@@ -325,7 +340,15 @@ def main(gpu_id = None):
                     'trial_time': trial_time,
                     'mean_h': mean_h,
                     'timeline': trial_info['timeline']}
-                pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
+                acc_str = str(int(accuracy_threshold[acc_count]*100))
+                sf = save_fn[:-4] + '_acc' + acc_str + save_fn[-4:]
+                print(sf)
+                pickle.dump(results, open(sf, 'wb'))
+                acc_count += 1
+                if acc_count >= len(accuracy_threshold):
+                    break
+                
+                '''
                 for b in range(10):
                     plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T-np.max(np.array(y_hat)[:,:,b].T))]
                     fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
@@ -341,7 +364,7 @@ def main(gpu_id = None):
                     plt.savefig("./savedir/input_"+str(par['num_pulses'])+"pulses_iter_"+str(i)+"_"+str(b)+".png")
                     plt.close()
                 break
-
+                '''
         """
         Save model, analyze the network model and save the results
         """

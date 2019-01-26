@@ -793,6 +793,7 @@ def get_perf(y, y_hat, mask):
     y_hat is the actual output
     """
     y_hat_max = np.stack(y_hat, axis=1)
+    print("I am in get_perf")
     mask_test = mask*(y[0,:,:]==0)
     y_max = np.argmax(y, axis = 0)
     y_hat_max = np.argmax(y_hat_max, axis = 0)

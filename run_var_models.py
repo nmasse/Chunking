@@ -50,7 +50,7 @@ except:
     gpu_id = None
 
 num_pulses = [5,6]
-var_delay = [False] #[True]
+var_delay = [True] #[True]
 
 for n in num_pulses:
     for delay in var_delay:
