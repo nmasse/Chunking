@@ -51,7 +51,7 @@ class Stimulus:
                       'sample'          :  np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int8),
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size'])),
                       'timeline'        :  [eodead, eof],
-                      'pulse_masks'     :  np.ones((par['num_pulses'], trial_length, par['batch_train_size']),dtype=np.float32)}
+                      'pulse_masks'     :  np.zeros((par['num_pulses'], trial_length, par['batch_train_size']),dtype=np.float32)}
 
         trial_info['timeline'].append(eos[0])
         for i in range(1,num_pulses):
@@ -68,7 +68,6 @@ class Stimulus:
         trial_info['train_mask'][eolongd:eolongd+par['mask_duration']//par['dt'], :] = 0
         for i in range(1, par['num_pulses']):
             trial_info['train_mask'][eodr[i-1]:eodr[i-1]+par['mask_duration']//par['dt'], :] = 0
-            trial_info['pulse_masks'][:,eodr[i-1]:eodr[i-1]+par['mask_duration']//par['dt'], :] = 0
         # If the DMS and DMS rotate are being performed together,
         # or if I need to make the test more challenging, this will eliminate easry test directions
         # If so, reduce set of test stimuli so that a single strategy can't be used
@@ -109,9 +108,9 @@ class Stimulus:
             #Setting pulse masks
             for i in range(num_pulses):
                 if i == 0:
-                    trial_info['pulse_masks'][0, eolongd:eor[0], t] *= par['tuning_height']
+                    trial_info['pulse_masks'][0, eolongd:eor[0], t] += par['tuning_height']
                 else:
-                    trial_info['pulse_masks'][i, eodr[i-1]:eor[i], t] *= par['tuning_height']
+                    trial_info['pulse_masks'][i, eodr[i-1]:eor[i], t] += par['tuning_height']
             # ORDER CUE
             if par['order_cue']:
                 trial_info['neural_input'][ert, eolongd:eor[0], t] += par['tuning_height']
@@ -177,7 +176,7 @@ class Stimulus:
                       'num_pulses'      :  np.zeros(par['batch_train_size'],dtype=np.int32),
                       'delay'           :  np.zeros((par['batch_train_size'], par['num_max_pulse']),dtype=np.int32),
                       'resp_delay'      :  np.zeros((par['batch_train_size'], par['num_max_pulse']-1),dtype=np.int32),
-                      'pulse_masks'     :  np.ones((par['num_pulses'], trial_length, par['batch_train_size']), dtype=np.float32)}
+                      'pulse_masks'     :  np.zeros((par['num_pulses'], trial_length, par['batch_train_size']), dtype=np.float32)}
 
         if var_num_pulses:
             if test_mode_pulse:
@@ -254,10 +253,8 @@ class Stimulus:
             # set to mask equal to zero during the dead time
             trial_info['train_mask'][:eodead, t] = 0
             trial_info['train_mask'][eolongd:eolongd+par['mask_duration']//par['dt'], t] = 0
-            trial_info['pulse_masks'][:,eolongd:eolongd+par['mask_duration']//par['dt'], t] = 0
             for i in range(1, num_pulses):
                 trial_info['train_mask'][eodr[i-1]:eodr[i-1]+par['mask_duration']//par['dt'], t] = 0
-                trial_info['pulse_masks'][:,eodr[i-1]:eodr[i-1]+par['mask_duration']//par['dt'], t] = 0
             trial_info['train_mask'][eor[-1]:, t] = 0
 
             if not analysis:
@@ -291,9 +288,9 @@ class Stimulus:
                 trial_info['train_mask'][eodr[i-1]:eor[i], t] *= par['tuning_height']
             for i in range(num_pulses):
                 if i == 0:
-                    trial_info['pulse_masks'][0, eolongd:eor[0], t] *= par['tuning_height']
+                    trial_info['pulse_masks'][0, eolongd:eor[0], t] += par['tuning_height']
                 else:
-                    trial_info['pulse_masks'][i, eodr[i-1]:eor[i], t] *= par['tuning_height']
+                    trial_info['pulse_masks'][i, eodr[i-1]:eor[i], t] += par['tuning_height']
             # ORDER CUE
             if par['order_cue']:
                 trial_info['neural_input'][ert, eolongd:eor[0], t] += par['tuning_height']

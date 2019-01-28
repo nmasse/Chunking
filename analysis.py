@@ -619,6 +619,50 @@ def cut_weights(x_dict, trial_info, start_time, trial_time, h, syn_x, syn_u, net
 
     return cutting_results
 
+
+def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
+
+    trial_length = h.shape[0]
+    current_results = {
+        'exc_current'            :  np.zeros((trial_length, par['n_hidden'], 2),dtype=np.float32),
+        'inh_current'            :  np.zeros((trial_length, par['n_hidden'], 2),dtype=np.float32),
+        'rnn_current'            :  np.zeros((trial_length, par['n_hidden'], 2),dtype=np.float32),
+        'motion_current'         :  np.zeros((trial_length, par['n_hidden']),dtype=np.float32),
+        'fix_current'            :  np.zeros((trial_length, par['n_hidden']),dtype=np.float32),
+        'cue_current'            :  np.zeros((trial_length, par['n_hidden']),dtype=np.float32)}
+
+    mean_activity     = np.mean(h, axis=1)
+    mean_eff_activity = np.mean(h*syn_x*syn_u, axis=1)
+    input_activity    = np.mean(network_input, axis=1)
+
+    mot  = par['total_motion_tuned']
+    fix  = par['total_motion_tuned'] + par['num_fix_tuned']
+    cue  = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_cue_tuned']
+    rule = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_cue_tuned'] + par['num_rule_tuned']
+
+    motion_rng  = range(mot)
+    fix_rng     = range(mot, fix)
+    cue_rng     = range(fix, cue)
+    rule_rng    = range(cue, rule)
+
+    ei_index = par['num_exc_units']
+
+    current_results['exc_current'][:, :, 0] = mean_activity[:,:ei_index] @ network_weights['W_rnn'][:ei_index,:]
+    current_results['exc_current'][:, :, 1] = mean_eff_activity[:,:ei_index] @ network_weights['W_rnn'][:ei_index,:]
+    current_results['inh_current'][:, :, 0] = mean_activity[:,ei_index:] @ network_weights['W_rnn'][ei_index:,:]
+    current_results['inh_current'][:, :, 1] = mean_eff_activity[:,ei_index:] @ network_weights['W_rnn'][ei_index:,:]
+
+    current_results['motion_current'] = input_activity[:,motion_rng] @ network_weights['W_in'][motion_rng,:]
+    current_results['fix_current']    = input_activity[:,fix_rng] @ network_weights['W_in'][fix_rng,:]
+    current_results['cue_current']    = input_activity[:,cue_rng] @ network_weights['W_in'][cue_rng,:]
+
+    for t in range(trial_length):
+        current_results['rnn_current'][t, :, 0] = mean_activity[t,:] @ network_weights['W_rnn']
+        current_results['rnn_current'][t, :, 1] = mean_eff_activity[t,:] @ network_weights['W_rnn']
+
+    return current_results
+
+
 def calculate_tuning(h, syn_x, syn_u, trial_info, trial_time, network_weights):
 
     epsilon = 1e-9
@@ -793,7 +837,6 @@ def get_perf(y, y_hat, mask):
     y_hat is the actual output
     """
     y_hat_max = np.stack(y_hat, axis=1)
-    print("I am in get_perf")
     mask_test = mask*(y[0,:,:]==0)
     y_max = np.argmax(y, axis = 0)
     y_hat_max = np.argmax(y_hat_max, axis = 0)
