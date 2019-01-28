@@ -13,15 +13,12 @@ import copy
 
 def analyze_model_from_file(filename, savefile = None, analysis = False, test_mode_pulse=False, test_mode_delay=False):
 
-    x = pickle.load(open('./savedir/perfect/'+filename, 'rb'))
+    x = pickle.load(open('./savedir_restart/'+filename, 'rb'))
     if savefile is None:
         x['parameters']['save_fn'] = 'test.pkl'
     else:
         x['parameters']['save_fn'] = savefile
     update_parameters(x['parameters'])
-    print("\n\n\nLook here!!!!!!!!!!!")
-    print(par['num_max_pulse'])
-    print(par['num_pulses'])
     stim = stimulus.Stimulus()
     if analysis:
         for i in range(x['parameters']['num_pulses']):
@@ -35,7 +32,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
             syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = True, stim_num = i, simulation = False, cut = True,\
+            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = True, stim_num = i, simulation = False, currents = False, cut = True,\
                     lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_pulse:
         for i in range(x['parameters']['num_max_pulse']//2,x['parameters']['num_max_pulse']+1):
@@ -49,7 +46,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
             syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, cut = False,\
+            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, currents = False, cut = False,\
                     lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_delay:
         trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=test_mode_pulse,test_mode_delay=test_mode_delay)
@@ -61,12 +58,10 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = True, cut = True,\
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = True, currents = False, cut = True,\
                 lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
     else:
         trial_info = stim.generate_trial()
-        print(trial_info['neural_input'].shape)
-        print(x['parameters']['num_time_steps'])
         input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
 
         y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
@@ -75,12 +70,12 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, cut = False,\
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, currents = True, cut = False,\
                 lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
 
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
-        cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):
+        currents = False, cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):
 
     """
     Converts neuronal and synaptic values, stored in lists, into 3D arrays
@@ -117,6 +112,18 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
         results['syn_u'] = np.array(syn_u)
         results['y_hat'] = np.array(y_hat)
         results['trial_info'] = trial_info
+
+
+    """
+    Calculate currents
+    """
+    if currents:
+        print('calculate current...')
+        current_results = calculate_currents(h_stacked, syn_x_stacked, syn_u_stacked, trial_info['neural_input'], weights)
+        for key, val in current_results.items():
+            results[key] = val
+            #x[key] = val # added just to be able to run cut_weights in one analysis run
+        pickle.dump(results, open(save_fn, 'wb'))
 
     """
     Calculate accuracy after lesioning weights
@@ -622,7 +629,10 @@ def cut_weights(x_dict, trial_info, start_time, trial_time, h, syn_x, syn_u, net
 
 def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
 
-    trial_length = h.shape[0]
+    for key, val in network_weights.items():
+        network_weights[key] = val.T
+    
+    trial_length = h.shape[1]
     current_results = {
         'exc_current'            :  np.zeros((trial_length, par['n_hidden'], 2),dtype=np.float32),
         'inh_current'            :  np.zeros((trial_length, par['n_hidden'], 2),dtype=np.float32),
@@ -631,14 +641,14 @@ def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
         'fix_current'            :  np.zeros((trial_length, par['n_hidden']),dtype=np.float32),
         'cue_current'            :  np.zeros((trial_length, par['n_hidden']),dtype=np.float32)}
 
-    mean_activity     = np.mean(h, axis=1)
-    mean_eff_activity = np.mean(h*syn_x*syn_u, axis=1)
-    input_activity    = np.mean(network_input, axis=1)
+    mean_activity     = np.mean(h, axis=2).T
+    mean_eff_activity = np.mean(h*syn_x*syn_u, axis=2).T
+    input_activity    = np.mean(network_input, axis=2).T
 
-    mot  = par['total_motion_tuned']
-    fix  = par['total_motion_tuned'] + par['num_fix_tuned']
-    cue  = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_cue_tuned']
-    rule = par['total_motion_tuned'] + par['num_fix_tuned'] + par['num_cue_tuned'] + par['num_rule_tuned']
+    mot  = par['num_motion_tuned']
+    fix  = par['num_motion_tuned'] + par['num_fix_tuned']
+    cue  = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned']
+    rule = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned'] + par['num_rule_tuned']
 
     motion_rng  = range(mot)
     fix_rng     = range(mot, fix)
@@ -647,18 +657,19 @@ def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
 
     ei_index = par['num_exc_units']
 
-    current_results['exc_current'][:, :, 0] = mean_activity[:,:ei_index] @ network_weights['W_rnn'][:ei_index,:]
-    current_results['exc_current'][:, :, 1] = mean_eff_activity[:,:ei_index] @ network_weights['W_rnn'][:ei_index,:]
-    current_results['inh_current'][:, :, 0] = mean_activity[:,ei_index:] @ network_weights['W_rnn'][ei_index:,:]
-    current_results['inh_current'][:, :, 1] = mean_eff_activity[:,ei_index:] @ network_weights['W_rnn'][ei_index:,:]
+    current_results['exc_current'][:, :, 0] = mean_activity[:,:ei_index] @ network_weights['w_rnn'][:ei_index,:]
+    current_results['exc_current'][:, :, 1] = mean_eff_activity[:,:ei_index] @ network_weights['w_rnn'][:ei_index,:]
+    current_results['inh_current'][:, :, 0] = mean_activity[:,ei_index:] @ network_weights['w_rnn'][ei_index:,:]
+    current_results['inh_current'][:, :, 1] = mean_eff_activity[:,ei_index:] @ network_weights['w_rnn'][ei_index:,:]
 
-    current_results['motion_current'] = input_activity[:,motion_rng] @ network_weights['W_in'][motion_rng,:]
-    current_results['fix_current']    = input_activity[:,fix_rng] @ network_weights['W_in'][fix_rng,:]
-    current_results['cue_current']    = input_activity[:,cue_rng] @ network_weights['W_in'][cue_rng,:]
+    current_results['motion_current'] = input_activity[:,motion_rng] @ network_weights['w_in'][motion_rng,:]
+    current_results['fix_current']    = input_activity[:,fix_rng] @ network_weights['w_in'][fix_rng,:]
+    print(current_results['fix_current'].shape)
+    current_results['cue_current']    = input_activity[:,cue_rng] @ network_weights['w_in'][cue_rng,:]
 
     for t in range(trial_length):
-        current_results['rnn_current'][t, :, 0] = mean_activity[t,:] @ network_weights['W_rnn']
-        current_results['rnn_current'][t, :, 1] = mean_eff_activity[t,:] @ network_weights['W_rnn']
+        current_results['rnn_current'][t, :, 0] = mean_activity[t,:] @ network_weights['w_rnn']
+        current_results['rnn_current'][t, :, 1] = mean_eff_activity[t,:] @ network_weights['w_rnn']
 
     return current_results
 
