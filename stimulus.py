@@ -105,6 +105,8 @@ class Stimulus:
             for i in range(1, num_pulses):
                 trial_info['neural_input'][eft:ert, eodr[i-1]:eor[i], t] += np.reshape(self.response_tuning[:,0],(-1,1))
                 trial_info['train_mask'][eodr[i-1]:eor[i], t] *= par['tuning_height']
+            trial_info['train_mask'][eor[-1]:, t] = 0
+            
             #Setting pulse masks
             for i in range(num_pulses):
                 if i == 0:
