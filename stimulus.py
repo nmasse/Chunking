@@ -108,9 +108,9 @@ class Stimulus:
             #Setting pulse masks
             for i in range(num_pulses):
                 if i == 0:
-                    trial_info['pulse_masks'][0, eolongd:eor[0], t] += par['tuning_height']
+                    trial_info['pulse_masks'][0, eolongd+par['mask_duration']//par['dt']:eor[0], t] += par['tuning_height']
                 else:
-                    trial_info['pulse_masks'][i, eodr[i-1]:eor[i], t] += par['tuning_height']
+                    trial_info['pulse_masks'][i, eodr[i-1]+par['mask_duration']//par['dt']:eor[i], t] += par['tuning_height']
             # ORDER CUE
             if par['order_cue']:
                 trial_info['neural_input'][ert, eolongd:eor[0], t] += par['tuning_height']
@@ -288,9 +288,9 @@ class Stimulus:
                 trial_info['train_mask'][eodr[i-1]:eor[i], t] *= par['tuning_height']
             for i in range(num_pulses):
                 if i == 0:
-                    trial_info['pulse_masks'][0, eolongd:eor[0], t] += par['tuning_height']
+                    trial_info['pulse_masks'][0, eolongd+par['mask_duration']//par['dt']:eor[0], t] += par['tuning_height']
                 else:
-                    trial_info['pulse_masks'][i, eodr[i-1]:eor[i], t] += par['tuning_height']
+                    trial_info['pulse_masks'][i, eodr[i-1]+par['mask_duration']//par['dt']:eor[i], t] += par['tuning_height']
             # ORDER CUE
             if par['order_cue']:
                 trial_info['neural_input'][ert, eolongd:eor[0], t] += par['tuning_height']

@@ -165,8 +165,6 @@ def selective_task_currents(num_top_neurons=5):
 
         for c, k in zip(['r', 'g', 'b'], rnn_currents):
             current = x[k]
-            print(current.shape)
-
             time = np.arange(current.shape[0])
             curve0 = np.mean(current[:,greatest_neurons,0], axis=1)
             curve1 = np.mean(current[:,greatest_neurons,1], axis=1)
@@ -306,40 +304,46 @@ def multi_accuracy_selective_hidden_state_deviation():
 
 if __name__ == '__main__':
 
-    # Setup
-    filename = 'analysis_restart_no_var_delay_6_acc90.pkl'
-    
-    # files = os.listdir('./analysis_results/')
-    # for filename in files:
-    print("PLOTTING FILE ", filename)
-    foldername = filename[:-4]
-    os.makedirs('./plots/{}/'.format(foldername), exist_ok=True)
-    os.makedirs('./plots/{}/top_synaptic_PEV_deviations/'.format(foldername), exist_ok=True)
-    
-    data = pickle.load(open('./savedir_restart/' + filename, 'rb'))
-    data['parameters']['load_prev_weights'] = False
-    update_parameters(data['parameters'])
+    base = ['analysis_restart_no_var_delay_6_', 'analysis_restart_var_delay_6_', 'analysis_restart_no_var_delay_5_', 'analysis_restart_var_delay_5_']
+    addition = ['acc80.pkl', 'acc90.pkl', 'acc97.pkl']
 
-    trial_info = {}
-    stim = stimulus.Stimulus()
-    trial_info = stim.generate_chunking_trial(par['num_pulses'], analysis=False, num_fixed=0)
+    for a in addition:
+        for b in base:
+        # Setup
+        #filename = 'analysis_restart_no_var_delay_6_acc90.pkl'
+            filename = b + a
+        
+            # files = os.listdir('./analysis_results/')
+            # for filename in files:
+            print("PLOTTING FILE ", filename)
+            foldername = filename[:-4]
+            os.makedirs('./plots/{}/'.format(foldername), exist_ok=True)
+            os.makedirs('./plots/{}/top_synaptic_PEV_deviations/'.format(foldername), exist_ok=True)
+            
+            data = pickle.load(open('./savedir_restart/' + filename, 'rb'))
+            data['parameters']['load_prev_weights'] = False
+            update_parameters(data['parameters'])
 
-    #multi_accuracy_selective_hidden_state_deviation()
-    #quit()
+            trial_info = {}
+            stim = stimulus.Stimulus()
+            trial_info = stim.generate_chunking_trial(par['num_pulses'], analysis=False, num_fixed=0)
 
-    # Make plots
-    task_currents()
+            #multi_accuracy_selective_hidden_state_deviation()
+            #quit()
 
-    #hidden_state_deviation()
+            # Make plots
+            task_currents()
 
-    for i in range(6):
-        os.makedirs('./plots/{}/top_synaptic_PEV_currents/{}top/'.format(foldername,i+1), exist_ok=True)
-        selective_task_currents(num_top_neurons=i+1)
+            #hidden_state_deviation()
 
-    #selective_hidden_state_deviation(num_top_neurons=5)
+            for i in range(6):
+                os.makedirs('./plots/{}/top_synaptic_PEV_currents/{}top/'.format(foldername,i+1), exist_ok=True)
+                selective_task_currents(num_top_neurons=i+1)
 
-    # for t in [0.15, 0.25]:
-    #     task_overlap(threshold=t)
-    #     task_overlap(threshold=t, all=True)
+            #selective_hidden_state_deviation(num_top_neurons=5)
 
-    task_pevs()
+            # for t in [0.15, 0.25]:
+            #     task_overlap(threshold=t)
+            #     task_overlap(threshold=t, all=True)
+
+            task_pevs()

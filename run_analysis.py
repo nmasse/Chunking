@@ -7,8 +7,8 @@ from analysis import *
 task = "chunking"
 
 #file_list = ['restart_no_var_delay_6_acc97.pkl']
-base = ['restart_no_var_delay_6_', 'restart_var_delay_6_', 'restart_no_var_delay_5_', 'restart_var_delay_5_']
-addition = ['acc90.pkl', 'acc97.pkl']
+base = ['restart_no_var_delay_6_', 'restart_var_delay_6_']
+addition = ['acc80.pkl']
 
 for a in addition:
 	for b in base:

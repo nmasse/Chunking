@@ -32,7 +32,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
             syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = True, stim_num = i, simulation = False, currents = False, cut = True,\
+            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = True, stim_num = i, simulation = False, pulse_acc = False, currents = False, cut = True,\
                     lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_pulse:
         for i in range(x['parameters']['num_max_pulse']//2,x['parameters']['num_max_pulse']+1):
@@ -46,7 +46,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
             syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, currents = False, cut = False,\
+            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, pulse_acc = False, currents = False, cut = False,\
                     lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_delay:
         trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=test_mode_pulse,test_mode_delay=test_mode_delay)
@@ -58,7 +58,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = True, currents = False, cut = True,\
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = True, pulse_acc = False, currents = False, cut = True,\
                 lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
     else:
         trial_info = stim.generate_trial()
@@ -70,12 +70,12 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, currents = True, cut = False,\
-                lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, pulse_acc = True, currents = False, cut = False,\
+                lesion = False, tuning = False, decoding = False, load_previous_file = True, save_raw_data = False)
 
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
-        currents = False, cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):
+        pulse_acc = False, currents = False, cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):
 
     """
     Converts neuronal and synaptic values, stored in lists, into 3D arrays
@@ -92,7 +92,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
 
     save_fn = par['save_dir'] + par['save_fn']
 
-    if stim_num>0 or pulse>par['num_max_pulse']//2:
+    if stim_num>0 or pulse>par['num_max_pulse']//2 or load_previous_file:
         results = pickle.load(open(save_fn, 'rb'))
     else:
         results = {
@@ -113,6 +113,14 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
         results['y_hat'] = np.array(y_hat)
         results['trial_info'] = trial_info
 
+    """
+    Calculate pulse accuracy
+    """
+    if pulse_acc:
+        print('calculete pulse accuracy...')
+        pulse_accuracy = calculate_pulse_accuracy(x, trial_info, y_hat)
+        results['pulse_accuracy'] = pulse_accuracy 
+        pickle.dump(results, open(save_fn, 'wb'))
 
     """
     Calculate currents
@@ -181,6 +189,17 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
 
     #pickle.dump(results, open(save_fn, 'wb') ) -> saving after each analysis instead
     print('Analysis results saved in ', save_fn)
+
+def calculate_pulse_accuracy(x, trial_info, y_hat):
+    pulse_accuracy = []
+    for p in range(x['parameters']['num_pulses']):
+        pulse_accuracy.append(get_perf(trial_info['desired_output'], y_hat, trial_info['pulse_masks'][p]))
+
+    print("accuracy: ", get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask']))
+    print("puls_average: ", sum(pulse_accuracy)/len(pulse_accuracy))
+
+
+    return pulse_accuracy
 
 
 def calculate_svms(x_dict,h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
