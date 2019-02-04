@@ -230,13 +230,13 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
     batch_size = par['batch_train_size']
     trial_length = h.shape[1]
     current_results = {
-        'exc_current'            :  np.zeros((batch_size, par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
-        'inh_current'            :  np.zeros((batch_size, par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
-        'motion_current'         :  np.zeros((batch_size, par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
-        'fix_current'            :  np.zeros((batch_size, par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
-        'cue_current'            :  np.zeros((batch_size, par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
-        'delta_rnn'              :  np.zeros((batch_size, par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
-        'delta_all'              :  np.zeros((batch_size, par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32)}
+        'exc_current'            :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
+        'inh_current'            :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
+        'motion_current'         :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
+        'fix_current'            :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
+        'cue_current'            :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
+        'delta_rnn'              :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
+        'delta_all'              :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32)}
 
     eff_activity = (h*syn_x*syn_u).T # (1024, 480, 100) 
     input_activity = network_input.T # (1024, 480, 25)
@@ -259,12 +259,13 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
 
     for p in range(par['num_pulses']):
         times = range(start_sample_times[p],end_sample_times[p])
-        current_results['exc_current'][:, p, :, :] = eff_activity[:,times,:][:,:,:ei_index] @ network_weights['w_rnn'][:ei_index,greatest_neurons[p]]
-        current_results['inh_current'][:, p, :, :] = eff_activity[:,times,:][:,:,ei_index:] @ network_weights['w_rnn'][ei_index:,greatest_neurons[p]]
+        for n in range(par['num_pulses']):
+            current_results['exc_current'][:, p, n, :, :] = eff_activity[:,times,:][:,:,:ei_index] @ network_weights['w_rnn'][:ei_index,greatest_neurons[n]]
+            current_results['inh_current'][:, p, n, :, :] = eff_activity[:,times,:][:,:,ei_index:] @ network_weights['w_rnn'][ei_index:,greatest_neurons[n]]
 
-        current_results['motion_current'][:, p, :, :] = input_activity[:,times,:][:,:,motion_rng] @ network_weights['w_in'][motion_rng,:][:,greatest_neurons[p]]
-        current_results['fix_current'][:, p, :, :]    = input_activity[:,times,:][:,:,fix_rng] @ network_weights['w_in'][fix_rng,:][:,greatest_neurons[p]]
-        current_results['cue_current'][:, p, :, :]    = input_activity[:,times,:][:,:,cue_rng] @ network_weights['w_in'][cue_rng,:][:,greatest_neurons[p]]
+            current_results['motion_current'][:, p, n, :, :] = input_activity[:,times,:][:,:,motion_rng] @ network_weights['w_in'][motion_rng,:][:,greatest_neurons[n]]
+            current_results['fix_current'][:, p, n, :, :]    = input_activity[:,times,:][:,:,fix_rng] @ network_weights['w_in'][fix_rng,:][:,greatest_neurons[n]]
+            current_results['cue_current'][:, p, n, :, :]    = input_activity[:,times,:][:,:,cue_rng] @ network_weights['w_in'][cue_rng,:][:,greatest_neurons[n]]
 
     current_results['delta_rnn'] = current_results['exc_current'] - current_results['inh_current']
     current_results['delta_all'] = current_results['exc_current'] + current_results['motion_current'] + current_results['fix_current'] \
@@ -287,19 +288,16 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
 
     # calculate correlation
     output = np.mean(outputs,axis=2)
-    delta_rnn = np.mean(current_results['delta_rnn'],axis=(2,3)) # batch, pulse
-    delta_all = np.mean(current_results['delta_all'],axis=(2,3)) # batch, pulse
+    delta_rnn = np.mean(current_results['delta_rnn'],axis=(3,4)) # batch, pulse, neuron_group
+    delta_all = np.mean(current_results['delta_all'],axis=(3,4)) # batch, pulse, neuron_group
     
-    for p in range(par['num_pulses']):
-        plt.scatter(delta_rnn[:,p],output[:,p])
-        plt.title("Delta RNN vs. Output for pulse {}".format(p))
-        plt.savefig('./correlation/delta_rnn_pulse_{}.png'.format(p))
-        plt.close()
-
-    for p in range(par['num_pulses']):
-        plt.scatter(delta_all[:,p],output[:,p])
-        plt.title("Delta All vs. Output for pulse {}".format(p))
-        plt.savefig('./correlation/delta_all_pulse_{}.png'.format(p))
+    for n in range(par['num_pulses']):
+        fig, ax = plt.subplots(2,3,figsize=(8,7), sharex=True)
+        for p in range(par['num_pulses']):
+            ax[p//3,p%3].scatter(delta_all[:,p,n],output[:,n], s=3)
+            ax[p//3,p%3].set_title("Delta at pulse {}".format(p))
+        fig.suptitle("Delta All vs. Output for neuron group {}".format(n))
+        plt.savefig('./correlation/delta_all_neuron_group_{}.png'.format(n))
         plt.close()
 
     correlation_results = {
