@@ -282,8 +282,8 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
     for p in range(par['num_pulses']):
         direction = desired_dir[start_response_times[p]]
         for b in range(batch_size):
-            dir = direction[b]
-            outputs[b,p,:] = soft_y[range(start_response_times[p],end_response_times[p]),dir,b]
+            motion_dir = direction[b]
+            outputs[b,p,:] = soft_y[range(start_response_times[p],end_response_times[p]),motion_dir,b]
 
     # calculate correlation
     output = np.mean(outputs,axis=2)
