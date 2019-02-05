@@ -71,12 +71,12 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, pulse_acc = False, currents = False, correlation = True, cut = False,\
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, pulse_acc = False, currents = True, correlation = True, correlation_ind = True, cut = False,\
                 lesion = False, tuning = False, decoding = False, load_previous_file = True, save_raw_data = False)
 
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
-        pulse_acc = False, currents = False, correlation = False, cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):
+        pulse_acc = False, currents = False, correlation = False, correlation_ind = False, cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):
 
     """
     Converts neuronal and synaptic values, stored in lists, into 3D arrays
@@ -198,6 +198,13 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
             results[key] = val
         pickle.dump(results, open(save_fn, 'wb'))
 
+    if correlation_ind:
+        print('calculating individual currents...')
+        correlation_results = calculate_ind_currents(results, trial_info, y_hat, h_stacked, syn_x_stacked, syn_u_stacked, trial_info['neural_input'], weights)
+        for key, val in correlation_results.items():
+            results[key] = val
+        pickle.dump(results, open(save_fn, 'wb'))
+
     #pickle.dump(results, open(save_fn, 'wb') ) -> saving after each analysis instead
     print('Analysis results saved in ', save_fn)
 
@@ -217,6 +224,7 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
     # tuning --> get top five for each pulses
     pev = results['synaptic_pev']
     end_of_task = np.where(trial_info['train_mask'][:,0]==1.)[0][-1]
+    end_of_task = 255
     
     greatest_neurons = np.zeros((par['num_pulses'],num_top_neurons),dtype=np.int8)
     for p in range(par['num_pulses']):
@@ -260,12 +268,12 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
     for p in range(par['num_pulses']):
         times = range(start_sample_times[p],end_sample_times[p])
         for n in range(par['num_pulses']):
-            current_results['exc_current'][:, p, n, :, :] = eff_activity[:,times,:][:,:,:ei_index] @ network_weights['w_rnn'][:ei_index,greatest_neurons[n]]
-            current_results['inh_current'][:, p, n, :, :] = eff_activity[:,times,:][:,:,ei_index:] @ network_weights['w_rnn'][ei_index:,greatest_neurons[n]]
+            current_results['exc_current'][:, p, n, :, :] = eff_activity[:,times,:][:,:,:ei_index] @ network_weights['w_rnn'].T[:ei_index,greatest_neurons[n]]
+            current_results['inh_current'][:, p, n, :, :] = eff_activity[:,times,:][:,:,ei_index:] @ network_weights['w_rnn'].T[ei_index:,greatest_neurons[n]]
 
-            current_results['motion_current'][:, p, n, :, :] = input_activity[:,times,:][:,:,motion_rng] @ network_weights['w_in'][motion_rng,:][:,greatest_neurons[n]]
-            current_results['fix_current'][:, p, n, :, :]    = input_activity[:,times,:][:,:,fix_rng] @ network_weights['w_in'][fix_rng,:][:,greatest_neurons[n]]
-            current_results['cue_current'][:, p, n, :, :]    = input_activity[:,times,:][:,:,cue_rng] @ network_weights['w_in'][cue_rng,:][:,greatest_neurons[n]]
+            current_results['motion_current'][:, p, n, :, :] = input_activity[:,times,:][:,:,motion_rng] @ network_weights['w_in'].T[motion_rng,:][:,greatest_neurons[n]]
+            current_results['fix_current'][:, p, n, :, :]    = input_activity[:,times,:][:,:,fix_rng] @ network_weights['w_in'].T[fix_rng,:][:,greatest_neurons[n]]
+            current_results['cue_current'][:, p, n, :, :]    = input_activity[:,times,:][:,:,cue_rng] @ network_weights['w_in'].T[cue_rng,:][:,greatest_neurons[n]]
 
     current_results['delta_rnn'] = current_results['exc_current'] - current_results['inh_current']
     current_results['delta_all'] = current_results['exc_current'] + current_results['motion_current'] + current_results['fix_current'] \
@@ -307,6 +315,115 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
     }
 
     return correlation_results
+
+
+def calculate_ind_currents(results, trial_info, y_hat, h, syn_x, syn_u, network_input, network_weights, num_top_neurons=5, num_reps=5):
+
+    # tuning --> get top five for each pulses
+    pev = results['synaptic_pev']
+    end_of_task = np.where(trial_info['train_mask'][:,0]==1.)[0][-1]
+    
+    end_of_task = 255     # Potential bug?
+    
+    greatest_neurons = np.zeros((par['num_pulses'],num_top_neurons),dtype=np.int8)
+    for p in range(par['num_pulses']):
+        mean_pev = np.mean(pev[:,p,:end_of_task+1], axis=-1)
+        greatest_neurons[p] = np.argsort(mean_pev)[-(num_top_neurons):][::-1]
+    
+    # run the model --> calculate exc - inh for each pulses
+    for key, val in network_weights.items():
+        network_weights[key] = val.T
+    
+    trial_length = h.shape[1]
+
+    eff_activity = (h*syn_x*syn_u).T # (1024, 480, 100) 
+    input_activity = network_input.T # (1024, 480, 25)
+
+    current_results = {
+        'exc_current'            :  np.zeros((num_reps, par['num_pulses'], trial_length, num_top_neurons),dtype=np.float32),
+        'inh_current'            :  np.zeros((num_reps, par['num_pulses'], trial_length, num_top_neurons),dtype=np.float32),
+        'rnn_current'            :  np.zeros((num_reps, par['num_pulses'], trial_length, num_top_neurons),dtype=np.float32),
+        'motion_current'         :  np.zeros((num_reps, par['num_pulses'], trial_length, num_top_neurons),dtype=np.float32),
+        'fix_current'            :  np.zeros((num_reps, par['num_pulses'], trial_length, num_top_neurons),dtype=np.float32),
+        'cue_current'            :  np.zeros((num_reps, par['num_pulses'], trial_length, num_top_neurons),dtype=np.float32)}
+
+    mot  = par['num_motion_tuned']
+    fix  = par['num_motion_tuned'] + par['num_fix_tuned']
+    cue  = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned']
+    rule = par['num_motion_tuned'] + par['num_fix_tuned'] + par['num_resp_cue_tuned'] + par['num_rule_tuned']
+
+    motion_rng  = range(mot)
+    fix_rng     = range(mot, fix)
+    cue_rng     = range(fix, cue)
+    rule_rng    = range(cue, rule)
+
+    ei_index = par['num_exc_units']
+
+
+    # get output response for each pulses
+    batch_size = par['batch_train_size']
+    last_time = len(trial_info['timeline'])
+    trial_info['timeline'] = np.array(trial_info['timeline'])
+    start_response_times = trial_info['timeline'][range(last_time - par['num_pulses']*2 + 1,last_time,2)] - par['resp_cue_time']//par['dt']  + par['mask_duration']//par['dt']
+    end_response_times = trial_info['timeline'][range(last_time - par['num_pulses']*2 + 1,last_time,2)]
+
+    soft_y = scipy.special.softmax(np.array(y_hat), axis=1) # (480, 9, 1024)
+    desired_dir = np.argmax(trial_info['desired_output'],axis=0) # (480, 1024)
+
+    # outputs = [batch, neuron group, all time]
+    outputs = np.zeros((batch_size, par['num_pulses'], trial_length), dtype=np.float32)
+    for r in range(num_reps):
+        for n in range(par['num_pulses']):
+            for p in range(par['num_pulses']):
+                direction = desired_dir[start_response_times[p]]
+                motion_dir = direction[r]
+                time = range(start_response_times[p],end_response_times[p])
+                outputs[r,n,time] = soft_y[time,motion_dir,r]
+
+    # current_results = [batch, neuron group, all time, neuron group]
+    for r in range(num_reps):
+        for n in range(par['num_pulses']):
+            current_results['exc_current'][r, n, :, :] = eff_activity[r,:,:ei_index] @ network_weights['w_rnn'][:ei_index,greatest_neurons[n]]
+            current_results['inh_current'][r, n, :, :] = eff_activity[r,:,ei_index:] @ network_weights['w_rnn'][ei_index:,greatest_neurons[n]]
+
+            current_results['motion_current'][r, n, :, :] = input_activity[r,:,motion_rng].T @ network_weights['w_in'][motion_rng,:][:,greatest_neurons[n]]
+            current_results['fix_current'][r, n, :, :]    = input_activity[r,:,fix_rng].T @ network_weights['w_in'][fix_rng,:][:,greatest_neurons[n]]
+            current_results['cue_current'][r, n, :, :]    = input_activity[r,:,cue_rng].T @ network_weights['w_in'][cue_rng,:][:,greatest_neurons[n]]
+
+            current_results['delta_all'] = current_results['exc_current'] + current_results['motion_current'] + current_results['fix_current'] \
+                                         + current_results['cue_current'] - current_results['inh_current']
+
+    # calculate correlation
+    for key, val in current_results.items():
+        current_results[key] = np.mean(val, axis=3) # batch, neuron_group, all time
+
+
+    # plot
+    rnn_currents = ['rnn_current', 'exc_current', 'inh_current']
+    inp_currents = ['motion_current', 'fix_current', 'cue_current']
+
+    for r in range(num_reps):
+        for n in range(par['num_pulses']):
+            fig, ax = plt.subplots(2,figsize=(8,7))
+
+            for c, k in zip(['r', 'g', 'b'], rnn_currents):
+                current = current_results[k][r,n]
+                ax[0].plot(current, c=c, label=k)
+            
+            for c, k in zip(['m', 'y', 'c'], inp_currents):
+                current = current_results[k][r,n]
+                ax[0].plot(current, c=c, label=k)
+            ax[0].set_title('Current for batch {} from neuron group {}'.format(r,n))
+            ax[0].legend(loc='upper right', ncol=2)
+
+            ax[1].plot(outputs[r,n])
+            ax[1].set_title('Output for batch {} from neuron group {}'.format(r,n))
+
+            plt.savefig('./correlation/trial_{}_from_group_{}.png'.format(r,n))
+            plt.close()
+
+    return {}
+
 
 def calculate_svms(x_dict,h, syn_x, syn_u, trial_info, trial_time, num_reps = 20, \
     decode_test = False, decode_rule = False, decode_sample_vs_test = False, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False, stim_num=0):
