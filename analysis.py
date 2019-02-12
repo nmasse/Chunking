@@ -33,7 +33,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
             syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = True, stim_num = i, simulation = False, pulse_acc = False, currents = False, cut = True,\
+            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = True, stim_num = i, simulation = False, shuffle_groups = True, pulse_acc = False, currents = False, cut = True,\
                     lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_pulse:
         for i in range(x['parameters']['num_max_pulse']//2,x['parameters']['num_max_pulse']+1):
@@ -47,7 +47,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
             syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
 
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, pulse_acc = False, currents = False, cut = False,\
+            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, shuffle_groups = True, pulse_acc = False, currents = False, cut = False,\
                     lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
     elif test_mode_delay:
         trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=test_mode_pulse,test_mode_delay=test_mode_delay)
@@ -59,7 +59,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = True, pulse_acc = False, currents = False, cut = True,\
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = True, shuffle_groups = True, pulse_acc = False, currents = False, cut = True,\
                 lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
     else:
         trial_info = stim.generate_trial()
@@ -71,11 +71,11 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, pulse_acc = False, currents = True, correlation = True, correlation_ind = True, cut = False,\
+        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, shuffle_groups = True, pulse_acc = False, currents = False, correlation = False, correlation_ind = False, cut = False,\
                 lesion = False, tuning = False, decoding = False, load_previous_file = True, save_raw_data = False)
 
 
-def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True, \
+def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True,shuffle_groups = True,\
         pulse_acc = False, currents = False, correlation = False, correlation_ind = False, cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):
 
     """
@@ -95,6 +95,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
 
     if stim_num>0 or pulse>par['num_max_pulse']//2 or load_previous_file:
         results = pickle.load(open(save_fn, 'rb'))
+
     else:
         results = {
             'model_performance': model_performance,
@@ -202,6 +203,16 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
         print('calculating individual currents...')
         correlation_results = calculate_ind_currents(results, trial_info, y_hat, h_stacked, syn_x_stacked, syn_u_stacked, trial_info['neural_input'], weights)
         for key, val in correlation_results.items():
+            results[key] = val
+        pickle.dump(results, open(save_fn, 'wb'))
+
+    """
+    Shuffling neuron groups
+    """
+    if shuffle_groups:
+        print("Shuffling neuron groups...")
+        shuffling_groups_results = shuffle_neuron_groups(results, trial_info, h_stacked, syn_x_stacked, syn_u_stacked, weights, num_top_neurons=5, num_reps = 5)
+        for key, val in shuffling_groups_results.items():
             results[key] = val
         pickle.dump(results, open(save_fn, 'wb'))
 
@@ -716,6 +727,82 @@ def lesion_weights(trial_info, h, syn_x, syn_u, network_weights, trial_time):
 
 
     return lesion_results
+
+
+def shuffle_neuron_groups(results, trial_info, h, syn_x, syn_u, network_weights, num_top_neurons=0, num_reps = 5):
+    """
+    Simulation will start from the start of the test period until the end of trial
+    """
+    onset = np.array([np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1])
+
+    pev = results['synaptic_pev']
+    
+    # Selecting top neuron groups
+    end_of_task = 259
+
+    greatest_neurons = np.zeros((par['num_pulses'],num_top_neurons),dtype=np.int8)
+    for p in range(par['num_pulses']):
+        mean_pev = np.mean(pev[:,p,onset[p]], axis=-1)
+        greatest_neurons[p] = np.argsort(mean_pev)[-(num_top_neurons):][::-1]
+
+
+    shuffling_groups_results = {
+        'accuracy_neural_shuffled_groups'      : np.zeros((par['num_pulses'], par['num_pulses'], num_reps)),
+        'accuracy_syn_shuffled_groups'         : np.zeros((par['num_pulses'], par['num_pulses'], num_reps))}
+
+    for p in range(par['num_pulses']):
+        test_onset = onset[p]
+        _, trial_length, batch_train_size = h.shape
+
+        train_mask = np.zeros((trial_length, par['batch_train_size']),dtype=np.float32)
+        train_mask[onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt']] = 1
+        #print(np.sum(train_mask))
+
+        #test_length = trial_length - test_onset
+        test_length = par['resp_cue_time']//par['dt']
+        trial_ind = np.arange(par['batch_train_size'])
+
+        print('h', h.shape)
+        print('trial_length',trial_length)
+        print('test_length',test_length)
+        print('test_onset',test_onset)
+        print('trial_info', trial_info['neural_input'].shape)
+        x = np.split(trial_info['neural_input'][:,test_onset:test_onset+test_length,trial_ind],test_length,axis=1)
+        y = trial_info['desired_output'][:,test_onset:test_onset+test_length,trial_ind]
+        train_mask = train_mask[test_onset:test_onset+test_length]
+        #print(np.sum(train_mask))
+
+        for n in range(num_reps):
+            print(n, "out of ", num_reps)
+
+            for m in range(par['num_pulses']):
+                """
+                Keep the synaptic values fixed, permute the neural activity
+                """
+                hidden_init = h[:, test_onset-1, trial_ind]
+                syn_x_init = syn_x[:,test_onset-1,trial_ind]
+                syn_u_init = syn_u[:,test_onset-1,trial_ind]
+                for p in range(num_top_neurons):
+                    ind_shuffle = np.random.permutation(len(trial_ind))
+                    hidden_init[greatest_neurons[m,p],:] = hidden_init[greatest_neurons[m,p], ind_shuffle]
+                y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
+                shuffling_groups_results['accuracy_neural_shuffled_groups'][p,m,n] = get_perf(y, y_hat, train_mask)
+
+                """
+                Keep the hidden values fixed, permute synaptic values
+                """
+                hidden_init = h[:,test_onset-1,trial_ind]
+                syn_x_init = syn_x[:,test_onset-1,trial_ind]
+                syn_u_init = syn_u[:,test_onset-1,trial_ind]
+                for p in range(num_top_neurons):
+                    ind_shuffle = np.random.permutation(len(trial_ind))
+                    syn_x_init[greatest_neurons[m,p],:] = syn_x_init[greatest_neurons[m,p],ind_shuffle]
+                    syn_u_init[greatest_neurons[m,p],:] = syn_u_init[greatest_neurons[m,p],ind_shuffle]
+                y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
+                shuffling_groups_results['accuracy_syn_shuffled_groups'][p,m,n] = get_perf(y, y_hat, train_mask)
+
+    return shuffling_groups_results
+
 
 
 def simulate_network(trial_info, h, syn_x, syn_u, network_weights, num_reps = 5):
