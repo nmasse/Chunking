@@ -745,7 +745,7 @@ def shuffle_neuron_groups(x, results, trial_info, h, syn_x, syn_u, network_weigh
 
     greatest_neurons = np.zeros((par['num_pulses'],num_top_neurons),dtype=np.int8)
     for p in range(par['num_pulses']):
-        mean_pev = np.mean(pev[:,p,onset[p]], axis=-1)
+        mean_pev = np.mean(pev[:,p,end_of_long], axis=-1)
         greatest_neurons[p] = np.argsort(mean_pev)[-(num_top_neurons):][::-1]
 
 
@@ -789,12 +789,13 @@ def shuffle_neuron_groups(x, results, trial_info, h, syn_x, syn_u, network_weigh
                 syn_x_init = np.copy(syn_x[:,test_onset-1,trial_ind])
                 syn_u_init = np.copy(syn_u[:,test_onset-1,trial_ind])
 
-                top = np.where(pev[:,m,end_of_long]>=0.55)[0]
-                print(top.shape[0])
+                # top = np.where(pev[:,m,end_of_long]>=0.55)[0]
+                # print(top.shape[0])
 
-                for k in range(top.shape[0]):
+                #for k in range(top.shape[0]):
+                for k in range(num_top_neurons):
                     ind_shuffle = np.random.permutation(len(trial_ind))
-                    hidden_init[top[k],:] = hidden_init[top[k], ind_shuffle]
+                    hidden_init[greatest_neurons[m,k],:] = hidden_init[greatest_neurons[m,k], ind_shuffle]
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
                 shuffling_groups_results['accuracy_neural_shuffled_groups'][p,m,n] = get_perf(y, y_hat, train_mask)
 
@@ -804,10 +805,11 @@ def shuffle_neuron_groups(x, results, trial_info, h, syn_x, syn_u, network_weigh
                 hidden_init = np.copy(h[:, test_onset-1, trial_ind])
                 syn_x_init = np.copy(syn_x[:,test_onset-1,trial_ind])
                 syn_u_init = np.copy(syn_u[:,test_onset-1,trial_ind])
-                for k in range(top.shape[0]):
+                #for k in range(top.shape[0]):
+                for k in range(num_top_neurons):
                     ind_shuffle = np.random.permutation(len(trial_ind))
-                    syn_x_init[top[k],:] = syn_x_init[top[k],ind_shuffle]
-                    syn_u_init[top[k],:] = syn_u_init[top[k],ind_shuffle]
+                    syn_x_init[greatest_neurons[m,k],:] = syn_x_init[greatest_neurons[m,k],ind_shuffle]
+                    syn_u_init[greatest_neurons[m,k],:] = syn_u_init[greatest_neurons[m,k],ind_shuffle]
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
                 shuffling_groups_results['accuracy_syn_shuffled_groups'][p,m,n] = get_perf(y, y_hat, train_mask)
 
