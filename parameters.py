@@ -34,7 +34,7 @@ par = {
     'num_max_pulse'         : 0,
     'var_num_pulses'        : False,
     'num_resp_cue_tuned'    : 1,
-    'long_delay_time'       : 200,
+    'long_delay_time'       : 500,
     'resp_cue_time'         : 200,
     'order_cue'             : False,
     'balance_EI'            : True,
@@ -49,8 +49,8 @@ par = {
     # Variance values
     'clip_max_grad_val'     : 1,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0,
-    'noise_rnn_sd'          : 0.2, #originally 0.05
+    'noise_in_sd'           : 0.1,
+    'noise_rnn_sd'          : 0.5, #originally 0.05
 
     # Tuning function data
     'num_motion_dirs'       : 8,
@@ -206,7 +206,7 @@ def update_trial_params():
             par['num_pulses'] = par['num_max_pulse']
         if par['var_delay']:
             par['delay_time'] = 200
-            par['long_delay_time'] = 200
+            par['long_delay_time'] = 500
             par['num_max_pulse'] = par['num_pulses']
         if par['order_cue']:
             if par['num_max_pulse']:

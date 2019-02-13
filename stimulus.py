@@ -79,7 +79,7 @@ class Stimulus:
             Generate trial paramaters
             """
             if not analysis:
-                sample_dirs = [np.random.randint(par['num_motion_dirs']) for i in range(num_pulses)]
+                sample_dirs = [0,1,2,3,4,5] #[np.random.randint(par['num_motion_dirs']) for i in range(num_pulses)]
             else:
                 sample_dirs = [0]*num_fixed + [np.random.randint(par['num_motion_dirs']) for i in range(num_pulses-num_fixed)]
 
