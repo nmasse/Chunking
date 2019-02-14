@@ -88,12 +88,12 @@ class Stimulus:
                     trial_info['sample'][t,i] = np.random.randint(par['num_motion_dirs'])
                     trial_info['sample_RF'][t,i] = 0
 
-                    print("trial_info.neural_input")
-                    print(trial_info['neural_input'])
-                    print("trial.info.sample")
-                    print(trial_info['sample'])
-                    print("t")
-                    print(t)
+                    # print("trial_info.neural_input")
+                    # print(trial_info['neural_input'])
+                    # print("trial.info.sample")
+                    # print(trial_info['sample'])
+                    # print("t")
+                    # print(t)
 
                     # input()
 
@@ -372,9 +372,9 @@ class Stimulus:
         cue_tuning        = np.zeros([par['n_input'], par['num_pulses']])
 
         # Generate lists of preferred and possible stimulus directions
-        pref_dirs = np.complex64(np.arange(0,2*np.pi,2*np.pi/par['num_motion_tuned']))
-        stim_dirs = np.complex64(np.arange(0,2*np.pi,2*np.pi/par['num_motion_dirs']))
-        rf_dirs   = np.complex64(np.arange(0,2*np.pi,2*np.pi/par['num_RFs']))
+        pref_dirs = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_motion_tuned']))
+        stim_dirs = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_motion_dirs']))
+        rf_dirs   = np.float32(np.arange(0,2*np.pi,2*np.pi/par['num_RFs']))
 
         # Tune individual neurons to specific stimulus directions
         for n in range(par['num_motion_tuned']):

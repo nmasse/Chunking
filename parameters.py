@@ -39,7 +39,7 @@ par = {
     'num_motion_tuned'      : 24,
     'num_fix_tuned'         : 0,
     'num_RFs'               : 1,
-    'n_hidden'              : 100,
+    'n_hidden'              : 12,
     'output_type'           : 'one_hot',
 
     # Timings and rates
@@ -71,7 +71,7 @@ par = {
     # Training specs
     'batch_train_size'      : 1024,
     'num_iterations'        : 10000000,
-    'iters_between_outputs' : 50,
+    'iters_between_outputs' : 1,
 
     # Task specs
     'dead_time'             : 0,    # Time at start of trial that is masked
@@ -342,5 +342,5 @@ def spectral_radius(A):
 
 
 update_dependencies()
-print("WARNING: REPLACE ALL IDENTITY'S WITH RELU'S")
+print("WARNING: REPLACE ALL IDENTITIES WITH RELUS")
 print("--> Parameters successfully loaded.\n")

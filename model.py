@@ -1,4 +1,4 @@
-### Authors:  Nick, Greg, Catherine, Sylvia
+### Authors:  Nick, Greg, Catherine, Sylvia, Antony
 
 # Required packages
 import tensorflow as tf
@@ -54,7 +54,7 @@ class Model:
 
         lstm_var_prefixes   = ['Wf', 'Wi', 'Wo', 'Wc', 'Uf', 'Ui', 'Uo', 'Uc', 'bf', 'bi', 'bo', 'bc']
         bio_var_prefixes    = ['W_in', 'b_rnn', 'W_rnn']
-        base_var_prefies    = ['W_out', 'b_out']
+        base_var_prefixes    = ['W_out', 'b_out']
 
         self.var_dict = {}
         with tf.variable_scope('init'):
@@ -63,7 +63,7 @@ class Model:
             self.var_dict['syn_u_init'] = tf.get_variable('syn_u_init', initializer=par['syn_u_init'], trainable=False)
 
         # Add relevant prefixes to variable declaration
-        prefix_list = base_var_prefies
+        prefix_list = base_var_prefixes
         if par['architecture'] == 'LSTM':
             prefix_list += lstm_var_prefixes
 
@@ -80,13 +80,13 @@ class Model:
         # Use prefix list to declare required variables and place them in a dict
         with tf.variable_scope('network', reuse=tf.AUTO_REUSE):
             for p in prefix_list:
-                self.var_dict[p] = tf.get_variable(p, initializer=par[p+'_real_init'])
+                for p in prefix_list:
+                    self.var_dict[p] = tf.get_variable(p, initializer=par[p+'_real_init'])
                 self.var_dict[p] = tf.get_variable(p, initializer=par[p+'_imag_init'])
 
         if par['architecture'] == 'BIO':
             if par['EI'] == True:
                 self.W_rnn_eff = (tf.constant(par['EI_matrix']) @ tf.identity(self.var_dict['W_rnn']))
-                # TODO: Replace this identity with relu
                 # TODO: Replace this identity with relu
             else:
                 self.W_rnn_eff = self.var_dict['W_rnn']
@@ -103,8 +103,8 @@ class Model:
         self.syn_x_hist = []
         self.syn_u_hist = []
 
-        # Load starting network state
-        h = self.var_dict['h_init']
+        # Load starting networks state
+        h = self.var_dict['h_real_init'] + 1j*self.var_dict['h_imag_init']
         syn_x = self.var_dict['syn_x_init']
         syn_u = self.var_dict['syn_u_init']
 
@@ -120,6 +120,8 @@ class Model:
         for rnn_input in self.input_data:
 
             # Compute the state of the hidden layer
+            h = h_real + 1j*h_imag
+            c = c_real + 1j*c_imag
             h, c, syn_x, syn_u = self.recurrent_cell(h, c, syn_x, syn_u, rnn_input)
 
             # Record network state
@@ -215,6 +217,13 @@ class Model:
         # Compute and apply network gradients
         self.train_op = opt.compute_gradients(self.loss)
 
+def matmul(real_1, imag_1, real_2, imag_2):
+    imag_1 = imag_1*1j
+    imag_2 = imag_2*1j
+    mat_1 = real_1 + imag_1
+    mat_2 = real_2 + imag_2
+    mat_mul = mat_1 @ mat_2
+    return mat_mul
 
 def shuffle_trials(stim):
     trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
