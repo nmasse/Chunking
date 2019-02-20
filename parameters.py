@@ -114,7 +114,7 @@ def update_parameters(updates):
     print('Updating parameters...')
     for key, val in updates.items():
         par[key] = val
-        #print('Updating ', key)
+        #print('Updating ', key, val)
     update_trial_params()
     update_dependencies()
 
@@ -206,7 +206,7 @@ def update_trial_params():
             par['num_pulses'] = par['num_max_pulse']
         if par['var_delay']:
             par['delay_time'] = 200
-            par['long_delay_time'] = 200
+            par['long_delay_time'] = 500
             par['num_max_pulse'] = par['num_pulses']
         if par['order_cue']:
             if par['num_max_pulse']:

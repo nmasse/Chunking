@@ -30,6 +30,8 @@ for i in range(8):
 	plt.bar(np.arange(6), parsed[i+1, :]-parsed[i,:], color=color_list[i+2],bottom=parsed[i,:],label='Iteration {}'.format((i+1)*1500))
 plt.xticks(np.arange(6), ['Item 1', 'Item 2','Item 3','Item 4','Item 5','Item 6'])
 
+
+
 plt.title('Recall Accuracy For Each Item Thoughout Training')
 plt.ylabel('Accuracy')
 plt.subplots_adjust(right=0.7)
