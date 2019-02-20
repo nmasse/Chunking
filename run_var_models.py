@@ -49,13 +49,13 @@ try:
 except:
     gpu_id = None
 
-num_pulses = [5,6]
-var_delay = [True] #[True]
+num_pulses = [6,8]
+var_delay = [False] #[True]
 
 for n in num_pulses:
     for delay in var_delay:
         print('Training network with variable delay {} with {} pulses, without cue...'.format(delay, n))
-        save_fn = 'restart_var_delay_{}.pkl'.format(n) if delay else 'restart_no_var_delay_{}.pkl'.format(n)
+        save_fn = 'restart_var_delay_{}_new_params.pkl'.format(n) if delay else 'restart_no_var_delay_{}_new_params.pkl'.format(n)
         updates = {'num_pulses': n, 'var_delay': delay, 'var_resp_delay': delay, 'var_num_pulses': False, 'save_fn': save_fn, 'order_cue': False}
         update_parameters(updates)
         try_model(gpu_id)

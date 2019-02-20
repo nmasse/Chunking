@@ -260,7 +260,7 @@ def main(gpu_id = None):
         model_performance = {'accuracy': [], 'pulse_accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': []}
 
         acc_count = int(0)
-        accuracy_threshold = np.array([0.0, 0.6, 0.7, 0.8, 0.9, 0.95])
+        accuracy_threshold = np.array([0.0, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.97, 0.98])
         save_fn = par['save_dir'] + par['save_fn']
         save_fn_ind = save_fn[1:].find('.') - 1
 
