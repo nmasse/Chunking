@@ -50,7 +50,8 @@ class Stimulus:
                       'rule'            :  np.zeros((par['batch_train_size']),dtype=np.int8),
                       'sample'          :  np.zeros((par['batch_train_size'], par['num_pulses']),dtype=np.int8),
                       'neural_input'    :  np.random.normal(par['input_mean'], par['noise_in'], size=(par['n_input'], trial_length, par['batch_train_size'])),
-                      'timeline'        :  [eodead, eof]}
+                      'timeline'        :  [eodead, eof],
+                      'pulse_masks'     :  np.zeros((par['num_pulses'], trial_length, par['batch_train_size']),dtype=np.float32)}
 
         trial_info['timeline'].append(eos[0])
         for i in range(1,num_pulses):
@@ -91,7 +92,7 @@ class Stimulus:
             trial_info['neural_input'][:emt, eof:eos[0], t] += np.reshape(self.motion_tuning[:,sample_dirs[0]],(-1,1))
             for i in range(1,num_pulses):
                 trial_info['neural_input'][:emt, eods[i-1]:eos[i], t] += np.reshape(self.motion_tuning[:,sample_dirs[i]],(-1,1))
-
+            
             # FIXATION cue
             if par['num_fix_tuned'] > 0:
                 trial_info['neural_input'][emt:eft, eodead:eolongd, t] += np.reshape(self.fix_tuning[:,0],(-1,1))
@@ -102,6 +103,13 @@ class Stimulus:
             trial_info['neural_input'][eft:ert, eolongd:eor[0], t] += np.reshape(self.response_tuning[:,0],(-1,1))
             for i in range(1, num_pulses):
                 trial_info['neural_input'][eft:ert, eodr[i-1]:eor[i], t] += np.reshape(self.response_tuning[:,0],(-1,1))
+
+            #Setting pulse masks
+            for i in range(num_pulses):
+                if i == 0:
+                    trial_info['pulse_masks'][0, eolongd+par['mask_duration']//par['dt']:eor[0], t] += par['tuning_height']
+                else:
+                    trial_info['pulse_masks'][i, eodr[i-1]+par['mask_duration']//par['dt']:eor[i], t] += par['tuning_height']
 
             # ORDER CUE
             if par['order_cue']:
@@ -127,6 +135,26 @@ class Stimulus:
             """
             trial_info['sample'][t,:] = sample_dirs
             trial_info['rule'][t] = rule
+        
+        if par['check_stim']:
+            for i in range(5):
+                plt.figure()
+                #plt.title("var_delay: "+str(list(trial_info['delay'][i,:])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:]))
+                plt.imshow(trial_info['neural_input'][:,:,i],aspect='auto')
+                plt.colorbar()
+                plt.show()
+                plt.close()
+                plt.figure()
+                plt.plot(trial_info['train_mask'][:,i])
+                #plt.title("var_delay: "+str(list(trial_info['delay'][i,:])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:]))
+                plt.show()
+                plt.close()
+                plt.figure()
+                plt.imshow(trial_info['desired_output'][:,:,i],aspect='auto')
+                #plt.title("var_delay: "+str(list(trial_info['delay'][i,:])+[trial_info['delay'][i,-1]])+"\nresp_delay: "+str(trial_info['resp_delay'][i,:]))
+                plt.colorbar()
+                plt.show()
+                plt.close()
 
         return trial_info
 
@@ -153,7 +181,8 @@ class Stimulus:
                       'timeline'        :  [0]*par['batch_train_size'],
                       'num_pulses'      :  np.zeros(par['batch_train_size'],dtype=np.int32),
                       'delay'           :  np.zeros((par['batch_train_size'], par['num_max_pulse']),dtype=np.int32),
-                      'resp_delay'      :  np.zeros((par['batch_train_size'], par['num_max_pulse']-1),dtype=np.int32)}
+                      'resp_delay'      :  np.zeros((par['batch_train_size'], par['num_max_pulse']-1),dtype=np.int32),
+                      'pulse_masks'     :  np.zeros((par['num_pulses'], trial_length, par['batch_train_size']), dtype=np.float32)}
 
         if var_num_pulses:
             if test_mode_pulse:
@@ -259,6 +288,12 @@ class Stimulus:
             trial_info['neural_input'][eft:ert, eolongd:eor[0], t] += np.reshape(self.response_tuning[:,0],(-1,1))
             for i in range(1, num_pulses):
                 trial_info['neural_input'][eft:ert, eodr[i-1]:eor[i], t] += np.reshape(self.response_tuning[:,0],(-1,1))
+
+            for i in range(num_pulses):
+                if i == 0:
+                    trial_info['pulse_masks'][0, eolongd+par['mask_duration']//par['dt']:eor[0], t] += par['tuning_height']
+                else:
+                    trial_info['pulse_masks'][i, eodr[i-1]+par['mask_duration']//par['dt']:eor[i], t] += par['tuning_height']
 
             # ORDER CUE
             if par['order_cue']:
@@ -373,3 +408,11 @@ class Stimulus:
         ax.set_title('Motion input')
         plt.show()
         plt.savefig('stimulus.pdf', format='pdf')
+
+if __name__ == "__main__":
+    stim = Stimulus()
+    updates = {'num_pulses': 4, 'var_delay': False, 'var_resp_delay': False, 'var_num_pulses': False, 'save_fn': '', 'order_cue': False}
+    update_parameters(updates)
+    par['check_stim'] = True
+    stim.generate_trial(analysis = False, num_fixed=0, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], var_num_pulses=par['var_num_pulses'])
+

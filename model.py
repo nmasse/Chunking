@@ -59,10 +59,10 @@ class Model:
         self.rnn_cell_loop(self.input_data, self.hidden_init, self.synapse_x_init, self.synapse_u_init)
 
         with tf.variable_scope('output'):
-            # W_out = tf.get_variable('W_out', initializer = par['w_out0'], trainable=True)
-            # b_out = tf.get_variable('b_out', initializer = par['b_out0'], trainable=True)
-            W_out = tf.get_variable('W_out', initializer = par['weights_trained']['w_out'], trainable=True)
-            b_out = tf.get_variable('b_out', initializer = par['weights_trained']['b_out'], trainable=True)
+            W_out = tf.get_variable('W_out', initializer = par['w_out0'], trainable=True)
+            b_out = tf.get_variable('b_out', initializer = par['b_out0'], trainable=True)
+            # W_out = tf.get_variable('W_out', initializer = par['weights_trained']['w_out'], trainable=True)
+            # b_out = tf.get_variable('b_out', initializer = par['weights_trained']['b_out'], trainable=True)
 
         """
         Network output
@@ -77,12 +77,12 @@ class Model:
         Initialize weights and biases
         """
         with tf.variable_scope('rnn_cell'):
-            # W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=True)
-            # W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
-            # b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
-            W_in = tf.get_variable('W_in', initializer = par['weights_trained']['w_in'], trainable=True)
-            W_rnn = tf.get_variable('W_rnn', initializer = par['weights_trained']['w_rnn'], trainable=True)
-            b_rnn = tf.get_variable('b_rnn', initializer = par['weights_trained']['b_rnn'], trainable=True)
+            W_in = tf.get_variable('W_in', initializer = par['w_in0'], trainable=True)
+            W_rnn = tf.get_variable('W_rnn', initializer = par['w_rnn0'], trainable=True)
+            b_rnn = tf.get_variable('b_rnn', initializer = par['b_rnn0'], trainable=True)
+            # W_in = tf.get_variable('W_in', initializer = par['weights_trained']['w_in'], trainable=True)
+            # W_rnn = tf.get_variable('W_rnn', initializer = par['weights_trained']['w_rnn'], trainable=True)
+            # b_rnn = tf.get_variable('b_rnn', initializer = par['weights_trained']['b_rnn'], trainable=True)
         self.W_ei = tf.constant(par['EI_matrix'])
 
         self.hidden_state_hist = []
@@ -226,9 +226,9 @@ def main(gpu_id = None):
     """
     stim = stimulus.Stimulus()
 
-    f = pickle.load(open('./savedir/var_pulses_8_cue_off.pkl', 'rb'))
-    par['weights_trained'] = f['weights']
-    update_parameters(f['parameters'])
+    # f = pickle.load(open('./savedir/var_pulses_8_cue_off.pkl', 'rb'))
+    # par['weights_trained'] = f['weights']
+    # update_parameters(f['parameters'])
 
     n_input, n_hidden, n_output = par['shape']
     N = par['batch_train_size'] # trials per iteration, calculate gradients after batch_train_size
@@ -240,11 +240,13 @@ def main(gpu_id = None):
     x = tf.placeholder(tf.float32, shape=[n_input, par['num_time_steps'], par['batch_train_size']])  # input data
     y = tf.placeholder(tf.float32, shape=[n_output, par['num_time_steps'], par['batch_train_size']]) # target data
 
-    config = tf.ConfigProto()
+    #config = tf.ConfigProto()
     #config.gpu_options.allow_growth=True
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8) if gpu_id=='0' else tf.GPUOptions()
 
     # enter "config=tf.ConfigProto(log_device_placement=True)" inside Session to check whether CPU/GPU in use
-    with tf.Session(config=config) as sess:
+    #with tf.Session(config=config) as sess:
+    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
 
         device = '/cpu:0' if gpu_id is None else '/gpu:0'
         with tf.device(device):
@@ -256,17 +258,21 @@ def main(gpu_id = None):
 
         # keep track of the model performance across training
         model_performance = {'accuracy': [], 'pulse_accuracy': [], 'loss': [], 'perf_loss': [], 'spike_loss': [], 'trial': []}
+        acc_count = int(0)
+        accuracy_threshold = np.array([0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97, 0.98])
+        save_fn = par['save_dir'] + par['save_fn']
+        save_fn_ind = save_fn[1:].find('.') - 1
 
         for i in range(par['num_iterations']):
 
             # generate batch of batch_train_size
             trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'])
 
-            if not par['var_num_pulses']:
-                onset = np.array([np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1])
-                pulse_masks = np.array([np.zeros((par['num_time_steps'], par['batch_train_size']),dtype=np.float32)] * par['num_pulses'])
-                for p in range(par['num_pulses']):
-                    pulse_masks[p,onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt'],:] = 1
+            #if not par['var_num_pulses']:
+            #    onset = np.array([np.unique(np.array(trial_info['timeline']))[-2*p-2] for p in range(par['num_pulses'])][::-1])
+            #    pulse_masks = np.array([np.zeros((par['num_time_steps'], par['batch_train_size']),dtype=np.float32)] * par['num_pulses'])
+            #    for p in range(par['num_pulses']):
+            #        pulse_masks[p,onset[p]+par['mask_duration']//par['dt']:onset[p]+par['sample_time']//par['dt'],:] = 1
 
 
             """
@@ -282,8 +288,8 @@ def main(gpu_id = None):
             pulse_accuracy = []
             if not par['var_num_pulses']:
                 for p in range(par['num_pulses']):
-                    pulse_accuracy.append(analysis.get_perf(trial_info['desired_output'], y_hat, pulse_masks[p]))
-
+                    #pulse_accuracy.append(analysis.get_perf(trial_info['desired_output'], y_hat, pulse_masks[p]))
+                    pulse_accuracy.append(analysis.get_perf(trial_info['desired_output'], y_hat, trial_info['pulse_masks'][p]))
 
             model_performance = append_model_performance(model_performance, accuracy, pulse_accuracy, loss, perf_loss, spike_loss, (i+1)*N)
 
@@ -293,6 +299,7 @@ def main(gpu_id = None):
             if i%par['iters_between_outputs']==0 and i > 0:
                 print_results(i, N, perf_loss, spike_loss, state_hist, accuracy)
 
+            '''
             if i%5000 == 0:
                 weights = eval_weights()
                 syn_x_stacked = np.stack(syn_x_hist, axis=1)
@@ -308,8 +315,9 @@ def main(gpu_id = None):
                     'mean_h': mean_h,
                     'timeline': trial_info['timeline']}
                 pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
-
-            if accuracy > 0.995:
+            '''
+            if i>5 and all(np.array(model_performance['accuracy'][-5:]) > accuracy_threshold[acc_count]):
+                print("SAVING")
                 weights = eval_weights()
                 syn_x_stacked = np.stack(syn_x_hist, axis=1)
                 syn_u_stacked = np.stack(syn_u_hist, axis=1)
@@ -323,22 +331,14 @@ def main(gpu_id = None):
                     'trial_time': trial_time,
                     'mean_h': mean_h,
                     'timeline': trial_info['timeline']}
-                pickle.dump(results, open(par['save_dir'] + par['save_fn'], 'wb') )
-                for b in range(10):
-                    plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T-np.max(np.array(y_hat)[:,:,b].T))]
-                    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
-                    j = 0
-                    for ax in axes.flat:
-                        im = ax.imshow(plot_list[j], aspect='auto')
-                        j += 1
-                    cax,kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
-                    plt.colorbar(im, cax=cax, **kw)
-                    plt.savefig("./savedir/output_"+str(par['num_pulses'])+"pulses_iter_"+str(i)+"_"+str(b)+".png")
-                    plt.close()
-                    plt.imshow(trial_info['neural_input'][:,:,b])
-                    plt.savefig("./savedir/input_"+str(par['num_pulses'])+"pulses_iter_"+str(i)+"_"+str(b)+".png")
-                    plt.close()
-                break
+                acc_str = str(int(accuracy_threshold[acc_count]*100))
+                sf = save_fn[:-4] + '_acc' + acc_str + save_fn[-4:]
+                print(sf)
+                pickle.dump(results, open(sf, 'wb'))
+                acc_count += 1
+                if acc_count >= len(accuracy_threshold):
+                    break
+
 
         """
         Save model, analyze the network model and save the results

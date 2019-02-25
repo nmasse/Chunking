@@ -49,48 +49,17 @@ try:
 except:
     gpu_id = None
 
-# num_pulses = [10, 12, 14]
-# num_max_pulse = [10, 12, 14]
+order_cue = [True]
+num_pulses = [6,8]
+var_delay = [False,True]
 
-weekends = [8]
+for n in num_pulses:
+    for cue in order_cue:
+        for delay in var_delay:
+            print('Training network with variable delay {} with {} pulses, without cue...'.format(delay, n))
+            save_fn = 'restart_var_delay_{}_cue_{}_original.pkl'.format(n,cue) if delay else 'restart_no_var_delay_{}_cue_{}_original.pkl'.format(n,cue)
+            updates = {'num_pulses': n, 'var_delay': delay, 'var_resp_delay': delay, 'var_num_pulses': False, 'save_fn': save_fn, 'order_cue': cue}
+            update_parameters(updates)
+            try_model(gpu_id)
 
-for n in weekends:
-    if par['var_delay'] and par['var_resp_delay']:
-        #for n in num_pulses:
-        for i in range(2):
-            if i == 0:
-                print('Training network with variable delay on', n, ' pulses, with cue...')
-                save_fn = 'var_delay_' + str(n) + '_cue_on.pkl'
-                updates = {'num_pulses': n, 'save_fn': save_fn, 'order_cue': True}
-                update_parameters(updates)
-                try_model(gpu_id)
-                #plot(save_fn, par['num_pulses'], savename='var_delay_'+str(par['num_pulses'])+'_pulses_cue_on')
-            elif i == 1:
-                print('Training network with variable delay on', n, ' pulses, without cue...')
-                save_fn = 'var_delay_' + str(n) + '_cue_off.pkl'
-                updates = {'num_pulses': n, 'save_fn': save_fn, 'order_cue': False}
-                update_parameters(updates)
-                try_model(gpu_id)
-                #plot(save_fn, par['num_pulses'], savename='var_delay_'+str(par['num_pulses'])+'_pulses_cue_off')
-    updates = {'var_delay': False, 'var_resp_delay': False, 'var_num_pulses': True}
-    update_parameters(updates)
 
-    if par['var_num_pulses']:
-        #for n in num_max_pulse:
-        # for i in range(2):
-        #     if i == 0:
-        #         print('Training network with variable pulses on', n, ' max pulses, with cue...')
-        #         save_fn = 'var_pulses_' + str(n) + '_cue_on.pkl'
-        #         updates = {'num_max_pulse': n, 'save_fn': save_fn, 'order_cue': True}
-        #         update_parameters(updates)
-        #         try_model(gpu_id)
-        #         #plot(save_fn, par['num_pulses'], savename='var_delay_'+str(par['num_pulses'])+'_pulses_cue_on')
-        #     elif i == 1:
-        print('Training network with variable pulses on', n, ' max pulses, without cue...')
-        save_fn = 'var_pulses_' + str(n) + '_cue_off.pkl'
-        updates = {'num_max_pulse': n, 'save_fn': save_fn, 'order_cue': False}
-        update_parameters(updates)
-        try_model(gpu_id)
-                #plot(save_fn, par['num_pulses'], savename='var_delay_'+str(par['num_pulses'])+'_pulses_cue_off')
-    updates = {'var_delay': True, 'var_resp_delay': True, 'var_num_pulses': False}
-    update_parameters(updates)
