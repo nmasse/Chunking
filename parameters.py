@@ -34,9 +34,9 @@ par = {
     'num_max_pulse'         : 0,
     'var_num_pulses'        : False,
     'num_resp_cue_tuned'    : 1,
-    'long_delay_time'       : 500,
+    'long_delay_time'       : 200,
     'resp_cue_time'         : 200,
-    'order_cue'             : False,
+    'order_cue'             : True,
     'balance_EI'            : True,
 
     # Timings and rates
@@ -49,8 +49,8 @@ par = {
     # Variance values
     'clip_max_grad_val'     : 1,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0.1,
-    'noise_rnn_sd'          : 0.5, #originally 0.05
+    'noise_in_sd'           : 0.0, #0.1
+    'noise_rnn_sd'          : 0.05, #originally 0.05
 
     # Tuning function data
     'num_motion_dirs'       : 8,

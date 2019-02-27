@@ -75,7 +75,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
         syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
         analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, shuffle_groups = True, pulse_acc = False, currents = False, correlation = False, correlation_ind = False, cut = False,\
-                lesion = False, tuning = True, decoding = False, load_previous_file = False, save_raw_data = False)
+                lesion = False, tuning = False, decoding = False, load_previous_file = True, save_raw_data = False)
 
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True,shuffle_groups = True,\
@@ -127,16 +127,6 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
         results['pulse_accuracy'] = pulse_accuracy 
         pickle.dump(results, open(save_fn, 'wb'))
 
-    """
-    Calculate currents
-    """
-    if currents:
-        print('calculate current...')
-        current_results = calculate_currents(h_stacked, syn_x_stacked, syn_u_stacked, trial_info['neural_input'], weights)
-        for key, val in current_results.items():
-            results[key] = val
-            #x[key] = val # added just to be able to run cut_weights in one analysis run
-        pickle.dump(results, open(save_fn, 'wb'))
 
     """
     Calculate accuracy after lesioning weights
@@ -191,6 +181,17 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
         for key, val in decoding_results.items():
             results[key] = val
         pickle.dump(results, open(save_fn, 'wb') )
+
+    """
+    Calculate currents
+    """
+    if currents:
+        print('calculate current...')
+        current_results = calculate_currents(h_stacked, syn_x_stacked, syn_u_stacked, trial_info['neural_input'], weights)
+        for key, val in current_results.items():
+            results[key] = val
+            #x[key] = val # added just to be able to run cut_weights in one analysis run
+        pickle.dump(results, open(save_fn, 'wb'))
 
     """
     Current correlation analysis
@@ -797,14 +798,15 @@ def shuffle_neuron_groups(x, results, trial_info, h, syn_x, syn_u, network_weigh
                 syn_x_init = np.copy(syn_x[:,test_onset-1,trial_ind])
                 syn_u_init = np.copy(syn_u[:,test_onset-1,trial_ind])
 
-                top = np.where(pev[:,m,end_of_long]>=0.55)[0]
-                print(top)
+                #top = np.where(pev[:,m,end_of_long]>=0.55)[0]
+                #print(top)
                 #greatest_neurons[m,k]
+                #top[k]
 
-                for k in range(top.shape[0]):
-                #for k in range(num_top_neurons):
+                #for k in range(top.shape[0]):
+                for k in range(num_top_neurons):
                     ind_shuffle = np.random.permutation(len(trial_ind))
-                    hidden_init[top[k],:] = hidden_init[top[k], ind_shuffle]
+                    hidden_init[greatest_neurons[m,k],:] = hidden_init[greatest_neurons[m,k], ind_shuffle]
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
                 shuffling_groups_results['accuracy_neural_shuffled_groups'][p,m,n] = get_perf(y, y_hat, train_mask)
 
@@ -814,11 +816,11 @@ def shuffle_neuron_groups(x, results, trial_info, h, syn_x, syn_u, network_weigh
                 hidden_init = np.copy(h[:, test_onset-1, trial_ind])
                 syn_x_init = np.copy(syn_x[:,test_onset-1,trial_ind])
                 syn_u_init = np.copy(syn_u[:,test_onset-1,trial_ind])
-                for k in range(top.shape[0]):
-                #for k in range(num_top_neurons):
+                #for k in range(top.shape[0]):
+                for k in range(num_top_neurons):
                     ind_shuffle = np.random.permutation(len(trial_ind))
-                    syn_x_init[top[k],:] = syn_x_init[top[k],ind_shuffle]
-                    syn_u_init[top[k],:] = syn_u_init[top[k],ind_shuffle]
+                    syn_x_init[greatest_neurons[m,k],:] = syn_x_init[greatest_neurons[m,k],ind_shuffle]
+                    syn_u_init[greatest_neurons[m,k],:] = syn_u_init[greatest_neurons[m,k],ind_shuffle]
                 y_hat, _, _, _ = run_model(x, hidden_init, syn_x_init, syn_u_init, network_weights)
                 shuffling_groups_results['accuracy_syn_shuffled_groups'][p,m,n] = get_perf(y, y_hat, train_mask)
 
