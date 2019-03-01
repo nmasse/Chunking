@@ -115,10 +115,10 @@ class Stimulus:
                     trial_info['pulse_masks'][i, eodr[i-1]+par['mask_duration']//par['dt']:eor[i], t] += par['tuning_height']
             # ORDER CUE
             if par['order_cue']:
-                trial_info['neural_input'][ert, eolongd:eor[0], t] += par['tuning_height']
+                # trial_info['neural_input'][ert, eolongd:eor[0], t] += par['tuning_height']
                 trial_info['neural_input'][ert, eof:eos[0], t] += par['tuning_height']
                 for i in range(1,par['num_pulses']):
-                    trial_info['neural_input'][ert+i, eodr[i-1]:eor[i], t] += par['tuning_height']
+                    # trial_info['neural_input'][ert+i, eodr[i-1]:eor[i], t] += par['tuning_height']
                     trial_info['neural_input'][ert+i, eods[i-1]:eos[i], t] += par['tuning_height']
 
             """
@@ -295,10 +295,10 @@ class Stimulus:
                     trial_info['pulse_masks'][i, eodr[i-1]+par['mask_duration']//par['dt']:eor[i], t] += par['tuning_height']
             # ORDER CUE
             if par['order_cue']:
-                trial_info['neural_input'][ert, eolongd:eor[0], t] += par['tuning_height']
+                # trial_info['neural_input'][ert, eolongd:eor[0], t] += par['tuning_height']
                 trial_info['neural_input'][ert, eof:eos[0], t] += par['tuning_height']
                 for i in range(1,num_pulses):
-                    trial_info['neural_input'][ert+i, eodr[i-1]:eor[i], t] += par['tuning_height']
+                    # trial_info['neural_input'][ert+i, eodr[i-1]:eor[i], t] += par['tuning_height']
                     trial_info['neural_input'][ert+i, eods[i-1]:eos[i], t] += par['tuning_height']
 
             """
@@ -318,7 +318,7 @@ class Stimulus:
             trial_info['sample'][t,:num_pulses] = sample_dirs
             trial_info['rule'][t] = rule
 
-        if par['check_stim']:
+        if True: #par['check_stim']:
             for i in range(5):
                 fig, ax = plt.subplots(3)
 
@@ -401,8 +401,8 @@ class Stimulus:
         plt.show()
         plt.savefig('stimulus.pdf', format='pdf')
 
-#stim = Stimulus()
-#updates = {'num_pulses': 4, 'var_delay': True, 'var_resp_delay': True, 'var_num_pulses': False, 'save_fn': '', 'order_cue': False}
-#update_parameters(updates)
-#par['check_stim'] = True
-#stim.generate_trial(analysis = False, num_fixed=0, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], var_num_pulses=par['var_num_pulses'])
+stim = Stimulus()
+updates = {'num_pulses': 4, 'var_delay': True, 'var_resp_delay': True, 'var_num_pulses': False, 'save_fn': '', 'order_cue': True}
+update_parameters(updates)
+par['check_stim'] = True
+stim.generate_trial(analysis = False, num_fixed=0, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], var_num_pulses=par['var_num_pulses'])
