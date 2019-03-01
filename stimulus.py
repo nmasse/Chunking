@@ -101,12 +101,12 @@ class Stimulus:
 
             # RESPONSE CUE
             trial_info['neural_input'][eft:ert, eolongd:eor[0], t] += np.reshape(self.response_tuning[:,0],(-1,1))
-            trial_info['train_mask'][eolongd:eor[0], t] *= par['tuning_height']
+            trial_info['train_mask'][eolongd:eor[0], t] *= par['test_cost_multiplier']
             for i in range(1, num_pulses):
                 trial_info['neural_input'][eft:ert, eodr[i-1]:eor[i], t] += np.reshape(self.response_tuning[:,0],(-1,1))
-                trial_info['train_mask'][eodr[i-1]:eor[i], t] *= par['tuning_height']
+                trial_info['train_mask'][eodr[i-1]:eor[i], t] *= par['test_cost_multiplier']
             trial_info['train_mask'][eor[-1]:, t] = 0
-            
+
             #Setting pulse masks
             for i in range(num_pulses):
                 if i == 0:
@@ -137,7 +137,7 @@ class Stimulus:
             """
             trial_info['sample'][t,:] = sample_dirs
             trial_info['rule'][t] = rule
-        
+
         if par['check_stim']:
             for i in range(5):
                 fig, ax = plt.subplots(3)
@@ -191,11 +191,11 @@ class Stimulus:
         if var_delay:
             if test_mode_delay:
                 print('Setting unifom delay time...')
-                trial_info['delay'][:,:par['num_max_pulse']-1] = 200
-                trial_info['delay'][:,-1] = 500
+                trial_info['delay'][:,:par['num_max_pulse']-1] = 300
+                trial_info['delay'][:,-1] = 300
             else:
-                trial_info['delay'][:,:par['num_max_pulse']-1] = np.random.choice([100,200,300],size=(par['batch_train_size'],par['num_max_pulse']-1))
-                trial_info['delay'][:, -1] = np.random.choice([300,500,700], size=par['batch_train_size'])
+                trial_info['delay'][:,:par['num_max_pulse']-1] = np.random.choice([250,300,350],size=(par['batch_train_size'],par['num_max_pulse']-1))
+                trial_info['delay'][:, -1] = np.random.choice([250,300,350], size=par['batch_train_size'])
         else:
             trial_info['delay'][:,:par['num_max_pulse']-1] = par['delay_time']
             trial_info['delay'][:,-1] = par['long_delay_time']
@@ -203,9 +203,9 @@ class Stimulus:
         if var_resp_delay:
             if test_mode_delay:
                 print('Setting unifom response delay time...')
-                trial_info['resp_delay'][:,:par['num_max_pulse']-1] = 200
+                trial_info['resp_delay'][:,:par['num_max_pulse']-1] = 300
             else:
-                trial_info['resp_delay'][:,:par['num_max_pulse']-1] = np.random.choice([100,200,300],size=(par['batch_train_size'],par['num_max_pulse']-1))
+                trial_info['resp_delay'][:,:par['num_max_pulse']-1] = np.random.choice([250,300,350],size=(par['batch_train_size'],par['num_max_pulse']-1))
         else:
             trial_info['resp_delay'][:,:par['num_max_pulse']-1] = par['delay_time']
 
@@ -406,4 +406,3 @@ class Stimulus:
 #update_parameters(updates)
 #par['check_stim'] = True
 #stim.generate_trial(analysis = False, num_fixed=0, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], var_num_pulses=par['var_num_pulses'])
-
