@@ -32,9 +32,9 @@ class Model:
         self.target_data = tf.unstack(target_data, axis=1)
         self.mask = tf.unstack(mask, axis=0)
 
-
         # Load the initial hidden state activity to be used at the start of each trial
-        self.hidden_init = tf.constant(par['h_init'])
+        with tf.variable_scope('input'):
+            self.hidden_init = tf.get_variable('h_init', initializer = par['h_init0'], trainable=True)
 
         # Load the initial synaptic depression and facilitation to be used at the start of each trial
         self.synapse_x_init = tf.constant(par['syn_x_init'])
@@ -347,7 +347,7 @@ def main(gpu_id = None):
                 acc_count += 1
                 if acc_count >= len(accuracy_threshold):
                     break
-                
+
                 '''
                 for b in range(10):
                     plot_list = [trial_info['desired_output'][:,:,b], softmax(np.array(y_hat)[:,:,b].T-np.max(np.array(y_hat)[:,:,b].T))]
@@ -424,12 +424,16 @@ def eval_weights():
         W_out = tf.get_variable('W_out')
         b_out = tf.get_variable('b_out')
 
+    with tf.variable_scope('input', reuse=True):
+        h_init = tf.get_variable('h_init')
+
     weights = {
         'w_in'  : W_in.eval(),
         'w_rnn' : W_rnn.eval(),
         'w_out' : W_out.eval(),
         'b_rnn' : b_rnn.eval(),
-        'b_out'  : b_out.eval()
+        'b_out' : b_out.eval(),
+        'h_init': h_init.eval()
     }
 
     return weights
