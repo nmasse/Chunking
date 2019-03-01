@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import os
+import pickle
 
 print("--> Loading parameters...")
 
@@ -30,7 +31,7 @@ par = {
     'n_output'              : 9,
 
     # Chunking trial
-    'num_pulses'            : 5,
+    'num_pulses'            : 6,
     'num_max_pulse'         : 0,
     'var_num_pulses'        : False,
     'num_resp_cue_tuned'    : 1,
@@ -49,8 +50,8 @@ par = {
     # Variance values
     'clip_max_grad_val'     : 1,
     'input_mean'            : 0.0,
-    'noise_in_sd'           : 0.1,
-    'noise_rnn_sd'          : 0.5, #originally 0.05
+    'noise_in_sd'           : 0.0,
+    'noise_rnn_sd'          : 0.1, #originally 0.05
 
     # Tuning function data
     'num_motion_dirs'       : 8,
@@ -60,6 +61,7 @@ par = {
     # Cost parameters
     'spike_cost'            : 1e-9,
     'wiring_cost'           : 0.,
+    'test_cost_multiplier'  : 2.,
 
     # Synaptic plasticity specs
     'tau_fast'              : 200,
@@ -69,7 +71,7 @@ par = {
 
     # Training specs
     'batch_train_size'      : 1024,
-    'num_iterations'        : 150001,
+    'num_iterations'        : 1500001,
     'iters_between_outputs' : 50,
 
     # Task specs
@@ -81,13 +83,13 @@ par = {
     'delay_time'            : 200,
     'test_time'             : 200,
     'variable_delay_max'    : 500,
-    'mask_duration'         : 50,  # duration of traing mask after test onset
+    'mask_duration'         : 40,  # duration of traing mask after test onset
     'catch_trial_pct'       : 0.0,
     'num_receptive_fields'  : 1,
     'num_rules'             : 1, # this will be two for the DMS+DMRS task
 
     # Save paths
-    'save_fn'               : 'model_results.pkl',
+    'save_fn'               : 'model_results_no_spike_cost.pkl',
 
     # Analysis
     'svm_normalize'         : True,
@@ -117,6 +119,13 @@ def update_parameters(updates):
         #print('Updating ', key, val)
     update_trial_params()
     update_dependencies()
+
+def update_weights(savefn):
+
+    x = pickle.load(open(savefn, 'rb'))
+    print(x['weights'].keys())
+    for k, v in x['weights'].items():
+        par[k + '0'] = v
 
 def update_trial_params():
 
@@ -205,8 +214,8 @@ def update_trial_params():
         if par['var_num_pulses']:
             par['num_pulses'] = par['num_max_pulse']
         if par['var_delay']:
-            par['delay_time'] = 200
-            par['long_delay_time'] = 500
+            #par['delay_time'] = 200
+            #par['long_delay_time'] = 500
             par['num_max_pulse'] = par['num_pulses']
         if par['order_cue']:
             if par['num_max_pulse']:
@@ -292,22 +301,21 @@ def update_dependencies():
     ### Setting up assorted intial weights, biases, and other values ###
     ####################################################################
 
-    par['h_init'] = 0.1*np.ones((par['n_hidden'], par['batch_train_size']), dtype=np.float32)
+    par['h_init0'] = 0.1*np.ones((par['n_hidden'], 1), dtype=np.float32)
 
     par['input_to_hidden_dims'] = [par['n_hidden'], par['n_input']]
     par['hidden_to_hidden_dims'] = [par['n_hidden'], par['n_hidden']]
 
 
     # Initialize input weights
-    par['w_in0'] = initialize([par['n_hidden'], par['n_input']], par['connection_prob'])
+    par['w_in0'] = initialize([par['n_hidden'], par['n_input']], shape=0.2)
 
     # Initialize starting recurrent weights
     # If excitatory/inhibitory neurons desired, initializes with random matrix with
     #   zeroes on the diagonal
     # If not, initializes with a diagonal matrix
     if par['EI']:
-        par['w_rnn0'] = initialize([par['n_hidden'], par['n_hidden']], par['connection_prob'])
-
+        par['w_rnn0'] = initialize([par['n_hidden'], par['n_hidden']], shape=0.1)
         for i in range(par['n_hidden']):
             par['w_rnn0'][i,i] = 0
         par['w_rnn_mask'] = np.ones((par['n_hidden'], par['n_hidden']), dtype=np.float32) - np.eye(par['n_hidden'])
@@ -325,12 +333,13 @@ def update_dependencies():
 
 
     # Initialize output weights and biases
-    par['w_out0'] =initialize([par['n_output'], par['n_hidden']], par['connection_prob'])
+    par['w_out0'] =initialize([par['n_output'], par['n_hidden']], shape=0.1)
     par['b_out0'] = np.zeros((par['n_output'], 1), dtype=np.float32)
     par['w_out_mask'] = np.ones((par['n_output'], par['n_hidden']), dtype=np.float32)
 
     if par['balance_EI']:
-        par['w_rnn0'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], par['connection_prob'], shape=1., scale=1.)
+        par['w_rnn0'][:, par['ind_inh']] = initialize([par['n_hidden'], par['num_inh_units']], shape=0.2)
+        par['w_rnn0'][par['ind_inh'], :] = initialize([par['num_inh_units'], par['n_hidden']], shape=0.2)
 
     # if par['EI']:
     #     par['ind_inh'] = np.where(par['EI_list'] == -1)[0]
@@ -384,11 +393,9 @@ def update_dependencies():
 
 
 
-def initialize(dims, connection_prob, shape=0.25, scale=1.0 ):
-    w = np.random.gamma(shape, scale, size=dims)
-    #w = np.random.uniform(0,0.25, size=dims)
-    w *= (np.random.rand(*dims) < connection_prob)
-    return np.float32(w)
+def initialize(dims, shape=0.2, scale=1.0 ):
+
+    return np.float32(np.random.gamma(shape, scale, size=dims))
 
 # def initialize(dims, connection_prob):
 #     w = 0.5 * np.random.gamma(shape=0.25, scale=1.0, size=dims)
