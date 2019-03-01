@@ -15,7 +15,8 @@ for a in addition:
 #for file in file_list:
         # file = b + a
 
-        file = 'restart_var_delay_6_v2_acc95.pkl'
+        file = 'nick_restart_var_delay_6_spike_cost_acc60.pkl'#nick_restart_var_delay_6_spike_cost_acc60.pkl
+
 
         print('Analyzing network...')
         save_fn = 'analysis_' + file
