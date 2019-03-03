@@ -48,11 +48,11 @@ def start_analysis(x, trial_info, analysis=False, stim_num=0, test_mode_pulse=Fa
     analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], \
                   analysis = analysis, test_mode_pulse = test_mode_pulse, pulse=pulse, test_mode_delay = test_mode_delay, stim_num = stim_num, \
                   simulation = False, shuffle_groups = True, pulse_acc = True, currents = False, correlation = False, correlation_ind = False, \
-                  cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
+                  cut = False, lesion = False, tuning = True, decoding = False, save_raw_data = False)
 
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True,shuffle_groups = True,\
-        pulse_acc = False, currents = False, correlation = False, correlation_ind = False, cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False):
+        pulse_acc = False, currents = False, correlation = False, correlation_ind = False, cut = False, lesion = False, tuning = False, decoding = False, save_raw_data = False):
 
     """
     Converts neuronal and synaptic values, stored in lists, into 3D arrays
@@ -69,10 +69,9 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
 
     save_fn = par['save_dir'] + par['save_fn']
 
-    if stim_num>0 or pulse>par['num_max_pulse']//2 or load_previous_file:
+    try:
         results = pickle.load(open(save_fn, 'rb'))
-
-    else:
+    except:
         results = {
             'model_performance': model_performance,
             'parameters': par,
