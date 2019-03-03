@@ -15,67 +15,40 @@ import copy
 def analyze_model_from_file(filename, savefile = None, analysis = False, test_mode_pulse=False, test_mode_delay=False):
 
     x = pickle.load(open('./savedir_restart/'+filename, 'rb'))
-    print(x['parameters']['long_delay_time'])
-    if savefile is None:
-        x['parameters']['save_fn'] = 'test.pkl'
-    else:
-        x['parameters']['save_fn'] = savefile
+    x['parameters']['save_fn'] = 'test.pkl' if savefile is None else savefile
+    for key, val in x['weights'].items():
+        x['parameters'][key] = val
+
     update_parameters(x['parameters'])
-    print("\n\nLook here")
-    print(par['long_delay_time'])
+    
     stim = stimulus.Stimulus()
-    if analysis:
-        for i in range(x['parameters']['num_pulses']):
-            trial_info = stim.generate_trial(analysis = True, num_fixed =i)
-            input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
-
-            y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
-                x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
-
-            h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
-            syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
-            syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = True, stim_num = i, simulation = False, shuffle_groups = True, pulse_acc = False, currents = False, cut = True,\
-                    lesion = False, tuning = False, decoding = True, load_previous_file = False, save_raw_data = False)
-    elif test_mode_pulse:
-        for i in range(x['parameters']['num_max_pulse']//2,x['parameters']['num_max_pulse']+1):
-            trial_info = stim.generate_trial(analysis = False, num_fixed =0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=True,pulse=i)
-            input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
-
-            y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
-                x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
-
-            h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
-            syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
-            syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-
-            analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], analysis = False, test_mode_pulse=True, pulse = i, simulation = False, shuffle_groups = True, pulse_acc = False, currents = False, cut = False,\
-                    lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
-    elif test_mode_delay:
-        trial_info = stim.generate_trial(analysis = False,num_fixed=0,var_delay=x['parameters']['var_delay'],var_resp_delay=x['parameters']['var_resp_delay'],var_num_pulses=x['parameters']['var_num_pulses'],test_mode_pulse=test_mode_pulse,test_mode_delay=test_mode_delay)
-        input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
-
-        y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
-            x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
-
-        h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
-        syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
-        syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'],test_mode_delay=True, simulation = True, shuffle_groups = True, pulse_acc = False, currents = False, cut = True,\
-                lesion = False, tuning = True, decoding = True, load_previous_file = False, save_raw_data = False)
+    if analysis or test_mode_pulse:
+        for i in range(par['num_pulses']):
+            if analysis:
+                trial_info = stim.generate_trial(analysis=True, num_fixed=i)
+            elif test_mode_pulse:
+                trial_info = stim.generate_trial(analysis=False, num_fixed=0, test_mode_pulse=True, pulse=i)
+            start_analysis(x, trial_info, analysis=analysis, stim_num=i, test_mode_pulse=test_mode_pulse, pulse=i)
     else:
-        trial_info = stim.generate_trial()
-        input_data = np.squeeze(np.split(trial_info['neural_input'], x['parameters']['num_time_steps'], axis=1))
+        if test_mode_delay:
+            trial_info = stim.generate_trial(analysis=False, num_fixed=0, test_mode_pulse=False, test_mode_delay=True)
+        else:
+            trial_info = stim.generate_trial()
+        start_analysis(x, trial_info, test_mode_delay=test_mode_delay)
 
-        y_hat, h, syn_x, syn_u = run_model(input_data, x['parameters']['h_init'], \
-            x['parameters']['syn_x_init'], x['parameters']['syn_u_init'], x['weights'])
 
-        h = np.squeeze(np.split(h, x['parameters']['num_time_steps'], axis=1))
-        syn_x = np.squeeze(np.split(syn_x, x['parameters']['num_time_steps'], axis=1))
-        syn_u = np.squeeze(np.split(syn_u, x['parameters']['num_time_steps'], axis=1))
-        analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], simulation = False, shuffle_groups = True, pulse_acc = False, currents = False, correlation = False, correlation_ind = False, cut = False,\
-                lesion = False, tuning = False, decoding = False, load_previous_file = True, save_raw_data = False)
+def start_analysis(x, trial_info, analysis=False, stim_num=0, test_mode_pulse=False, pulse=0, test_mode_delay=False):
+    input_data = np.squeeze(np.split(trial_info['neural_input'], par['num_time_steps'], axis=1))
+    y_hat, h, syn_x, syn_u = run_model(input_data, par['h_init'], par['syn_x_init'], par['syn_u_init'], x['weights'])
+
+    h = np.squeeze(np.split(h, par['num_time_steps'], axis=1))
+    syn_x = np.squeeze(np.split(syn_x, par['num_time_steps'], axis=1))
+    syn_u = np.squeeze(np.split(syn_u, par['num_time_steps'], axis=1))
+
+    analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], \
+                  analysis = analysis, test_mode_pulse = test_mode_pulse, pulse=pulse, test_mode_delay = test_mode_delay, stim_num = stim_num, \
+                  simulation = False, shuffle_groups = True, pulse_acc = True, currents = False, correlation = False, correlation_ind = False, \
+                  cut = False, lesion = False, tuning = False, decoding = False, load_previous_file = False, save_raw_data = False)
 
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True,shuffle_groups = True,\

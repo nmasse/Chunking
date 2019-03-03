@@ -11,7 +11,7 @@ class Stimulus:
         self.motion_tuning, self.fix_tuning, self.rule_tuning, self.response_tuning = self.create_tuning_functions()
 
 
-    def generate_trial(self, analysis = False, num_fixed = 0,var_delay=False,var_resp_delay=False,var_num_pulses=False,test_mode_pulse=False, pulse=0, test_mode_delay=False):
+    def generate_trial(self, analysis = False, num_fixed = 0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode_pulse=False, pulse=0, test_mode_delay=False):
         if var_delay or var_resp_delay or var_num_pulses:
             return self.generate_var_chunking_trial(par['num_pulses'], analysis, num_fixed, var_delay, var_resp_delay, var_num_pulses, test_mode_pulse, pulse, test_mode_delay)
         else:
@@ -318,7 +318,7 @@ class Stimulus:
             trial_info['sample'][t,:num_pulses] = sample_dirs
             trial_info['rule'][t] = rule
 
-        if True: #par['check_stim']:
+        if par['check_stim']:
             for i in range(5):
                 fig, ax = plt.subplots(3)
 
@@ -401,8 +401,9 @@ class Stimulus:
         plt.show()
         plt.savefig('stimulus.pdf', format='pdf')
 
-stim = Stimulus()
-updates = {'num_pulses': 4, 'var_delay': True, 'var_resp_delay': True, 'var_num_pulses': False, 'save_fn': '', 'order_cue': True}
-update_parameters(updates)
-par['check_stim'] = True
-stim.generate_trial(analysis = False, num_fixed=0, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], var_num_pulses=par['var_num_pulses'])
+if __name__ == "__main__":
+    stim = Stimulus()
+    updates = {'num_pulses': 4, 'var_delay': True, 'var_resp_delay': True, 'var_num_pulses': False, 'save_fn': '', 'order_cue': True}
+    update_parameters(updates)
+    par['check_stim'] = True
+    stim.generate_trial(analysis = False, num_fixed=0, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], var_num_pulses=par['var_num_pulses'])

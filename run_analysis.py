@@ -15,10 +15,15 @@ for a in addition:
 #for file in file_list:
         # file = b + a
 
-        file = 'nick_restart_var_delay_6_spike_cost_acc60.pkl'#nick_restart_var_delay_6_spike_cost_acc60.pkl
-
+        file = 'var_delay_6_tc50_acc80.pkl'#nick_restart_var_delay_6_spike_cost_acc60.pkl
 
         print('Analyzing network...')
         save_fn = 'analysis_' + file
-        analyze_model_from_file(file, savefile = save_fn)
+
+        if pickle.load(open(par['save_dir']+file,'rb'))['parameters']['var_delay']:
+            test_delay = True
+        else:
+            test_delay = False
+
+        analyze_model_from_file(file, savefile = save_fn, test_mode_delay=test_delay)
         quit()
