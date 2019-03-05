@@ -212,7 +212,7 @@ def update_trial_params():
     elif par['trial_type'] == 'chunking':
 
         if par['var_num_pulses']:
-            par['num_pulses'] = par['num_max_pulse']
+            par['num_max_pulse'] = par['num_pulse']
         if par['var_delay']:
             par['num_max_pulse'] = par['num_pulses']
         if par['order_cue']:
