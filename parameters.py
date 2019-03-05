@@ -35,7 +35,7 @@ par = {
     'num_max_pulse'         : 0,
     'var_num_pulses'        : False,
     'num_resp_cue_tuned'    : 1,
-    'long_delay_time'       : 500,
+    'long_delay_time'       : 400,
     'resp_cue_time'         : 200,
     'order_cue'             : False,
     'balance_EI'            : True,
@@ -43,7 +43,7 @@ par = {
     # Timings and rates
     'dt'                    : 10,
     'learning_rate'         : 5e-3,
-    'membrane_time_constant': 100,
+    'membrane_time_constant': 40,
     'connection_prob'       : 1,         # Usually 1
 
 
@@ -80,7 +80,7 @@ par = {
     'dead_time'             : 0,
     'fix_time'              : 200,
     'sample_time'           : 200,
-    'delay_time'            : 200,
+    'delay_time'            : 400,
     'test_time'             : 200,
     'variable_delay_max'    : 500,
     'mask_duration'         : 40,  # duration of traing mask after test onset
@@ -214,8 +214,6 @@ def update_trial_params():
         if par['var_num_pulses']:
             par['num_pulses'] = par['num_max_pulse']
         if par['var_delay']:
-            #par['delay_time'] = 200
-            #par['long_delay_time'] = 500
             par['num_max_pulse'] = par['num_pulses']
         if par['order_cue']:
             if par['num_max_pulse']:
@@ -285,8 +283,8 @@ def update_dependencies():
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
     elif par['trial_type'] == 'chunking':
         if par['var_delay']:
-            par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*300 + 700 + \
-            par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*300
+            par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
+            par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
         else:
             par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
             par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
