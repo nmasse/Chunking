@@ -11,7 +11,8 @@ class Stimulus:
         self.motion_tuning, self.fix_tuning, self.rule_tuning, self.response_tuning = self.create_tuning_functions()
 
 
-    def generate_trial(self, analysis = False, num_fixed = 0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode_pulse=False, pulse=0, test_mode_delay=False):
+    def generate_trial(self, analysis = False, num_fixed = 0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode_pulse=False, pulse=2, test_mode_delay=False):
+        print(var_num_pulses)
         if var_delay or var_resp_delay or var_num_pulses:
             return self.generate_var_chunking_trial(par['num_pulses'], analysis, num_fixed, var_delay, var_resp_delay, var_num_pulses, test_mode_pulse, pulse, test_mode_delay)
         else:
@@ -183,7 +184,8 @@ class Stimulus:
 
         if var_num_pulses:
             if test_mode_pulse:
-                trial_info['num_pulses'][:] = pulse
+                trial_info['num_pulses'][:] = par['num_pulses']
+                trial_info['pulse_presented'][:pulse,:] = 1
             else:
                 trial_info['num_pulses'][:] = par['num_pulses'] #np.random.choice(range(par['num_max_pulse']//2,par['num_max_pulse']+1),size=par['batch_train_size'])
                 temp = np.random.rand(par['num_pulses'], par['batch_train_size'])
@@ -193,6 +195,7 @@ class Stimulus:
             trial_info['pulse_presented'][:,:] = 1
 
         var_delay_candidates = [par['delay_time']-50,par['delay_time'],par['delay_time']+50]
+        var_delay_candidates = [par['delay_time']]
         if var_delay:
             if test_mode_delay:
                 print('Setting unifom delay time...')
@@ -444,7 +447,7 @@ class Stimulus:
 
 if __name__ == "__main__":
     stim = Stimulus()
-    updates = {'num_pulses': 4, 'var_delay': False, 'var_resp_delay': False, 'var_num_pulses': True, 'save_fn': '', 'order_cue': False}
+    updates = {'num_pulses': 5, 'var_delay': False, 'var_resp_delay': False, 'var_num_pulses': True, 'save_fn': '', 'order_cue': False}
     update_parameters(updates)
     par['check_stim'] = True
-    stim.generate_trial(analysis = False, num_fixed=0, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], var_num_pulses=par['var_num_pulses'])
+    stim.generate_trial(analysis = False, num_fixed=0, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], var_num_pulses=par['var_num_pulses'],test_mode_pulse=True)

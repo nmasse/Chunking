@@ -23,11 +23,11 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
     
     stim = stimulus.Stimulus()
     if analysis or test_mode_pulse:
-        for i in range(par['num_pulses']):
+        for i in range(1,par['num_pulses']):
             if analysis:
                 trial_info = stim.generate_trial(analysis=True, num_fixed=i)
             elif test_mode_pulse:
-                trial_info = stim.generate_trial(analysis=False, num_fixed=0, test_mode_pulse=True, pulse=i)
+                trial_info = stim.generate_trial(analysis=False, num_fixed=0, var_num_pulses=True, test_mode_pulse=True, pulse=i)
             start_analysis(x, trial_info, analysis=analysis, stim_num=i, test_mode_pulse=test_mode_pulse, pulse=i)
     else:
         if test_mode_delay:
@@ -95,7 +95,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
     """
     if pulse_acc:
         print('calculete pulse accuracy...')
-        pulse_accuracy = calculate_pulse_accuracy(x, trial_info, y_hat)
+        pulse_accuracy = calculate_pulse_accuracy(x, trial_info, y_hat, test_mode_pulse, pulse)
         results['pulse_accuracy'] = pulse_accuracy 
         pickle.dump(results, open(save_fn, 'wb'))
 
@@ -195,9 +195,13 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
     #pickle.dump(results, open(save_fn, 'wb') ) -> saving after each analysis instead
     print('Analysis results saved in ', save_fn)
 
-def calculate_pulse_accuracy(x, trial_info, y_hat):
+def calculate_pulse_accuracy(x, trial_info, y_hat, test_mode_pulse, pulse):
     pulse_accuracy = []
-    for p in range(x['parameters']['num_pulses']):
+    if test_mode_pulse:
+        num_pulses = pulse
+    else:
+        num_pulses = x['parameters']['num_pulses']
+    for p in range(num_pulses):
         pulse_accuracy.append(get_perf(trial_info['desired_output'], y_hat, trial_info['pulse_masks'][p]))
 
     print("accuracy: ", get_perf(trial_info['desired_output'], y_hat, trial_info['train_mask']))
