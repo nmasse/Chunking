@@ -178,16 +178,19 @@ class Stimulus:
                       'num_pulses'      :  np.zeros(par['batch_train_size'],dtype=np.int32),
                       'delay'           :  np.zeros((par['batch_train_size'], par['num_max_pulse']),dtype=np.int32),
                       'resp_delay'      :  np.zeros((par['batch_train_size'], par['num_max_pulse']-1),dtype=np.int32),
-                      'pulse_masks'     :  np.zeros((par['num_pulses'], trial_length, par['batch_train_size']), dtype=np.float32)}
+                      'pulse_masks'     :  np.zeros((par['num_pulses'], trial_length, par['batch_train_size']), dtype=np.float32),
+                      'pulse_presented' :  np.zeros((par['num_pulses'], par['batch_train_size']), dtype=np.int32)}
 
         if var_num_pulses:
             if test_mode_pulse:
                 trial_info['num_pulses'][:] = pulse
             else:
-                trial_info['num_pulses'] = np.random.choice(range(par['num_max_pulse']//2,par['num_max_pulse']+1),size=par['batch_train_size'])
+                trial_info['num_pulses'][:] = par['num_pulses'] #np.random.choice(range(par['num_max_pulse']//2,par['num_max_pulse']+1),size=par['batch_train_size'])
+                temp = np.random.rand(par['num_pulses'], par['batch_train_size'])
+                trial_info['pulse_presented'] = temp < par['pulse_prob']
         else:
             trial_info['num_pulses'][:] = par['num_pulses']
-
+            trial_info['pulse_presented'][:,:] = 1
 
         var_delay_candidates = [par['delay_time']-50,par['delay_time'],par['delay_time']+50]
         if var_delay:
@@ -272,35 +275,48 @@ class Stimulus:
             Calculate neural input based on sample, tests, fixation, rule, and probe
             """
             # SAMPLE stimulus
-            trial_info['neural_input'][:emt, eof:eos[0], t] += np.reshape(self.motion_tuning[:,sample_dirs[0]],(-1,1))
+            if trial_info['pulse_presented'][0, t]:
+                trial_info['neural_input'][:emt, eof:eos[0], t] += np.reshape(self.motion_tuning[:,sample_dirs[0]],(-1,1))
             for i in range(1,num_pulses):
-                trial_info['neural_input'][:emt, eods[i-1]:eos[i], t] += np.reshape(self.motion_tuning[:,sample_dirs[i]],(-1,1))
+                if trial_info['pulse_presented'][i, t]:
+                    trial_info['neural_input'][:emt, eods[i-1]:eos[i], t] += np.reshape(self.motion_tuning[:,sample_dirs[i]],(-1,1))
 
             # FIXATION cue
             if par['num_fix_tuned'] > 0:
                 trial_info['neural_input'][emt:eft, eodead:eolongd, t] += np.reshape(self.fix_tuning[:,0],(-1,1))
                 for i in range(num_pulses):
                     trial_info['neural_input'][emt:eft, eor[i]:eodr[i], t] += np.reshape(self.fix_tuning[:,0],(-1,1))
-            # flip fixation to resp cue
-            # trial_info['neural_input'][emt:eft, eor[i]:eodr[i], t] = par['tuning_height'] - trial_info['neural_input'][emt:eft, eor[i]:eodr[i], t]
 
             # RESPONSE CUE
-            trial_info['neural_input'][eft:ert, eolongd:eor[0], t] += np.reshape(self.response_tuning[:,0],(-1,1))
-            trial_info['train_mask'][eolongd:eor[0], t] *= par['tuning_height']
+            num_presented = np.sum(trial_info['pulse_presented'][:, t])
+            if num_presented > 0:
+                trial_info['neural_input'][eft:ert, eolongd:eor[0], t] += np.reshape(self.response_tuning[:,0],(-1,1))
+                trial_info['train_mask'][eolongd:eor[0], t] *= par['tuning_height']
             for i in range(1, num_pulses):
-                trial_info['neural_input'][eft:ert, eodr[i-1]:eor[i], t] += np.reshape(self.response_tuning[:,0],(-1,1))
-                trial_info['train_mask'][eodr[i-1]:eor[i], t] *= par['tuning_height']
+                if num_presented > i:
+                    trial_info['neural_input'][eft:ert, eodr[i-1]:eor[i], t] += np.reshape(self.response_tuning[:,0],(-1,1))
+                    trial_info['train_mask'][eodr[i-1]:eor[i], t] *= par['tuning_height']
+            
+            # PULSE MASKS
+            idx = 0
             for i in range(num_pulses):
-                if i == 0:
-                    trial_info['pulse_masks'][0, eolongd+par['mask_duration']//par['dt']:eor[0], t] += par['tuning_height']
-                else:
-                    trial_info['pulse_masks'][i, eodr[i-1]+par['mask_duration']//par['dt']:eor[i], t] += par['tuning_height']
+                if trial_info['pulse_presented'][i,t]:
+                    if idx == 0:
+                        trial_info['pulse_masks'][i, eolongd+par['mask_duration']//par['dt']:eor[0], t] += par['tuning_height']
+                    else:
+                        trial_info['pulse_masks'][i, eodr[i-1]+par['mask_duration']//par['dt']:eor[i], t] += par['tuning_height']
+                    idx += 1
+
+            # for i in range(num_pulses):
+            #     if i == 0:
+            #         trial_info['pulse_masks'][0, eolongd+par['mask_duration']//par['dt']:eor[0], t] += par['tuning_height']
+            #     else:
+            #         trial_info['pulse_masks'][i, eodr[i-1]+par['mask_duration']//par['dt']:eor[i], t] += par['tuning_height']
+            
             # ORDER CUE
             if par['order_cue']:
-                # trial_info['neural_input'][ert, eolongd:eor[0], t] += par['tuning_height']
                 trial_info['neural_input'][ert, eof:eos[0], t] += par['tuning_height']
                 for i in range(1,num_pulses):
-                    # trial_info['neural_input'][ert+i, eodr[i-1]:eor[i], t] += par['tuning_height']
                     trial_info['neural_input'][ert+i, eods[i-1]:eos[i], t] += par['tuning_height']
 
             """
@@ -310,9 +326,32 @@ class Stimulus:
             for i in range(num_pulses):
                 trial_info['desired_output'][0, eor[i]:eodr[i], t] = 1
 
-            trial_info['desired_output'][sample_dirs[0]+1, eolongd:eor[0], t] = 1
-            for i in range(1, num_pulses):
-                trial_info['desired_output'][sample_dirs[i]+1, eodr[i-1]:eor[i], t] = 1
+            idx = 0
+            for i in range(num_pulses):
+                if idx < num_presented:
+                    if trial_info['pulse_presented'][i,t]:
+                        if idx == 0:
+                            trial_info['desired_output'][sample_dirs[0]+1, eolongd:eor[0], t] = 1
+                        else:
+                            trial_info['desired_output'][sample_dirs[i]+1, eodr[idx-1]:eor[idx], t] = 1
+                        idx += 1
+                else:
+                    if idx == 0:
+                        trial_info['desired_output'][0, eodead:eolongd, t] = 1
+                    else:
+                        trial_info['desired_output'][0, eodr[idx-1]:eor[idx], t] = 1
+            
+            if num_presented != 0:
+                trial_info['desired_output'][0, eor[num_presented-1]:, t] = 1
+            else:
+                trial_info['desired_output'][0, eolongd:, t] = 1
+            # trial_info['desired_output'][0, eodead:eolongd, t] = 1
+            # for i in range(num_pulses):
+            #     trial_info['desired_output'][0, eor[i]:eodr[i], t] = 1
+
+            # trial_info['desired_output'][sample_dirs[0]+1, eolongd:eor[0], t] = 1
+            # for i in range(1, num_pulses):
+            #     trial_info['desired_output'][sample_dirs[i]+1, eodr[i-1]:eor[i], t] = 1
 
             """
             Append trial info
@@ -405,7 +444,7 @@ class Stimulus:
 
 if __name__ == "__main__":
     stim = Stimulus()
-    updates = {'num_pulses': 4, 'var_delay': True, 'var_resp_delay': True, 'var_num_pulses': False, 'save_fn': '', 'order_cue': True}
+    updates = {'num_pulses': 4, 'var_delay': False, 'var_resp_delay': False, 'var_num_pulses': True, 'save_fn': '', 'order_cue': False}
     update_parameters(updates)
     par['check_stim'] = True
     stim.generate_trial(analysis = False, num_fixed=0, var_delay=par['var_delay'], var_resp_delay=par['var_resp_delay'], var_num_pulses=par['var_num_pulses'])

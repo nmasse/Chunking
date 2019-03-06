@@ -34,6 +34,7 @@ par = {
     'num_pulses'            : 6,
     'num_max_pulse'         : 0,
     'var_num_pulses'        : False,
+    'pulse_prob'            : 0.8,
     'num_resp_cue_tuned'    : 1,
     'long_delay_time'       : 400,
     'resp_cue_time'         : 200,
@@ -212,7 +213,7 @@ def update_trial_params():
     elif par['trial_type'] == 'chunking':
 
         if par['var_num_pulses']:
-            par['num_max_pulse'] = par['num_pulse']
+            par['num_max_pulse'] = par['num_pulses']
         if par['var_delay']:
             par['num_max_pulse'] = par['num_pulses']
         if par['order_cue']:
@@ -283,8 +284,8 @@ def update_dependencies():
         par['trial_length'] = par['dead_time']+par['fix_time']+par['sample_time']+2*par['delay_time']+2*par['test_time']
     elif par['trial_type'] == 'chunking':
         if par['var_delay']:
-            par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
-            par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']
+            par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*(par['delay_time']+50) + (par['long_delay_time']+50) + \
+            par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*(par['delay_time']+50)
         else:
             par['trial_length'] = par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'] + \
             par['num_pulses']*par['resp_cue_time'] + (par['num_pulses']-1)*par['delay_time']

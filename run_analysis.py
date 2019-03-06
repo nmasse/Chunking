@@ -16,7 +16,7 @@ for a in addition:
         # file = b + a
 
         # file = 'var_delay_6_tc50_acc80.pkl'#nick_restart_var_delay_6_spike_cost_acc60.pkl
-        file = 'tc40_5pulses_acc90.pkl'
+        file = 'restart_var_delay_6_var_num_pulses_acc85.pkl'
 
 
         print('Analyzing network...')
