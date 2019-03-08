@@ -20,14 +20,16 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         x['parameters'][key] = val
 
     update_parameters(x['parameters'])
+    print(par['var_num_pulses'])
     
     stim = stimulus.Stimulus()
     if analysis or test_mode_pulse:
-        for i in range(1,par['num_pulses']):
+        for i in range(1,par['num_pulses']+1):
             if analysis:
                 trial_info = stim.generate_trial(analysis=True, num_fixed=i)
             elif test_mode_pulse:
-                trial_info = stim.generate_trial(analysis=False, num_fixed=0, var_num_pulses=True, test_mode_pulse=True, pulse=i)
+                print(par['var_num_pulses'])
+                trial_info = stim.generate_trial(analysis=False, num_fixed=0, test_mode_pulse=True, pulse=i)
             start_analysis(x, trial_info, analysis=analysis, stim_num=i, test_mode_pulse=test_mode_pulse, pulse=i)
     else:
         if test_mode_delay:
@@ -47,8 +49,8 @@ def start_analysis(x, trial_info, analysis=False, stim_num=0, test_mode_pulse=Fa
 
     analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], \
                   analysis = analysis, test_mode_pulse = test_mode_pulse, pulse=pulse, test_mode_delay = test_mode_delay, stim_num = stim_num, \
-                  simulation = False, shuffle_groups = False, pulse_acc = True, currents = False, correlation = False, correlation_ind = False, \
-                  cut = False, lesion = False, tuning = False, decoding = False, save_raw_data = False)
+                  simulation = False, shuffle_groups = False, pulse_acc = True, currents = True, correlation = False, correlation_ind = False, \
+                  cut = False, lesion = False, tuning = True, decoding = True, save_raw_data = False)
 
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True,shuffle_groups = True,\
@@ -96,7 +98,15 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
     if pulse_acc:
         print('calculete pulse accuracy...')
         pulse_accuracy = calculate_pulse_accuracy(x, trial_info, y_hat, test_mode_pulse, pulse)
-        results['pulse_accuracy'] = pulse_accuracy 
+        results['pulse_accuracy'] = pulse_accuracy
+
+        if test_mode_pulse:
+
+            if 'pulse_accuracy_recovered' in results:
+                print(type(results['pulse_accuracy_recovered']))
+                results['pulse_accuracy_recovered'].append(pulse_accuracy[-1])
+            else:
+                results['pulse_accuracy_recovered'] = [pulse_accuracy[-1]]
         pickle.dump(results, open(save_fn, 'wb'))
 
 
@@ -197,6 +207,7 @@ def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weig
 
 def calculate_pulse_accuracy(x, trial_info, y_hat, test_mode_pulse, pulse):
     pulse_accuracy = []
+
     if test_mode_pulse:
         num_pulses = pulse
     else:

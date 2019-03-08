@@ -312,7 +312,7 @@ if __name__ == '__main__':
         # Setup
         #filename = 'analysis_restart_no_var_delay_6_acc90.pkl'
             filename = b + a
-        
+            filename = 'analysis_restart_new_var_pulse_5_d200_tc100_acc80.pkl'
             # files = os.listdir('./analysis_results/')
             # for filename in files:
             print("PLOTTING FILE ", filename)
