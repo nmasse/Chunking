@@ -47,7 +47,7 @@ def start_analysis(x, trial_info, analysis=False, stim_num=0, test_mode_pulse=Fa
 
     analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], \
                   analysis = analysis, test_mode_pulse = test_mode_pulse, pulse=pulse, test_mode_delay = test_mode_delay, stim_num = stim_num, \
-                  simulation = False, shuffle_groups = False, pulse_acc = True, currents = False, correlation = False, correlation_ind = False, \
+                  simulation = True, shuffle_groups = False, pulse_acc = True, currents = False, correlation = False, correlation_ind = False, \
                   cut = False, lesion = False, tuning = False, decoding = False, save_raw_data = False)
 
 
