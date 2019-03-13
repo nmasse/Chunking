@@ -27,5 +27,5 @@ for a in addition:
         else:
             test_delay = False
 
-        analyze_model_from_file(file, savefile = save_fn, test_mode_delay=test_delay, test_mode_pulse=False)
+        analyze_model_from_file(file, savefile = save_fn, test_mode_delay=test_delay)#test_mode_pulse=True
         quit()

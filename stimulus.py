@@ -12,7 +12,10 @@ class Stimulus:
 
 
     def generate_trial(self, analysis = False, num_fixed = 0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode_pulse=False, pulse=2, test_mode_delay=False):
+        print(par['var_num_pulses'])
+        var_num_pulses = par['var_num_pulses']
         if var_delay or var_resp_delay or var_num_pulses:
+            print(var_num_pulses)
             return self.generate_var_chunking_trial(par['num_pulses'], analysis, num_fixed, var_delay, var_resp_delay, var_num_pulses, test_mode_pulse, pulse, test_mode_delay)
         else:
             return self.generate_chunking_trial(par['num_pulses'], analysis, num_fixed)
