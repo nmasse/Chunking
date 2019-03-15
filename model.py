@@ -86,7 +86,7 @@ class Model:
 
         if par['architecture'] == 'BIO':
             if par['EI'] == True:
-                self.W_rnn_eff = (tf.constant(par['EI_matrix']) @ tf.identity(self.var_dict['W_rnn']))
+                self.W_rnn_eff = mat_mul(tf.constant(par['EI_matrix']), tf.identity(self.var_dict['W_rnn']))
                 # TODO: Replace this identity with relu
             else:
                 self.W_rnn_eff = self.var_dict['W_rnn']
@@ -98,13 +98,14 @@ class Model:
             time to generate the network outputs """
 
         # Set up network state recording
-        self.y_hat  = []
-        self.hidden_hist = []
-        self.syn_x_hist = []
-        self.syn_u_hist = []
+        self.y_hat          = []
+        self.y_hat_abs      = []
+        self.hidden_hist    = []
+        self.syn_x_hist     = []
+        self.syn_u_hist     = []
 
-        # Load starting networks state
-        h = self.var_dict['h_real_init'] + 1j*self.var_dict['h_imag_init']
+        # Load starting network state
+        h = tf.complex(self.var_dict['h_init'], self.var_dict['h_init'])
         syn_x = self.var_dict['syn_x_init']
         syn_u = self.var_dict['syn_u_init']
 
@@ -120,8 +121,6 @@ class Model:
         for rnn_input in self.input_data:
 
             # Compute the state of the hidden layer
-            h = h_real + 1j*h_imag
-            c = c_real + 1j*c_imag
             h, c, syn_x, syn_u = self.recurrent_cell(h, c, syn_x, syn_u, rnn_input)
 
             # Record network state
@@ -130,7 +129,8 @@ class Model:
             self.syn_u_hist.append(syn_u)
 
             # Compute output state
-            y = h @ tf.identity(self.var_dict['W_out']) + self.var_dict['b_out']
+            # TODO: check if parentheses are correct
+            y = mat_mul(h, tf.identity(self.var_dict['W_out']) + self.var_dict['b_out'])
             # TODO: Replace this identity with relu
             self.y_hat.append(y)
 
@@ -145,9 +145,9 @@ class Model:
             if par['synapse_config'] == 'std_stf':
                 syn_x += par['alpha_std']*(1-syn_x) - par['dt_sec']*syn_u*syn_x*h
                 syn_u += par['alpha_stf']*(par['U']-syn_u) + par['dt_sec']*par['U']*(1-syn_u)*h
-                syn_x = tf.minimum(np.float32(1), tf.identity(syn_x))
+                syn_x = tf.minimum(np.complex64(1), tf.identity(syn_x))
                 # TODO: Replace this identity with relu
-                syn_u = tf.minimum(np.float32(1), tf.identity(syn_u))
+                syn_u = tf.minimum(np.complex64(1), tf.identity(syn_u))
                 # TODO: Replace this identity with relu
                 h_post = syn_u*syn_x*h
             else:
@@ -155,8 +155,8 @@ class Model:
 
             # Compute hidden state
             h = tf.identity((1-par['alpha_neuron'])*h \
-              + par['alpha_neuron']*(rnn_input @ self.var_dict['W_in'] + h_post @ self.W_rnn_eff + self.var_dict['b_rnn']) \
-              + tf.random_normal(h.shape, 0, par['noise_rnn'], dtype=tf.float32))
+              + par['alpha_neuron']*(mat_mul(rnn_input, self.var_dict['W_in']) + mat_mul(h_post, self.W_rnn_eff) + tf.cast(self.var_dict['b_rnn'], tf.complex64)) \
+              + tf.complex(tf.random_normal(h.shape, 0, par['noise_rnn']), tf.random_normal(h.shape, 0, par['noise_rnn'])))
             # TODO: Replace this identity with relu
             c = tf.constant(-1.)
 
@@ -165,11 +165,11 @@ class Model:
             # Compute LSTM state
             # f : forgetting gate, i : input gate,
             # c : cell state, o : output gate
-            f   = tf.sigmoid(rnn_input @ self.var_dict['Wf'] + h @ self.var_dict['Uf'] + self.var_dict['bf'])
-            i   = tf.sigmoid(rnn_input @ self.var_dict['Wi'] + h @ self.var_dict['Ui'] + self.var_dict['bi'])
-            cn  = tf.tanh(rnn_input @ self.var_dict['Wc'] + h @ self.var_dict['Uc'] + self.var_dict['bc'])
+            f   = tf.sigmoid(mat_mul(rnn_input, self.var_dict['Wf']) + mat_mul(h, self.var_dict['Uf']) + self.var_dict['bf'])
+            i   = tf.sigmoid(mat_mul(rnn_input, self.var_dict['Wi']) + mat_mul(h, self.var_dict['Ui']) + self.var_dict['bi'])
+            cn  = tf.tanh(mat_mul(rnn_input, self.var_dict['Wc']) +  mat_mul(h, self.var_dict['Uc']) + self.var_dict['bc'])
             c   = f * c + i * cn
-            o   = tf.sigmoid(rnn_input @ self.var_dict['Wo'] + h @ self.var_dict['Uo'] + self.var_dict['bo'])
+            o   = tf.sigmoid(mat_mul(rnn_input, self.var_dict['Wo']) + mat_mul(h, self.var_dict['Uo']) + self.var_dict['bo'])
 
             # Compute hidden state
             h = o * tf.tanh(c)
@@ -192,8 +192,10 @@ class Model:
                 in zip(self.mask, self.target_data, self.y_hat)]
 
         elif par['loss_function'] == 'cross_entropy':
+            self.y_hat_abs = [magnitude(y) for y in self.y_hat]
+
             perf_loss = [m*tf.cast(tf.nn.softmax_cross_entropy_with_logits_v2(logits=y, labels=t), dtype=tf.float32) for m, t, y \
-                in zip(self.mask, self.target_data, self.y_hat)]
+                in zip(self.mask, self.target_data, self.y_hat_abs)]
 
         self.perf_loss = tf.reduce_mean(tf.stack(perf_loss))
 
@@ -212,18 +214,41 @@ class Model:
             self.wiring_loss = 0
 
         # Collect total loss
-        self.loss = self.perf_loss + self.spike_loss + self.wiring_loss
+        self.loss = tf.cast(self.perf_loss, tf.complex64) + self.spike_loss + tf.cast(self.wiring_loss, tf.complex64)
 
         # Compute and apply network gradients
+        self.loss = magnitude(self.loss)
         self.train_op = opt.compute_gradients(self.loss)
 
-def matmul(real_1, imag_1, real_2, imag_2):
-    imag_1 = imag_1*1j
-    imag_2 = imag_2*1j
-    mat_1 = real_1 + imag_1
-    mat_2 = real_2 + imag_2
-    mat_mul = mat_1 @ mat_2
-    return mat_mul
+def magnitude(mat_1):
+    real_1 = tf.real(mat_1)
+    imag_1 = tf.imag(mat_1)
+
+    mag_1 = tf.sqrt(tf.square(real_1) + tf.square(imag_1))
+
+    return mag_1
+
+def mat_mul(mat_1, mat_2):
+
+    if mat_1.dtype == 'complex64' and mat_2.dtype == 'complex64':
+        matmul = mat_1 @ mat_2
+    else:
+        mat_1 = tf.cast(mat_1, tf.complex64)
+        mat_2 = tf.cast(mat_2, tf.complex64)
+
+        real_1 = tf.real(mat_1)
+        imag_1 = tf.imag(mat_1)
+        real_2 = tf.real(mat_2)
+        imag_2 = tf.imag(mat_2)
+
+        t0 = real_1 @ real_2
+        t1 = imag_1 @ real_2
+        t2 = real_1 @ imag_2
+        t3 = imag_1 @ imag_2
+
+        matmul = tf.complex(t0, t1) + tf.complex(t2, -1*t3)
+
+    return matmul
 
 def shuffle_trials(stim):
     trial_info = {'desired_output'  :  np.zeros((par['num_time_steps'], par['batch_train_size'], par['n_output']),dtype=np.float32),
