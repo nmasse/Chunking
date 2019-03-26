@@ -20,7 +20,8 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         x['parameters'][key] = val
 
     update_parameters(x['parameters'])
-    print(par['var_num_pulses'])
+    print('Var_num_pulses', par['var_num_pulses'])
+    print('Test_mode_pulse', test_mode_pulse)
     
     stim = stimulus.Stimulus()
     if analysis or test_mode_pulse:
@@ -28,7 +29,7 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
             if analysis:
                 trial_info = stim.generate_trial(analysis=True, num_fixed=i)
             elif test_mode_pulse:
-                print(par['var_num_pulses'])
+                print('Test_mode_pulse:', par['var_num_pulses'])
                 trial_info = stim.generate_trial(analysis=False, num_fixed=0, test_mode_pulse=True, pulse=i)
             start_analysis(x, trial_info, analysis=analysis, stim_num=i, test_mode_pulse=test_mode_pulse, pulse=i)
     else:
@@ -49,8 +50,8 @@ def start_analysis(x, trial_info, analysis=False, stim_num=0, test_mode_pulse=Fa
 
     analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], \
                   analysis = analysis, test_mode_pulse = test_mode_pulse, pulse=pulse, test_mode_delay = test_mode_delay, stim_num = stim_num, \
-                  simulation = False, shuffle_groups = False, pulse_acc = True, currents = True, correlation = False, correlation_ind = False, \
-                  cut = False, lesion = False, tuning = True, decoding = True, save_raw_data = False)
+                  simulation = False, shuffle_groups = False, pulse_acc = True, currents = False, correlation = False, correlation_ind = False, \
+                  cut = False, lesion = False, tuning = False, decoding = False, save_raw_data = False)
 
 
 def analyze_model(x, trial_info, y_hat, h, syn_x, syn_u, model_performance, weights, analysis = False, test_mode_pulse=False, pulse=0, test_mode_delay=False,stim_num=0, simulation = True,shuffle_groups = True,\
@@ -209,7 +210,7 @@ def calculate_pulse_accuracy(x, trial_info, y_hat, test_mode_pulse, pulse):
     pulse_accuracy = []
 
     if test_mode_pulse:
-        num_pulses = pulse
+        num_pulses = x['parameters']['num_pulses']
     else:
         num_pulses = x['parameters']['num_pulses']
     for p in range(num_pulses):

@@ -16,7 +16,8 @@ for a in addition:
         # file = b + a
 
         # file = 'var_delay_6_tc50_acc80.pkl'#nick_restart_var_delay_6_spike_cost_acc60.pkl
-        file = 'restart_new_var_pulse_5_d300_tc50_acc80.pkl'
+        file = 'restart_new_var_pulse_5_d300_tc50_spike_0.0001_acc85.pkl'
+        # file = 'restart_new_var_pulse_5_d300_tc50_spike_1e-05_acc95.pkl'
 
 
         print('Analyzing network...')
@@ -27,5 +28,5 @@ for a in addition:
         else:
             test_delay = False
 
-        analyze_model_from_file(file, savefile = save_fn, test_mode_delay=test_delay)#test_mode_pulse=True
+        analyze_model_from_file(file, savefile = save_fn, test_mode_delay=test_delay, test_mode_pulse=True)
         quit()

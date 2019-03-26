@@ -12,10 +12,11 @@ class Stimulus:
 
 
     def generate_trial(self, analysis = False, num_fixed = 0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode_pulse=False, pulse=2, test_mode_delay=False):
-        print(par['var_num_pulses'])
-        var_num_pulses = par['var_num_pulses']
+        print('generate trial var_pulses', par['var_num_pulses'])
+        # var_num_pulses = par['var_num_pulses']
         if var_delay or var_resp_delay or var_num_pulses:
-            print(var_num_pulses)
+            # print(var_num_pulses)
+            var_num_pulses = True
             return self.generate_var_chunking_trial(par['num_pulses'], analysis, num_fixed, var_delay, var_resp_delay, var_num_pulses, test_mode_pulse, pulse, test_mode_delay)
         else:
             return self.generate_chunking_trial(par['num_pulses'], analysis, num_fixed)
@@ -157,7 +158,7 @@ class Stimulus:
 
         return trial_info
 
-    def generate_var_chunking_trial(self, num_pulses, analysis, num_fixed, var_delay=False, var_resp_delay=False, var_num_pulses=False, test_mode_pulse=False, pulse=0, test_mode_delay=False):
+    def generate_var_chunking_trial(self, num_pulses, analysis, num_fixed, var_delay=False, var_resp_delay=False, var_num_pulses=par['var_num_pulses'], test_mode_pulse=False, pulse=0, test_mode_delay=False):
         """
         Generate trials to investigate chunking
         """
@@ -186,8 +187,9 @@ class Stimulus:
 
         if var_num_pulses:
             if test_mode_pulse:
+                print('Setting varying number of pulses (analysis)')
                 trial_info['num_pulses'][:] = par['num_pulses']
-                trial_info['pulse_presented'][:pulse,:] = 1
+                trial_info['pulse_presented'][pulse-1:,:] = 1
             else:
                 trial_info['num_pulses'][:] = par['num_pulses'] #np.random.choice(range(par['num_max_pulse']//2,par['num_max_pulse']+1),size=par['batch_train_size'])
                 temp = np.random.rand(par['num_pulses'], par['batch_train_size'])
@@ -273,7 +275,7 @@ class Stimulus:
                 sample_dirs = [np.random.randint(par['num_motion_dirs']) for i in range(num_pulses)]
             else:
                 sample_dirs = [0]*num_fixed + [np.random.randint(par['num_motion_dirs']) for i in range(num_pulses-num_fixed)]
-
+            # print(sample_dirs)
             rule = np.random.randint(par['num_rules'])
 
             """
@@ -307,9 +309,9 @@ class Stimulus:
             for i in range(num_pulses):
                 if trial_info['pulse_presented'][i,t]:
                     if idx == 0:
-                        trial_info['pulse_masks'][i, eolongd+par['mask_duration']//par['dt']:eor[0], t] += par['tuning_height']
+                        trial_info['pulse_masks'][idx, eolongd+par['mask_duration']//par['dt']:eor[0], t] += par['tuning_height']
                     else:
-                        trial_info['pulse_masks'][i, eodr[i-1]+par['mask_duration']//par['dt']:eor[i], t] += par['tuning_height']
+                        trial_info['pulse_masks'][idx, eodr[idx-1]+par['mask_duration']//par['dt']:eor[idx], t] += par['tuning_height']
                     idx += 1
 
             # for i in range(num_pulses):
@@ -336,7 +338,7 @@ class Stimulus:
                 if idx < num_presented:
                     if trial_info['pulse_presented'][i,t]:
                         if idx == 0:
-                            trial_info['desired_output'][sample_dirs[0]+1, eolongd:eor[0], t] = 1
+                            trial_info['desired_output'][sample_dirs[i]+1, eolongd:eor[0], t] = 1
                         else:
                             trial_info['desired_output'][sample_dirs[i]+1, eodr[idx-1]:eor[idx], t] = 1
                         idx += 1
@@ -345,7 +347,7 @@ class Stimulus:
                         trial_info['desired_output'][0, eodead:eolongd, t] = 1
                     else:
                         trial_info['desired_output'][0, eodr[idx-1]:eor[idx], t] = 1
-            
+            # print(np.argmax(trial_info['desired_output'][:,:,t], axis=0))
             if num_presented != 0:
                 trial_info['desired_output'][0, eor[num_presented-1]:, t] = 1
             else:
@@ -365,7 +367,7 @@ class Stimulus:
             trial_info['rule'][t] = rule
 
         if par['check_stim']:
-            for i in range(5):
+            for i in range(3):
                 fig, ax = plt.subplots(3)
 
                 ax[0].imshow(trial_info['neural_input'][:,:,i],aspect='auto', clim=[0,par['tuning_height']])
@@ -376,6 +378,7 @@ class Stimulus:
                 ax[1].set_title('Train Mask')
                 ax[2].set_title('Desired Output')
 
+                plt.title(trial_info['sample'][t])
                 plt.show()
 
         return trial_info
