@@ -13,10 +13,11 @@ class Stimulus:
 
     def generate_trial(self, analysis = False, num_fixed = 0,var_delay=par['var_delay'],var_resp_delay=par['var_resp_delay'],var_num_pulses=par['var_num_pulses'],test_mode_pulse=False, pulse=2, test_mode_delay=False):
         print('generate trial var_pulses', par['var_num_pulses'])
+        var_num_pulses = False
         # var_num_pulses = par['var_num_pulses']
         if var_delay or var_resp_delay or var_num_pulses:
             # print(var_num_pulses)
-            var_num_pulses = True
+            # var_num_pulses = True
             return self.generate_var_chunking_trial(par['num_pulses'], analysis, num_fixed, var_delay, var_resp_delay, var_num_pulses, test_mode_pulse, pulse, test_mode_delay)
         else:
             return self.generate_chunking_trial(par['num_pulses'], analysis, num_fixed)
@@ -189,7 +190,7 @@ class Stimulus:
             if test_mode_pulse:
                 print('Setting varying number of pulses (analysis)')
                 trial_info['num_pulses'][:] = par['num_pulses']
-                trial_info['pulse_presented'][pulse-1:,:] = 1
+                trial_info['pulse_presented'][:pulse+1,:] = 1
             else:
                 trial_info['num_pulses'][:] = par['num_pulses'] #np.random.choice(range(par['num_max_pulse']//2,par['num_max_pulse']+1),size=par['batch_train_size'])
                 temp = np.random.rand(par['num_pulses'], par['batch_train_size'])

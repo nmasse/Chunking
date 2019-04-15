@@ -16,7 +16,8 @@ for a in addition:
         # file = b + a
 
         # file = 'var_delay_6_tc50_acc80.pkl'#nick_restart_var_delay_6_spike_cost_acc60.pkl
-        file = 'restart_new_var_pulse_5_d300_tc50_spike_0.0001_acc85.pkl'
+        # file = 'restart_new_var_pulse_5_d300_tc50_spike_0.0001_acc85.pkl'
+        file = 'restart_fixed_var_pulse_5_spike1e3_acc95.pkl'
         # file = 'restart_new_var_pulse_5_d300_tc50_spike_1e-05_acc95.pkl'
 
 

@@ -154,29 +154,45 @@ def selective_task_currents(num_top_neurons=5):
     task = 'sequence'
     x = data#[task]
     pev = x['synaptic_pev']
-    end_of_task = np.where(trial_info['train_mask'][:,0]==1.)[0][-1]
+    end_of_delay = (par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'])//par['dt']
+    end_of_delay -= 1
 
     for p in range(par['num_pulses']):
 
-        mean_pev = np.mean(pev[:,p,:end_of_task+1], axis=-1)
+        mean_pev = pev[:,p,end_of_delay]
         greatest_neurons = np.argsort(mean_pev)[-(num_top_neurons):][::-1]
+        print(greatest_neurons)
 
         fig, ax = plt.subplots(2,1,figsize=(8,7))
 
-        for c, k in zip(['r', 'g', 'b'], rnn_currents):
-            current = x[k]
-            time = np.arange(current.shape[0])
-            curve0 = np.mean(current[:,greatest_neurons,0], axis=1)
-            curve1 = np.mean(current[:,greatest_neurons,1], axis=1)
-            ax[0].plot(time, curve0, c=c, label=k)
-            ax[1].plot(time, curve1, c=c, label=k)
+        current = x['exc_current'][:,greatest_neurons,0] + x['motion_current'][:,greatest_neurons]+\
+                  x['fix_current'][:,greatest_neurons] + x['cue_current'][:,greatest_neurons]
+        inh_current = x['inh_current'][:,greatest_neurons,0]
+        time = np.arange(current.shape[0])
+        ax[0].plot(time, np.mean(current, axis=1), c='r', label='Exc')
+        ax[0].plot(time, np.mean(inh_current, axis=1), c='b', label='Inh')
 
-        for c, k in zip(['m', 'y', 'c'], inp_currents):
-            current = x[k]
-            time = np.arange(current.shape[0])
-            curve = np.mean(current[:,greatest_neurons], axis=1)
-            ax[0].plot(time, curve, c=c, label=k)
-            ax[1].plot(time, curve, c=c, label=k)
+        current = x['exc_current'][:,greatest_neurons,1] + x['motion_current'][:,greatest_neurons]+\
+                  x['fix_current'][:,greatest_neurons] + x['cue_current'][:,greatest_neurons]
+        inh_current = x['inh_current'][:,greatest_neurons,1]
+        # ax[1].plot(time, np.mean(current, axis=1), c='r', label='Exc')
+        # ax[1].plot(time, np.mean(inh_current, axis=1), c='b', label='Inh')
+        ax[1].plot(time, np.mean(current, axis=1) - np.mean(inh_current, axis=1))
+
+        # for c, k in zip(['r', 'g', 'b'], rnn_currents):
+        #     current = x[k]
+        #     time = np.arange(current.shape[0])
+        #     curve0 = np.mean(current[:,greatest_neurons,0], axis=1)
+        #     curve1 = np.mean(current[:,greatest_neurons,1], axis=1)
+        #     ax[0].plot(time, curve0, c=c, label=k)
+        #     ax[1].plot(time, curve1, c=c, label=k)
+
+        # for c, k in zip(['m', 'y', 'c'], inp_currents):
+        #     current = x[k]
+        #     time = np.arange(current.shape[0])
+        #     curve = np.mean(current[:,greatest_neurons], axis=1)
+        #     ax[0].plot(time, curve, c=c, label=k)
+        #     ax[1].plot(time, curve, c=c, label=k)
 
         ax[0].set_title('RNN Currents')
         ax[1].set_title('Effective RNN Currents')
@@ -210,13 +226,14 @@ def selective_hidden_state_deviation(num_top_neurons=5):
     task = 'sequence'
     x = data#[task]
     pev = x['synaptic_pev']
-    end_of_task = np.where(trial_info['train_mask'][:,0]==1.)[0][-1]
+    end_of_delay = (par['dead_time']+par['fix_time'] + par['num_pulses'] * par['sample_time'] + (par['num_pulses']-1)*par['delay_time'] + par['long_delay_time'])//par['dt']
+    end_of_delay -= 1
 
     aspect = 'RF' if 'RF' in task else 'pulse'
     fig, ax = plt.subplots(3,2,figsize=(8,7))
     for p in range(par['num_pulses']):
 
-        mean_pev = np.mean(pev[:,p,:end_of_task+1], axis=-1)
+        mean_pev = np.mean(pev[:,p,:end_of_delay], axis=-1)
         greatest_neurons = np.argsort(mean_pev)[-(num_top_neurons):][::-1]
 
         #im = ax[p//2,p%2].imshow(x['std_h'][:,greatest_neurons].T, aspect='auto')
@@ -313,11 +330,11 @@ if __name__ == '__main__':
         #filename = 'analysis_restart_no_var_delay_6_acc90.pkl'
 
             # filename = b + a
-            filename = 'analysis_restart_new_var_pulse_5_d200_tc100_acc80.pkl'
+            filename = 'analysis_restart_fixed_var_pulse_5_spike1e3_acc95.pkl'
             # files = os.listdir('./analysis_results/')
             # for filename in files:
             print("PLOTTING FILE ", filename)
-            foldername = filename[:-4]
+            foldername = filename[:-4]+'_v2'
             os.makedirs('./plots/{}/'.format(foldername), exist_ok=True)
             os.makedirs('./plots/{}/top_synaptic_PEV_deviations/'.format(foldername), exist_ok=True)
             
@@ -348,3 +365,4 @@ if __name__ == '__main__':
             #     task_overlap(threshold=t, all=True)
 
             task_pevs()
+            quit()

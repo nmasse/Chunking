@@ -20,12 +20,17 @@ def analyze_model_from_file(filename, savefile = None, analysis = False, test_mo
         x['parameters'][key] = val
 
     update_parameters(x['parameters'])
+    
+    analysis = False
+    test_mode_pulse = False
+    test_mode_delay = True
+    par['var_num_pulses'] = False
     print('Var_num_pulses', par['var_num_pulses'])
     print('Test_mode_pulse', test_mode_pulse)
-    
+
     stim = stimulus.Stimulus()
     if analysis or test_mode_pulse:
-        for i in range(1,par['num_pulses']+1):
+        for i in range(par['num_pulses']):
             if analysis:
                 trial_info = stim.generate_trial(analysis=True, num_fixed=i)
             elif test_mode_pulse:
@@ -50,7 +55,7 @@ def start_analysis(x, trial_info, analysis=False, stim_num=0, test_mode_pulse=Fa
 
     analyze_model(x,trial_info, y_hat, h, syn_x, syn_u, x['model_performance'], x['weights'], \
                   analysis = analysis, test_mode_pulse = test_mode_pulse, pulse=pulse, test_mode_delay = test_mode_delay, stim_num = stim_num, \
-                  simulation = False, shuffle_groups = False, pulse_acc = True, currents = False, correlation = False, correlation_ind = False, \
+                  simulation = False, shuffle_groups = False, pulse_acc = True, currents = False, correlation = True, correlation_ind = False, \
                   cut = False, lesion = False, tuning = False, decoding = False, save_raw_data = False)
 
 
@@ -240,6 +245,9 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
     if network_weights['w_in'].shape == (100,25):
         for key, val in network_weights.items():
             network_weights[key] = val.T
+
+    for key, val in network_weights.items():
+        network_weights[key] = np.maximum(val, 0)
     
     trial_length = h.shape[1]
     current_results = {
@@ -248,11 +256,10 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
         'motion_current'         :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
         'fix_current'            :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
         'cue_current'            :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
-        'delta_rnn'              :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32),
         'delta_all'              :  np.zeros((batch_size, par['num_pulses'], par['num_pulses'], (par['sample_time']-par['mask_duration'])//par['dt'], num_top_neurons),dtype=np.float32)}
 
     eff_activity = (h*syn_x*syn_u).T # (1024, 480, 100) 
-    input_activity = network_input.T # (1024, 480, 25)
+    input_activity = np.maximum(network_input.T, 0) # (1024, 480, 25)
 
     mot  = par['num_motion_tuned']
     fix  = par['num_motion_tuned'] + par['num_fix_tuned']
@@ -266,9 +273,13 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
 
     ei_index = par['num_exc_units']
 
-    trial_info['timeline'] = np.array(trial_info['timeline'])
-    start_sample_times = trial_info['timeline'][range(2,(par['num_pulses']+1)*2,2)] - par['sample_time']//par['dt'] + par['mask_duration']//par['dt']
-    end_sample_times = trial_info['timeline'][range(2,(par['num_pulses']+1)*2,2)]
+    if len(np.array(trial_info['timeline']).shape) == 2:
+        timeline = np.mean(trial_info['timeline'], axis=0).astype(np.int16)
+    else:
+        timeline = np.array(trial_info['timeline'])
+
+    start_sample_times = timeline[range(2,(par['num_pulses']+1)*2,2)] - par['sample_time']//par['dt'] + par['mask_duration']//par['dt']
+    end_sample_times = timeline[range(2,(par['num_pulses']+1)*2,2)]
 
     for p in range(par['num_pulses']):
         times = range(start_sample_times[p],end_sample_times[p])
@@ -280,14 +291,13 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
             current_results['fix_current'][:, p, n, :, :]    = input_activity[:,times,:][:,:,fix_rng] @ network_weights['w_in'][fix_rng,:][:,greatest_neurons[n]]
             current_results['cue_current'][:, p, n, :, :]    = input_activity[:,times,:][:,:,cue_rng] @ network_weights['w_in'][cue_rng,:][:,greatest_neurons[n]]
 
-    current_results['delta_rnn'] = current_results['exc_current'] - current_results['inh_current']
     current_results['delta_all'] = current_results['exc_current'] + current_results['motion_current'] + current_results['fix_current'] \
                                  + current_results['cue_current'] - current_results['inh_current']
 
     # get output response for each pulses
-    last_time = len(trial_info['timeline'])
-    start_response_times = trial_info['timeline'][range(last_time - par['num_pulses']*2 + 1,last_time,2)] - par['resp_cue_time']//par['dt']  + par['mask_duration']//par['dt']
-    end_response_times = trial_info['timeline'][range(last_time - par['num_pulses']*2 + 1,last_time,2)]
+    last_time = len(timeline)
+    start_response_times = timeline[range(last_time - par['num_pulses']*2 + 1,last_time,2)] - par['resp_cue_time']//par['dt']  + par['mask_duration']//par['dt']
+    end_response_times = timeline[range(last_time - par['num_pulses']*2 + 1,last_time,2)]
 
     soft_y = scipy.special.softmax(np.array(y_hat), axis=1) # (480, 9, 1024)
     desired_dir = np.argmax(trial_info['desired_output'],axis=0) # (480, 1024)
@@ -298,24 +308,42 @@ def calculate_correlation(results, trial_info, y_hat, h, syn_x, syn_u, network_i
         for b in range(batch_size):
             motion_dir = direction[b]
             outputs[b,p,:] = soft_y[range(start_response_times[p],end_response_times[p]),motion_dir,b]
+            # print(p, motion_dir, np.mean(outputs, axis=2)[b])
+            # print(np.mean(outputs, axis=2).shape)
 
     # calculate correlation
     output = np.mean(outputs,axis=2)
-    delta_rnn = np.mean(current_results['delta_rnn'],axis=(3,4)) # batch, pulse, neuron_group
     delta_all = np.mean(current_results['delta_all'],axis=(3,4)) # batch, pulse, neuron_group
-    
+    delta_diff = delta_all * 1
+    # delta_diff = np.zeros((batch_size, par['num_pulses'], par['num_pulses']))
+
+    print(delta_all.shape)
+    for n in range(par['num_pulses']-1):
+        delta_sub = np.sum(np.maximum(delta_all[:,n+1:,n],0), axis=1)
+        delta_diff[:,n,n] = delta_all[:,n,n] - delta_sub
+        # delta_diff[:,n,n] -= delta_sub
+    print(np.average(delta_diff[:,4,4]))
+
     for n in range(par['num_pulses']):
         fig, ax = plt.subplots(2,3,figsize=(8,7), sharex=True)
         for p in range(par['num_pulses']):
-            ax[p//3,p%3].scatter(delta_all[:,p,n],output[:,n], s=3)
+            ax[p//3,p%3].scatter(delta_diff[:,p,n], output[:,n], s=3)
             ax[p//3,p%3].set_title("Delta at pulse {}".format(p))
         fig.suptitle("Delta All vs. Output for neuron group {}".format(n))
         plt.savefig('./correlation/delta_all_neuron_group_{}.png'.format(n))
         plt.close()
 
+    for n in range(par['num_pulses']):
+        fig, ax = plt.subplots(2,3,figsize=(8,7), sharex=True)
+        for p in range(par['num_pulses']):
+            ax[p//3,p%3].scatter(delta_all[:,p,n], output[:,n], s=3)
+            ax[p//3,p%3].set_title("Delta at pulse {}".format(p))
+        fig.suptitle("Delta All vs. Output for neuron group {}".format(n))
+        plt.savefig('./correlation/raw_delta_all_neuron_group_{}.png'.format(n))
+        plt.close()    
+
     correlation_results = {
         'outputs': output,
-        'delta_rnn': delta_rnn,
         'delta_all': delta_all
     }
 
@@ -970,8 +998,12 @@ def cut_weights(x_dict, trial_info, start_time, trial_time, h, syn_x, syn_u, net
 
 def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
 
+    if network_weights['w_in'].shape == (100,25):
+        for key, val in network_weights.items():
+            network_weights[key] = val.T
     for key, val in network_weights.items():
-        network_weights[key] = val.T
+            network_weights[key] = np.maximum(val, 0)
+
     
     trial_length = h.shape[1]
     current_results = {
@@ -985,6 +1017,8 @@ def calculate_currents(h, syn_x, syn_u, network_input, network_weights):
     mean_activity     = np.mean(h, axis=2).T
     mean_eff_activity = np.mean(h*syn_x*syn_u, axis=2).T
     input_activity    = np.mean(network_input, axis=2).T
+    print(mean_activity.shape)
+    print(input_activity.shape)
 
     mot  = par['num_motion_tuned']
     fix  = par['num_motion_tuned'] + par['num_fix_tuned']
